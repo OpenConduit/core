@@ -1,0 +1,48 @@
+{
+  "name": "@openconduit/core",
+  "version": "1.0.0",
+  "description": "Shared UI components, stores, hooks, and service interface for OpenConduit",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./services": "./src/services/index.ts",
+    "./services/appService": "./src/services/appService.ts",
+    "./App": "./src/App.tsx"
+  },
+  "scripts": {
+    "lint": "eslint --ext .ts,.tsx src",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "mermaid": "^11.15.0",
+    "react": "^19.2.6",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.13",
+    "uuid": "^14.0.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}
