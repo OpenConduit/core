@@ -1,0 +1,8 @@
+# Changelog
+
+## 1.0.0 (2026-05-17)
+
+
+### Features
+
+* initial standalone @openconduit/core package ([f0fc598](https://github.com/OpenConduit/core/commit/f0fc59859898f4bcd32df5d74f50d4b551876fba))
