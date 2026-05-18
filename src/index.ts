@@ -21,6 +21,7 @@ export { default as ToolCallCard } from './components/ToolCallCard';
 export { default as ContextWarningBanner } from './components/ContextWarningBanner';
 export { default as SystemPromptEditor } from './components/SystemPromptEditor';
 export { default as TasksPanel } from './components/TasksPanel';
+export { default as PersonasPanel } from './components/PersonasPanel';
 
 // Stores
 export { useConversationStore } from './stores/conversationStore';
@@ -28,6 +29,7 @@ export { useSettingsStore } from './stores/settingsStore';
 export { useAnalyticsStore } from './stores/analyticsStore';
 export { useTasksStore } from './stores/tasksStore';
 export { useUiStore } from './stores/uiStore';
+export { usePersonasStore } from './stores/personasStore';
 
 // Hooks
 export { useChat } from './hooks/useChat';

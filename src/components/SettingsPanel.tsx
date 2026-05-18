@@ -6,6 +6,7 @@ import { useAnalyticsStore } from '../stores/analyticsStore';
 import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile } from '../types';
 import { service } from '../services';
 import { McpMarketplace, ProviderMarketplace } from './MarketplacePanel';
+import PersonasPanel from './PersonasPanel';
 
 type Tab = 'general' | 'providers' | 'mcp' | 'features' | 'labs' | 'analytics' | 'about' | string;
 
@@ -32,6 +33,7 @@ export default function SettingsPanel({
     { id: 'general',   label: 'General' },
     { id: 'providers', label: 'Providers' },
     { id: 'mcp',       label: 'MCP' },
+    { id: 'personas',  label: 'Personas' },
     { id: 'features',  label: 'Features' },
     { id: 'labs',      label: 'Labs' },
     { id: 'analytics', label: 'Analytics' },
@@ -95,6 +97,7 @@ export default function SettingsPanel({
             />
           )}
           {tab === 'labs' && <LabsTab settings={settings} onSave={saveSettings} />}
+          {tab === 'personas' && <PersonasPanel />}
           {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
           {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
           {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
