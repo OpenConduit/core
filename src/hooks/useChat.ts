@@ -4,6 +4,7 @@ import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApp
 import { hookRegistry } from './hookRegistry';
 import { useConversationStore } from '../stores/conversationStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { usePersonasStore } from '../stores/personasStore';
 import { useUiStore } from '../stores/uiStore';
 import { useTasksStore } from '../stores/tasksStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
@@ -77,10 +78,12 @@ function parseAndStripQuestions(content: string): { content: string; questions: 
   }
 }
 
-/** Compose the final system prompt from the conversation prompt + all enabled augmentations */
-function buildSystemPrompt(basePrompt: string | undefined, settings: AppSettings): string | undefined {
+/** Compose the final system prompt from persona + conversation overrides + all enabled augmentations */
+function buildSystemPrompt(basePrompt: string | undefined, settings: AppSettings, personaPrompt?: string): string | undefined {
   const parts: string[] = [];
 
+  // Persona prompt is the base layer; conversation systemPrompt overrides/appends on top
+  if (personaPrompt?.trim()) parts.push(personaPrompt.trim());
   if (basePrompt?.trim()) parts.push(basePrompt.trim());
 
   // Labs: AI task tracking
@@ -247,8 +250,12 @@ export function useChat() {
         .conversations.find((c) => c.id === activeConversationId);
       if (!conv) return;
 
-      const providerId = conv.providerId ?? settings.defaultProviderId;
-      const model = conv.model ?? settings.defaultModel;
+      const persona = conv.personaId
+        ? usePersonasStore.getState().getPersona(conv.personaId)
+        : undefined;
+
+      const providerId = conv.providerId ?? persona?.defaultProviderId ?? settings.defaultProviderId;
+      const model = conv.model ?? persona?.defaultModel ?? settings.defaultModel;
       if (!providerId || !model) {
         alert('Please select a provider and model in the top bar before chatting.');
         return;
@@ -284,10 +291,11 @@ export function useChat() {
         ),
         providerId,
         model,
-        parameters: conv.parameters ?? settings.defaultParameters,
-        systemPrompt: buildSystemPrompt(conv.systemPrompt, settings),
+        parameters: conv.parameters ?? persona?.parameters ?? settings.defaultParameters,
+        systemPrompt: buildSystemPrompt(conv.systemPrompt, settings, persona?.systemPrompt),
         enabledMcpServerIds:
           freshConv.activeMcpServerIds ??
+          persona?.defaultMcpServerIds ??
           settings.mcpServers.filter((s) => s.enabled).map((s) => s.id),
       };
 

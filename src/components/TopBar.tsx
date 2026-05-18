@@ -3,6 +3,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useConversationStore } from '../stores/conversationStore';
 import { useUiStore } from '../stores/uiStore';
 import { useSavedFilesStore } from '../stores/filesStore';
+import { usePersonasStore } from '../stores/personasStore';
 import type { AppSettings, Conversation } from '../types';
 interface Props {
   conversationId: string | null;
@@ -161,8 +162,10 @@ export default function TopBar({ conversationId }: Props) {
   const { settings, models, loadModels } = useSettingsStore();
   const { setSidebarOpen, sidebarOpen, setShowSettings, setCompareMode, showFilesPanel, setShowFilesPanel } = useUiStore();
   const fileCount = useSavedFilesStore((s) => s.files.length);
+  const { personas } = usePersonasStore();
 
   const conv = conversations.find((c) => c.id === conversationId);
+  const activePersona = conv?.personaId ? personas.find((p) => p.id === conv.personaId) : undefined;
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
 
@@ -227,6 +230,23 @@ export default function TopBar({ conversationId }: Props) {
           </button>
         )}
       </div>
+
+      {/* Active persona badge */}
+      {activePersona && (
+        <div
+          style={{ ...noDragStyle, backgroundColor: `${activePersona.color ?? '#64748b'}25`, borderColor: activePersona.color ?? '#64748b' }}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border flex-shrink-0"
+          title={`Persona: ${activePersona.name}`}
+        >
+          <div
+            className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-white font-bold text-[9px] flex-shrink-0"
+            style={{ backgroundColor: activePersona.color ?? '#64748b' }}
+          >
+            {activePersona.name.charAt(0).toUpperCase()}
+          </div>
+          <span className="text-slate-300 font-medium max-w-[100px] truncate">{activePersona.name}</span>
+        </div>
+      )}
 
       {/* Unified model + routing profile picker */}
       {settings && conversationId && conv && (

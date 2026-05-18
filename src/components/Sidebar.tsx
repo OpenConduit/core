@@ -1,21 +1,38 @@
 import React, { useRef, useState } from 'react';
 import { useConversationStore } from '../stores/conversationStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { usePersonasStore } from '../stores/personasStore';
 import { useUiStore } from '../stores/uiStore';
 import { exportAsJson, exportAsMarkdown, downloadFile } from '../lib/export';
 
 export default function Sidebar() {
   const { conversations, addConversation, deleteConversation } = useConversationStore();
   const { settings } = useSettingsStore();
+  const { personas } = usePersonasStore();
   const { activeConversationId, setActiveConversation, sidebarOpen, setShowSettings } = useUiStore();
   const [query, setQuery] = useState('');
+  const [showPersonaPicker, setShowPersonaPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
-  const handleNew = () => {
+  const hasCustomPersonas = personas.some((p) => !p.isDefault);
+
+  const startConversation = (personaId?: string) => {
+    const persona = personaId ? personas.find((p) => p.id === personaId) : undefined;
     const conv = addConversation({
-      providerId: settings?.defaultProviderId,
-      model: settings?.defaultModel,
+      providerId: persona?.defaultProviderId ?? settings?.defaultProviderId,
+      model: persona?.defaultModel ?? settings?.defaultModel,
+      personaId: personaId,
     });
     setActiveConversation(conv.id);
+    setShowPersonaPicker(false);
+  };
+
+  const handleNew = () => {
+    if (hasCustomPersonas) {
+      setShowPersonaPicker((v) => !v);
+    } else {
+      startConversation();
+    }
   };
 
   const handleExport = (e: React.MouseEvent, id: string, format: 'json' | 'md') => {
@@ -43,6 +60,8 @@ export default function Sidebar() {
     <aside className="w-64 flex-shrink-0 bg-slate-800 flex flex-col border-r border-slate-700">
       {/* Header */}
       <div className="p-4 border-b border-slate-700 pt-8 flex flex-col gap-2">
+      {/* New chat button + persona picker */}
+      <div className="relative" ref={pickerRef}>
         <button
           onClick={handleNew}
           className="w-full flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors"
@@ -51,7 +70,41 @@ export default function Sidebar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           New Chat
+          {hasCustomPersonas && (
+            <svg className="w-3 h-3 ml-auto opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
         </button>
+
+        {showPersonaPicker && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
+            <div className="p-1.5">
+              <p className="text-xs text-slate-500 px-2 py-1">Choose a persona</p>
+              {personas.map((p) => (
+                <button
+                  key={p.id}
+                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-sm text-slate-200 hover:bg-slate-700 transition-colors text-left"
+                  onClick={() => startConversation(p.isDefault ? undefined : p.id)}
+                >
+                  <div
+                    className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                    style={{ backgroundColor: p.color ?? '#64748b' }}
+                  >
+                    {p.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{p.name}</div>
+                    {p.systemPrompt && (
+                      <div className="text-xs text-slate-400 truncate">{p.systemPrompt}</div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
         {conversations.length > 0 && (
           <div className="relative">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,6 +140,8 @@ export default function Sidebar() {
             title={conv.title}
             active={conv.id === activeConversationId}
             updatedAt={conv.updatedAt}
+            personaColor={conv.personaId ? (personas.find((p) => p.id === conv.personaId)?.color) : undefined}
+            personaName={conv.personaId ? (personas.find((p) => p.id === conv.personaId)?.name) : undefined}
             onClick={() => setActiveConversation(conv.id)}
             onDelete={(e) => handleDelete(e, conv.id)}
             onExportJson={(e) => handleExport(e, conv.id, 'json')}
@@ -128,6 +183,8 @@ interface ConversationItemProps {
   title: string;
   active: boolean;
   updatedAt: number;
+  personaColor?: string;
+  personaName?: string;
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
   onExportJson: (e: React.MouseEvent) => void;
@@ -138,6 +195,8 @@ function ConversationItem({
   title,
   active,
   updatedAt,
+  personaColor,
+  personaName,
   onClick,
   onDelete,
   onExportJson,
@@ -163,7 +222,16 @@ function ConversationItem({
       }`}
     >
       <div className="flex-1 min-w-0">
-        <p className="truncate">{title}</p>
+        <div className="flex items-center gap-1.5">
+          {personaColor && (
+            <div
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: personaColor }}
+              title={personaName}
+            />
+          )}
+          <p className="truncate">{title}</p>
+        </div>
         <p className="text-xs text-slate-500 mt-0.5">{label}</p>
       </div>
 

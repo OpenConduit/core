@@ -37,13 +37,10 @@ export default function ArtifactBlock({ language, code, conversationId }: Props)
 
   const highlighted = useMemo(() => {
     try {
-      return hljs.highlight(code, { language }).value;
+      const lang = hljs.getLanguage(language) ? language : 'plaintext';
+      return hljs.highlight(code, { language: lang }).value;
     } catch {
-      try {
-        return hljs.highlight(code, { language: 'plaintext' }).value;
-      } catch {
-        return code;
-      }
+      return code;
     }
   }, [code, language]);
 

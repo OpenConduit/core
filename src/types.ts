@@ -238,6 +238,26 @@ export interface RoutingDecision {
   reason: string;
 }
 
+// ─── Personas ─────────────────────────────────────────────────────────────
+
+export interface Persona {
+  id: string;
+  name: string;
+  systemPrompt: string;
+  /** Hex colour used as the avatar background, e.g. "#6366f1" */
+  color?: string;
+  /** Override the default provider for conversations using this persona */
+  defaultProviderId?: string;
+  /** Override the default model for conversations using this persona */
+  defaultModel?: string;
+  /** Override temperature/topP/etc. for conversations using this persona */
+  parameters?: ModelParameters;
+  /** MCP server IDs to auto-enable when starting a conversation with this persona */
+  defaultMcpServerIds?: string[];
+  /** The built-in "Default" persona — cannot be deleted */
+  isDefault?: boolean;
+}
+
 // ─── App Settings ──────────────────────────────────────────────────────────
 
 export interface AppSettings {
