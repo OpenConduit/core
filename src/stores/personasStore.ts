@@ -108,6 +108,19 @@ export const usePersonasStore = create<PersonasState>()(
 
       getPersona: (id) => get().personas.find((p) => p.id === id),
     }),
-    { name: 'openconduit-personas' },
+    {
+      name: 'openconduit-personas',
+      version: 1,
+      migrate: (persisted: unknown, fromVersion: number) => {
+        const state = persisted as PersonasState;
+        if (fromVersion < 1) {
+          // Inject any starter persona that the user doesn't already have
+          const existingIds = new Set(state.personas.map((p) => p.id));
+          const missing = STARTER_PERSONAS.filter((p) => !existingIds.has(p.id));
+          return { ...state, personas: [...state.personas, ...missing] };
+        }
+        return state;
+      },
+    },
   ),
 );
