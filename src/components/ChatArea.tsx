@@ -1,5 +1,4 @@
 import React from 'react';
-import TopBar from './TopBar';
 import MessageList from './MessageList';
 import InputBar from './InputBar';
 import SystemPromptEditor from './SystemPromptEditor';
@@ -28,8 +27,6 @@ export default function ChatArea({ conversationId }: Props) {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-slate-900 relative">
-      <TopBar conversationId={conversationId} />
-
       {/* Floating AI task tracker (only visible when tasks exist + labs enabled) */}
       <TasksPanel />
 
