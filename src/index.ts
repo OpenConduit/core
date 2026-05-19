@@ -28,6 +28,18 @@ export type { InstalledTheme, ThemeColors } from './types';
 export { useKeybindingsStore, getEffectiveBinding } from './stores/keybindingsStore';
 export type { Binding } from './stores/keybindingsStore';
 
+// Registry store (live marketplace)
+export { useRegistryStore } from './stores/registryStore';
+export type { RegistryType, RegistryEntry } from './stores/registryStore';
+
+// Prompt templates store
+export { usePromptTemplatesStore } from './stores/promptTemplatesStore';
+export type { InstalledPromptTemplate, PromptVariable } from './stores/promptTemplatesStore';
+
+// Routing profiles store
+export { useRoutingProfilesStore } from './stores/routingProfilesStore';
+export type { InstalledRoutingProfile, RoutingTiers } from './stores/routingProfilesStore';
+
 // Root component
 export { default as App } from './App';
 

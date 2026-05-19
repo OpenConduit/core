@@ -39,16 +39,43 @@ export const BUILT_IN_THEMES: InstalledTheme[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Semantic theme vars → the Tailwind --color-slate-* vars they should drive.
+ * Tailwind v4 utility classes (bg-slate-900, border-slate-700, etc.) reference
+ * these palette vars via var(), so overriding them here makes marketplace themes
+ * actually change the visible UI.
+ */
+const SEMANTIC_TO_SLATE: Array<[string, string[]]> = [
+  ['--color-background', ['--color-slate-950']],
+  ['--color-surface',    ['--color-slate-900']],
+  ['--color-muted',      ['--color-slate-800', '--color-slate-700']],
+  ['--color-border',     ['--color-slate-600']],
+  // Primary brand colour → drives action buttons, focus rings, active states
+  ['--color-primary',    ['--color-blue-600', '--color-blue-500', '--color-blue-400']],
+  // Body text colour → drives the main text hierarchy
+  ['--color-text',       ['--color-slate-200', '--color-slate-100']],
+];
+
 /** Write a color map onto <html> as CSS custom properties. */
 function applyColors(colors: ThemeColors): void {
   const root = document.documentElement;
+  // 1. Set semantic vars directly (used by components that reference them explicitly)
   Object.entries(colors).forEach(([k, v]) => root.style.setProperty(k, v));
+  // 2. Derive slate palette overrides so Tailwind utility classes pick them up
+  for (const [semantic, slateVars] of SEMANTIC_TO_SLATE) {
+    const value = colors[semantic];
+    if (value) slateVars.forEach((sv) => root.style.setProperty(sv, value));
+  }
 }
 
 /** Remove all overrides — falls back to the defaults in brand_tokens.css. */
 function clearColors(colors: ThemeColors): void {
   const root = document.documentElement;
   Object.keys(colors).forEach((k) => root.style.removeProperty(k));
+  // Also remove any derived slate vars so they revert to Tailwind defaults
+  for (const [, slateVars] of SEMANTIC_TO_SLATE) {
+    slateVars.forEach((sv) => root.style.removeProperty(sv));
+  }
 }
 
 /** Find a theme by id across built-ins + installed. */
