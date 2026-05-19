@@ -88,18 +88,19 @@ commandRegistry.register({
   },
 });
 
-// Only registers when the IPC channel is available (Electron shell)
-if ('openSettingsFile' in service.config) {
-  commandRegistry.register({
-    id: 'core.openSettingsFile',
-    label: 'Open settings.json',
-    icon: IconSettings,
-    action: () => {
-      (service.config as typeof service.config & { openSettingsFile(): Promise<void> }).openSettingsFile();
-      useUiStore.getState().setCommandPaletteOpen(false);
-    },
-  });
-}
+// Only visible when the IPC channel is available (Electron shell)
+commandRegistry.register({
+  id: 'core.openSettingsFile',
+  label: 'Open settings.json',
+  icon: IconSettings,
+  when: () => {
+    try { return 'openSettingsFile' in service.config; } catch { return false; }
+  },
+  action: () => {
+    (service.config as typeof service.config & { openSettingsFile(): Promise<void> }).openSettingsFile();
+    useUiStore.getState().setCommandPaletteOpen(false);
+  },
+});
 
 commandRegistry.register({
   id: 'core.closeTab',

@@ -25,8 +25,6 @@ export function useKeyboardShortcuts() {
         const altMatch = (kb.alt ?? false) === e.altKey;
 
         if (keyMatch && modMatch && shiftMatch && altMatch) {
-          // Respect when-guard before consuming the event
-          if (cmd.when && !cmd.when()) continue;
           e.preventDefault();
           cmd.action();
           return;
