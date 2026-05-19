@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { EditorState } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { json } from '@codemirror/lang-json';
+import { oneDark } from '@codemirror/theme-one-dark';
 import { v4 as uuidv4 } from 'uuid';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
-import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile } from '../types';
+import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsContribution } from '../types';
 import { service } from '../services';
+import { settingsRegistry } from '../settings/settingsRegistry';
+import '../settings/coreContributions'; // ensure core sections are registered
 import { McpMarketplace, ProviderMarketplace } from './MarketplacePanel';
 import PersonasPanel from './PersonasPanel';
 
@@ -13,8 +20,67 @@ type Tab = 'general' | 'providers' | 'mcp' | 'features' | 'labs' | 'analytics' |
 export interface ExtraTab {
   id: string;
   label: string;
+  icon?: React.ReactNode;
   content: React.ReactNode;
 }
+
+// ─── Nav icons ────────────────────────────────────────────────────────────────
+
+const Icons = {
+  general: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  providers: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  ),
+  mcp: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  ),
+  personas: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  features: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+    </svg>
+  ),
+  labs: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
+    </svg>
+  ),
+  updates: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+  ),
+  analytics: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
+  about: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  json: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+    </svg>
+  ),
+} as const;
+
+// ─── SettingsPanel ────────────────────────────────────────────────────────────
 
 export default function SettingsPanel({
   extraTabs,
@@ -26,86 +92,140 @@ export default function SettingsPanel({
   const { showSettings, setShowSettings } = useUiStore();
   const { settings, saveSettings, refreshMcpStatus, mcpStatus } = useSettingsStore();
   const [tab, setTab] = useState<Tab>('general');
+  const [search, setSearch] = useState('');
 
   if (!showSettings || !settings) return null;
 
-  const builtInTabs: { id: Tab; label: string }[] = [
-    { id: 'general',   label: 'General' },
-    { id: 'providers', label: 'Providers' },
-    { id: 'mcp',       label: 'MCP' },
-    { id: 'personas',  label: 'Personas' },
-    { id: 'features',  label: 'Features' },
-    { id: 'labs',      label: 'Labs' },
-    { id: 'analytics', label: 'Analytics' },
-    { id: 'about',     label: 'About' },
+  const builtInTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'general',   label: 'General',   icon: Icons.general },
+    { id: 'providers', label: 'Providers', icon: Icons.providers },
+    { id: 'mcp',       label: 'MCP',       icon: Icons.mcp },
+    { id: 'personas',  label: 'Personas',  icon: Icons.personas },
+    { id: 'features',  label: 'Features',  icon: Icons.features },
+    { id: 'labs',      label: 'Labs',      icon: Icons.labs },
+    { id: 'updates',   label: 'Updates',   icon: Icons.updates },
+    { id: 'analytics', label: 'Analytics', icon: Icons.analytics },
+    { id: 'about',     label: 'About',     icon: Icons.about },
+    { id: 'json',      label: 'JSON',       icon: Icons.json },
   ].filter((t) => !hideTabs?.includes(t.id));
 
   const allTabs = [
     ...builtInTabs,
-    ...(extraTabs?.map((t) => ({ id: t.id, label: t.label })) ?? []),
+    ...(extraTabs?.map((t) => ({ id: t.id, label: t.label, icon: t.icon ?? Icons.general })) ?? []),
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="flex-1 bg-black/50" onClick={() => setShowSettings(false)} />
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={() => setShowSettings(false)}
+      />
 
-      {/* Panel */}
-      <div className="w-[600px] max-w-full bg-slate-900 border-l border-slate-700 flex flex-col h-full shadow-2xl">
+      {/* Dialog */}
+      <div className="relative z-10 w-full max-w-[920px] h-[88vh] bg-slate-950 rounded-2xl border border-slate-700/60 shadow-2xl flex flex-col overflow-hidden">
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-slate-100">Settings</h2>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 flex-shrink-0 bg-slate-900/80">
+          <div className="flex items-center gap-2.5">
+            <span className="text-slate-400">{Icons.general}</span>
+            <h2 className="text-sm font-semibold text-slate-100 tracking-wide">Settings</h2>
+          </div>
           <button
             onClick={() => setShowSettings(false)}
-            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-700/60 rounded-lg transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0.5 px-6 pt-3 flex-shrink-0 border-b border-slate-700/50 overflow-x-auto">
-          {allTabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-3 py-1.5 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                tab === t.id
-                  ? 'bg-slate-800 text-slate-100 border border-b-0 border-slate-700'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden">
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {tab === 'general' && <GeneralTab settings={settings} onSave={saveSettings} />}
-          {tab === 'providers' && (
-            <ProvidersTab settings={settings} onSave={saveSettings} />
-          )}
-          {tab === 'mcp' && (
-            <McpTab
-              settings={settings}
-              onSave={saveSettings}
-              mcpStatus={mcpStatus}
-              onRefreshStatus={refreshMcpStatus}
-            />
-          )}
-          {tab === 'labs' && <LabsTab settings={settings} onSave={saveSettings} />}
-          {tab === 'personas' && <PersonasPanel />}
-          {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
-          {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
-          {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
-          {extraTabs?.map((t) => (
-            <React.Fragment key={t.id}>
-              {tab === t.id && t.content}
-            </React.Fragment>
-          ))}
+          {/* Left sidebar */}
+          <div className="w-[192px] flex-shrink-0 bg-slate-900/50 border-r border-slate-700/40 flex flex-col overflow-y-auto">
+            {/* Search */}
+            <div className="px-2.5 pt-2.5 pb-1.5">
+              <div className="relative">
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search settings…"
+                  className="w-full pl-7 pr-6 py-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/60"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            {/* Nav */}
+            <div className="flex flex-col gap-0.5 px-2.5 pb-2.5">
+            {allTabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => { setTab(t.id); setSearch(''); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-left transition-colors ${
+                  tab === t.id && !search
+                    ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`}
+              >
+                <span className={tab === t.id && !search ? 'text-blue-400' : 'text-slate-500'}>{t.icon}</span>
+                {t.label}
+              </button>
+            ))}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className={`flex-1 ${
+            tab === 'json' && !search.trim()
+              ? 'overflow-hidden p-4 flex flex-col'
+              : 'overflow-y-auto px-6 py-5'
+          }`}>
+            {search.trim() ? (
+              <SchemaSearchResults search={search} settings={settings} onSave={saveSettings} />
+            ) : (
+              <>
+                {tab === 'general' && <GeneralTab settings={settings} onSave={saveSettings} />}
+                {tab === 'providers' && <ProvidersTab settings={settings} onSave={saveSettings} />}
+                {tab === 'mcp' && (
+                  <McpTab
+                    settings={settings}
+                    onSave={saveSettings}
+                    mcpStatus={mcpStatus}
+                    onRefreshStatus={refreshMcpStatus}
+                  />
+                )}
+                {tab === 'labs' && <LabsTab settings={settings} onSave={saveSettings} />}
+                {tab === 'personas' && <PersonasPanel />}
+                {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
+                {tab === 'updates' && <SchemaFormRenderer contribution={settingsRegistry.get('openconduit.updates')} settings={settings} onSave={saveSettings} />}
+                {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
+                {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
+                {tab === 'json' && <JsonSettingsEditor settings={settings} onSave={saveSettings} />}
+                {extraTabs?.map((t) => (
+                  <React.Fragment key={t.id}>
+                    {tab === t.id && t.content}
+                  </React.Fragment>
+                ))}
+              </>
+            )}
+          </div>
+
         </div>
       </div>
     </div>
@@ -123,95 +243,25 @@ function GeneralTab({
 }) {
   return (
     <div className="space-y-6">
-      <Section title="Appearance">
-        <Field label="Theme">
-          <select
-            value={settings.theme}
-            onChange={(e) => onSave({ theme: e.target.value as AppSettings['theme'] })}
-            className="select-field"
-          >
-            <option value="system">System</option>
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-        </Field>
-      </Section>
-
-      <Section title="Defaults">
-        <Field label="Default Provider">
-          <select
-            value={settings.defaultProviderId ?? ''}
-            onChange={(e) => onSave({ defaultProviderId: e.target.value || undefined })}
-            className="select-field"
-          >
-            <option value="">None</option>
-            {settings.providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Default Model">
-          <input
-            type="text"
-            value={settings.defaultModel ?? ''}
-            onChange={(e) => onSave({ defaultModel: e.target.value || undefined })}
-            placeholder="e.g. gpt-4o"
-            className="input-field"
-          />
-        </Field>
-      </Section>
-
-      <Section title="Safety">
-        <Field label="Require Tool Approval">
-          <Toggle
-            value={settings.requireToolApproval}
-            onChange={(v) => onSave({ requireToolApproval: v })}
-          />
-        </Field>
-        <p className="text-xs text-slate-500">
-          When enabled, each MCP tool call must be approved before execution.
-        </p>
-      </Section>
-
-      <Section title="Default Parameters">
-        <Field label="Temperature">
-          <input
-            type="number"
-            min={0}
-            max={2}
-            step={0.1}
-            value={settings.defaultParameters.temperature ?? 0.7}
-            onChange={(e) =>
-              onSave({
-                defaultParameters: {
-                  ...settings.defaultParameters,
-                  temperature: parseFloat(e.target.value),
-                },
-              })
-            }
-            className="input-field w-24"
-          />
-        </Field>
-        <Field label="Max Tokens">
-          <input
-            type="number"
-            min={1}
-            max={200000}
-            value={settings.defaultParameters.maxTokens ?? 4096}
-            onChange={(e) =>
-              onSave({
-                defaultParameters: {
-                  ...settings.defaultParameters,
-                  maxTokens: parseInt(e.target.value),
-                },
-              })
-            }
-            className="input-field w-28"
-          />
-        </Field>
-      </Section>
+      <SchemaFormRenderer
+        contribution={settingsRegistry.get('openconduit.general')}
+        settings={settings}
+        onSave={onSave}
+        renderOverrides={{
+          defaultProviderId: (
+            <select
+              value={settings.defaultProviderId ?? ''}
+              onChange={(e) => void onSave({ defaultProviderId: e.target.value || undefined })}
+              className="select-field"
+            >
+              <option value="">None</option>
+              {settings.providers.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          ),
+        }}
+      />
       <Section title="Configuration">
         <p className="text-xs text-slate-500 -mt-1 mb-3">
           Export your settings for backup or sharing. The clean export omits API keys — safe to share.
@@ -239,6 +289,17 @@ function GeneralTab({
           >
             Import Config
           </button>
+          {'openSettingsFile' in service.config && (
+            <button
+              onClick={() => (service.config as typeof service.config & { openSettingsFile(): Promise<void> }).openSettingsFile()}
+              className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open settings.json
+            </button>
+          )}
         </div>
       </Section>
     </div>
@@ -1641,8 +1702,6 @@ function LabsTab({
   settings: AppSettings;
   onSave: (p: Partial<AppSettings>) => Promise<void>;
 }) {
-  const labs = settings.labs ?? { aiTaskTracking: false, aiClarifyingQuestions: false, debugMode: false };
-
   return (
     <div className="space-y-6">
       {/* Banner */}
@@ -1655,73 +1714,375 @@ function LabsTab({
           </p>
         </div>
       </div>
-
-      <Section title="AI Capabilities">
-        {/* AI Task Tracking */}
-        <LabsFeatureRow
-          title="AI Task Tracking"
-          description="The AI maintains a live task list during multi-step work. Tasks appear in a floating panel and update as the AI makes progress."
-          value={labs.aiTaskTracking}
-          onChange={(v) => onSave({ labs: { ...labs, aiTaskTracking: v } })}
-        />
-
-        {/* AI Clarifying Questions */}
-        <LabsFeatureRow
-          title="AI Clarifying Questions"
-          description="When faced with an ambiguous or complex request, the AI can ask you targeted questions inline before proceeding. You answer them directly in the chat."
-          value={labs.aiClarifyingQuestions}
-          onChange={(v) => onSave({ labs: { ...labs, aiClarifyingQuestions: v } })}
-        />
-
-        {/* Debug Mode */}
-        <LabsFeatureRow
-          title="Debug Mode"
-          description="Shows a download button on every AI message so you can save the full raw response (content, thinking, tool calls, questions) as JSON for inspection."
-          value={labs.debugMode ?? false}
-          onChange={(v) => onSave({ labs: { ...labs, debugMode: v } })}
-        />
-      </Section>
+      <SchemaFormRenderer
+        contribution={settingsRegistry.get('openconduit.labs')}
+        settings={settings}
+        onSave={onSave}
+      />
     </div>
   );
 }
 
-function LabsFeatureRow({
-  title,
-  description,
-  value,
-  onChange,
+// ─── JSON Settings Editor (#37 Phase 4) ───────────────────────────────────────
+
+const jsonEditorTheme = EditorView.theme({
+  '&': { height: '100%', fontSize: '12.5px' },
+  '.cm-scroller': {
+    fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, SFMono-Regular, monospace',
+    overflow: 'auto',
+  },
+  '.cm-content': { padding: '12px 0', caretColor: '#60a5fa' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#60a5fa' },
+  '.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
+    backgroundColor: 'rgba(59, 130, 246, 0.25) !important',
+  },
+  '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
+  '.cm-gutters': {
+    backgroundColor: '#0a0f1a',
+    borderRight: '1px solid rgba(71,85,105,0.4)',
+    color: '#475569',
+  },
+});
+
+function JsonSettingsEditor({
+  settings,
+  onSave,
 }: {
-  title: string;
-  description: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Mount editor once
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: JSON.stringify(settings, null, 2),
+        extensions: [
+          history(),
+          keymap.of([...defaultKeymap, ...historyKeymap]),
+          json(),
+          oneDark,
+          jsonEditorTheme,
+          lineNumbers(),
+          highlightActiveLine(),
+          EditorView.lineWrapping,
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) { setIsDirty(true); setError(null); }
+          }),
+        ],
+      }),
+      parent: containerRef.current,
+    });
+    viewRef.current = view;
+    return () => { view.destroy(); viewRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync external changes into the editor when it hasn't been modified
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || isDirty) return;
+    const fresh = JSON.stringify(settings, null, 2);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: fresh } });
+  }, [settings, isDirty]);
+
+  const handleSave = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    try {
+      const parsed = JSON.parse(view.state.doc.toString()) as AppSettings;
+      void onSave(parsed);
+      setIsDirty(false);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const handleReset = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    const fresh = JSON.stringify(settings, null, 2);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: fresh } });
+    setIsDirty(false);
+    setError(null);
+  };
+
   return (
-    <div className="rounded-xl border border-slate-700 overflow-hidden">
-      <div className="px-4 py-3 flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-slate-200">{title}</p>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-800/60 text-purple-300 font-medium">LABS</span>
-          </div>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed">{description}</p>
+    <div className="flex flex-col gap-3 h-full">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4 flex-shrink-0">
+        <div className="min-w-0 flex-1">
+          {error ? (
+            <p className="text-xs text-red-400 font-mono truncate" title={error}>{error}</p>
+          ) : isDirty ? (
+            <p className="text-xs text-amber-400">Unsaved changes</p>
+          ) : (
+            <p className="text-xs text-slate-600">Full settings as JSON — edit and Save to apply.</p>
+          )}
         </div>
-        <div className="shrink-0 pt-0.5">
-          <Toggle value={value} onChange={onChange} />
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isDirty && (
+            <button onClick={handleReset} className="btn-secondary text-xs px-3 py-1.5">
+              Reset
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={!isDirty}
+            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
+          >
+            Save
+          </button>
         </div>
       </div>
+      {/* Editor */}
+      <div
+        ref={containerRef}
+        className="flex-1 min-h-0 overflow-hidden rounded-xl border border-slate-700/60"
+      />
+    </div>
+  );
+}
+
+// ─── Schema-Driven Renderer (#37) ─────────────────────────────────────────────
+
+function getNestedValue(obj: unknown, path: string): unknown {
+  return path.split('.').reduce((acc: unknown, key: string) => {
+    return (acc as Record<string, unknown>)?.[key];
+  }, obj);
+}
+
+function buildUpdate(settings: AppSettings, path: string, value: unknown): Partial<AppSettings> {
+  const parts = path.split('.');
+  if (parts.length === 1) {
+    return { [parts[0]]: value } as Partial<AppSettings>;
+  }
+  const [top, ...rest] = parts;
+  const existing = (settings as unknown as Record<string, unknown>)[top] ?? {};
+  if (rest.length === 1) {
+    return { [top]: { ...(existing as object), [rest[0]]: value } } as Partial<AppSettings>;
+  }
+  const nestedUpdate = buildUpdate(existing as AppSettings, rest.join('.'), value);
+  return { [top]: { ...(existing as object), ...nestedUpdate } } as Partial<AppSettings>;
+}
+
+function PropertyField({
+  property,
+  settings,
+  onSave,
+  renderOverride,
+}: {
+  property: SettingsProperty;
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+  renderOverride?: React.ReactNode;
+}) {
+  const currentValue = getNestedValue(settings, property.key);
+  const isDirty = property.default !== undefined && currentValue !== property.default;
+
+  const handleChange = (value: unknown) => { void onSave(buildUpdate(settings, property.key, value)); };
+  const handleReset = () => { if (property.default !== undefined) void onSave(buildUpdate(settings, property.key, property.default)); };
+
+  let control: React.ReactNode;
+  if (renderOverride !== undefined) {
+    control = renderOverride;
+  } else if (property.type === 'boolean') {
+    control = <Toggle value={!!currentValue} onChange={handleChange} />;
+  } else if (property.type === 'string') {
+    const sp = property as SettingsStringProperty;
+    if (sp.enum) {
+      control = (
+        <select value={(currentValue as string) ?? ''} onChange={(e) => handleChange(e.target.value)} className="select-field">
+          {sp.enum.map((v, i) => (
+            <option key={v} value={v}>{sp.enumDescriptions?.[i] ?? v}</option>
+          ))}
+        </select>
+      );
+    } else if (sp.multiline) {
+      control = (
+        <textarea
+          value={(currentValue as string) ?? ''}
+          onChange={(e) => handleChange(e.target.value)}
+          placeholder={sp.placeholder}
+          className="input-field resize-none"
+          rows={3}
+        />
+      );
+    } else {
+      control = (
+        <input
+          type={sp.sensitive ? 'password' : 'text'}
+          value={(currentValue as string) ?? ''}
+          onChange={(e) => handleChange(e.target.value)}
+          placeholder={sp.placeholder}
+          className="input-field"
+        />
+      );
+    }
+  } else if (property.type === 'number') {
+    const np = property as SettingsNumberProperty;
+    control = (
+      <input
+        type="number"
+        value={(currentValue as number) ?? ''}
+        onChange={(e) => handleChange(e.target.value === '' ? np.default : parseFloat(e.target.value))}
+        min={np.minimum}
+        max={np.maximum}
+        step={np.step ?? 1}
+        className="input-field w-28"
+      />
+    );
+  }
+
+  const resetBtn = isDirty ? (
+    <button
+      onClick={handleReset}
+      title="Reset to default"
+      className="text-[10px] text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded hover:bg-blue-900/40 transition-colors"
+    >
+      Reset
+    </button>
+  ) : null;
+
+  if (property.type === 'boolean') {
+    return (
+      <div className="rounded-xl border border-slate-700 overflow-hidden">
+        <div className="px-4 py-3 flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-slate-200">{property.title}</p>
+            {property.description && (
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">{property.description}</p>
+            )}
+          </div>
+          <div className="shrink-0 flex items-center gap-2 pt-0.5">
+            {resetBtn}
+            {control}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="shrink-0 max-w-[55%]">
+        <label className="text-sm text-slate-300">{property.title}</label>
+        {property.description && (
+          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{property.description}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {resetBtn}
+        {control}
+      </div>
+    </div>
+  );
+}
+
+function SchemaFormRenderer({
+  contribution,
+  settings,
+  onSave,
+  renderOverrides = {},
+}: {
+  contribution: SettingsContribution | undefined;
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+  renderOverrides?: Record<string, React.ReactNode>;
+}) {
+  if (!contribution) return null;
+  return (
+    <div className="space-y-6">
+      {contribution.sections.map((section) => (
+        <Section key={section.title} title={section.title} description={section.description}>
+          {[...section.properties]
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .map((property) => (
+              <PropertyField
+                key={property.key}
+                property={property}
+                settings={settings}
+                onSave={onSave}
+                renderOverride={renderOverrides[property.key]}
+              />
+            ))}
+        </Section>
+      ))}
+    </div>
+  );
+}
+
+function SchemaSearchResults({
+  search,
+  settings,
+  onSave,
+}: {
+  search: string;
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+}) {
+  type Hit = { contributionId: string; contributionLabel: string; sectionTitle: string; property: SettingsProperty };
+  const query = search.toLowerCase();
+  const results: Hit[] = settingsRegistry.getAll().flatMap((c) =>
+    c.sections.flatMap((s) =>
+      s.properties
+        .filter(
+          (p) =>
+            p.title.toLowerCase().includes(query) ||
+            (p.description ?? '').toLowerCase().includes(query) ||
+            p.key.toLowerCase().includes(query),
+        )
+        .map((p) => ({ contributionId: c.id, contributionLabel: c.label, sectionTitle: s.title, property: p })),
+    ),
+  );
+
+  if (results.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-sm text-slate-400">No settings match</p>
+        <p className="text-xs text-slate-600 mt-1">&ldquo;{search}&rdquo;</p>
+      </div>
+    );
+  }
+
+  const groups = results.reduce<Record<string, { label: string; items: Hit[] }>>((acc, r) => {
+    if (!acc[r.contributionId]) acc[r.contributionId] = { label: r.contributionLabel, items: [] };
+    acc[r.contributionId].items.push(r);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-6">
+      {Object.entries(groups).map(([id, group]) => (
+        <Section key={id} title={group.label}>
+          {group.items.map((item) => (
+            <div key={item.property.key}>
+              <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-1.5">{item.sectionTitle}</p>
+              <PropertyField property={item.property} settings={settings} onSave={onSave} />
+            </div>
+          ))}
+        </Section>
+      ))}
     </div>
   );
 }
 
 // ─── Shared Helpers ────────────────────────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
         {title}
       </h3>
+      {description && <p className="text-xs text-slate-500 mb-3 leading-relaxed">{description}</p>}
+      {!description && <div className="mb-3" />}
       <div className="space-y-3">{children}</div>
     </div>
   );

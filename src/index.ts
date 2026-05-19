@@ -5,6 +5,10 @@ export * from './types';
 export { service, initService } from './services';
 export type { AppService } from './services/appService';
 
+// Settings contribution registry (#37)
+export { settingsRegistry } from './settings/settingsRegistry';
+import './settings/coreContributions'; // side-effect: registers core sections
+
 // Root component
 export { default as App } from './App';
 

@@ -286,6 +286,74 @@ export interface AppSettings {
   routingProfiles?: RoutingProfile[];
 }
 
+// ─── Settings Contribution Schema (#37) ───────────────────────────────────
+
+/**
+ * A settings property whose value lives at a dot-notation path inside AppSettings.
+ * The Phase 3 renderer generates the appropriate input control from `type`.
+ */
+interface SettingsPropertyBase {
+  /** Display label */
+  title: string;
+  /** Dot-notation path into AppSettings, e.g. 'labs.aiTaskTracking' */
+  key: string;
+  /** Helper text rendered below the control */
+  description?: string;
+  /** Used by the "Reset to default" button in Phase 3 */
+  default?: string | number | boolean;
+  /** Controls rendering order within the section */
+  order?: number;
+}
+
+export interface SettingsStringProperty extends SettingsPropertyBase {
+  type: 'string';
+  enum?: string[];
+  /** Labels matching each enum value */
+  enumDescriptions?: string[];
+  placeholder?: string;
+  /** Renders as a password input — value is masked */
+  sensitive?: boolean;
+  /** Renders as a <textarea> */
+  multiline?: boolean;
+}
+
+export interface SettingsNumberProperty extends SettingsPropertyBase {
+  type: 'number';
+  minimum?: number;
+  maximum?: number;
+  step?: number;
+}
+
+export interface SettingsBooleanProperty extends SettingsPropertyBase {
+  type: 'boolean';
+}
+
+export type SettingsProperty =
+  | SettingsStringProperty
+  | SettingsNumberProperty
+  | SettingsBooleanProperty;
+
+export interface SettingsSection {
+  /** Section heading rendered inside the contribution panel */
+  title: string;
+  description?: string;
+  properties: SettingsProperty[];
+}
+
+export interface SettingsContribution {
+  /**
+   * Unique contribution identifier, e.g. 'openconduit.general'.
+   * Extensions use their extension id as the prefix.
+   */
+  id: string;
+  /** Display name shown in the settings sidebar */
+  label: string;
+  /** Sidebar sort position — lower numbers appear first */
+  order: number;
+  /** One or more logical groupings of settings properties */
+  sections: SettingsSection[];
+}
+
 // ─── IPC Channel Names ─────────────────────────────────────────────────────
 
 export const IPC = {
@@ -320,9 +388,10 @@ export const IPC = {
   FEEDBACK_SUBMIT: 'feedback:submit',
   OPEN_EXTERNAL: 'open:external',
 
-  // Config export/import
+  // Config export/import/open
   SETTINGS_EXPORT: 'settings:export',
   SETTINGS_IMPORT: 'settings:import',
+  SETTINGS_OPEN_FILE: 'settings:open-file',
 
   // Routing
   ROUTING_EVALUATE: 'routing:evaluate',
