@@ -90,14 +90,12 @@ export default function App() {
       }
       return;
     }
+    // Restore first valid open tab on startup (e.g. after restart)
     const firstValid = tabs.find((id) => conversations.some((c) => c.id === id));
     if (firstValid) {
       setActiveConversation(firstValid);
-    } else if (conversations.length > 0) {
-      const id = conversations[0].id;
-      openTab?.(id);
-      setActiveConversation(id);
     }
+    // No else-if auto-open: intentionally empty tabs (e.g. close all) shows the welcome screen
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversations.length, activeConversationId]);
 
