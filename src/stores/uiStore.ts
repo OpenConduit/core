@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 import type { AppNotification, ToolApprovalRequest } from '../types';
 
-export type ActivityPanel = 'chats' | 'personas' | 'marketplace';
+/**
+ * Panel identifier stored in `uiStore`. Built-in panels are `'chats'` and
+ * `'marketplace'`. Extension-contributed panels use their `panelId` string.
+ * Widened to `string` so `extensionRegistry` contributions are accepted
+ * without a type assertion.
+ */
+export type ActivityPanel = string;
 
 interface UiState {
   activeConversationId: string | null;

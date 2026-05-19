@@ -7,6 +7,7 @@ import { usePromptTemplatesStore } from '../stores/promptTemplatesStore';
 import { useRoutingProfilesStore } from '../stores/routingProfilesStore';
 import { useRegistryStore } from '../stores/registryStore';
 import { commandRegistry } from '../commands/commandRegistry';
+import { extensionRegistry } from '../extensions/extensionRegistry';
 import { service } from '../services';
 import type { ActivityPanel } from '../stores/uiStore';
 
@@ -33,17 +34,6 @@ const CHATS_ICON = (
       strokeLinejoin="round"
       strokeWidth={1.5}
       d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-    />
-  </svg>
-);
-
-const PERSONAS_ICON = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={1.5}
-      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
     />
   </svg>
 );
@@ -76,9 +66,13 @@ const SETTINGS_ICON = (
   </svg>
 );
 
-const NAV_ITEMS: NavItem[] = [
+/** Structural first item — always rendered before extension contributions. */
+const NAV_ITEMS_BEFORE: NavItem[] = [
   { id: 'chats', label: 'Chats', icon: CHATS_ICON },
-  { id: 'personas', label: 'Personas', icon: PERSONAS_ICON },
+];
+
+/** Structural last item — always rendered after extension contributions. */
+const NAV_ITEMS_AFTER: NavItem[] = [
   { id: 'marketplace', label: 'Marketplace', icon: MARKETPLACE_ICON },
 ];
 
@@ -110,6 +104,15 @@ export default function ActivityBar() {
     });
     return n;
   }, [getEntries, installedThemes, installedPersonas, installedTemplates, installedProfiles]);
+
+  // Build the full nav item list: structural-before + extension contributions + structural-after
+  const allNavItems = useMemo((): NavItem[] => [
+    ...NAV_ITEMS_BEFORE,
+    ...extensionRegistry.getActivityBarItems().map(({ panelId, label, icon }) => ({ id: panelId, label, icon })),
+    ...NAV_ITEMS_AFTER,
+  // extensionRegistry is populated at module-load time so no reactive deps are needed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
@@ -145,7 +148,7 @@ export default function ActivityBar() {
     <div className="w-12 flex-shrink-0 bg-slate-800 border-r border-slate-700 flex flex-col items-center pb-2 pt-2">
       {/* Primary nav items */}
       <div className="flex flex-col items-center gap-1 flex-1 w-full px-1 pt-1">
-        {NAV_ITEMS.map(({ id, label, icon }) => {
+        {allNavItems.map(({ id, label, icon }) => {
           const isOpen = activePanel === id && sidebarOpen;
           const badge = id === 'marketplace' && updateCount > 0 ? updateCount : 0;
           return (
