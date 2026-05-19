@@ -1,15 +1,56 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import CompareArea from './components/CompareArea';
 import SettingsPanel from './components/SettingsPanel';
+import ActivityBar from './components/ActivityBar';
+import PersonasPanel from './components/PersonasPanel';
+import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUiStore } from './stores/uiStore';
+
+const isMac =
+  typeof navigator !== 'undefined' &&
+  navigator.platform.toUpperCase().includes('MAC');
+
+const SIDEBAR_MIN = 160;
+const SIDEBAR_MAX = 520;
 import { useConversationStore } from './stores/conversationStore';
 
 export default function App() {
   const { loadSettings, settings } = useSettingsStore();
-  const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode } = useUiStore();
+  const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode, sidebarOpen, activePanel } = useUiStore();
+
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('oc-sidebar-width');
+    return saved ? Number(saved) : 240;
+  });
+  const sidebarWidthRef = useRef(sidebarWidth);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidthRef.current;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (ev: MouseEvent) => {
+      const w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startWidth + ev.clientX - startX));
+      sidebarWidthRef.current = w;
+      setSidebarWidth(w);
+    };
+
+    const onUp = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      localStorage.setItem('oc-sidebar-width', String(sidebarWidthRef.current));
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, []);
   const { conversations, addConversation } = useConversationStore();
 
   // Bootstrap: load settings from main process
@@ -91,12 +132,40 @@ export default function App() {
 
   return (
     <div className="h-full flex bg-slate-900 text-slate-100 overflow-hidden">
-      <Sidebar />
+      <ActivityBar />
+
+      {/* Primary sidebar — panel content switches based on active activity bar item */}
+      {sidebarOpen && (
+        <aside
+          style={{ width: sidebarWidth }}
+          className={`relative flex-shrink-0 bg-slate-800 flex flex-col border-r border-slate-700 overflow-hidden${isMac ? ' pt-8' : ''}`}
+        >
+          {activePanel === 'chats' && <Sidebar />}
+          {activePanel === 'personas' && (
+            <div className="flex-1 overflow-y-auto p-4">
+              <PersonasPanel />
+            </div>
+          )}
+          {activePanel === 'marketplace' && <MarketplaceSidebarPanel />}
+
+          {/* Resize handle */}
+          <div
+            onMouseDown={handleResizeStart}
+            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-20 group"
+          >
+            <div className="absolute inset-y-0 right-0 w-px bg-slate-700 group-hover:bg-blue-500 transition-colors duration-150" />
+          </div>
+        </aside>
+      )}
+
+      {/* Main content area */}
       {isCompareMode ? (
         <CompareArea />
       ) : (
         <ChatArea conversationId={activeConversationId} />
       )}
+
+      {/* Settings overlay — triggered by ⌘, or activity bar gear */}
       <SettingsPanel />
     </div>
   );

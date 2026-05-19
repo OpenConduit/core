@@ -49,7 +49,7 @@ function PersonaEditor({ initial, onSave, onCancel }: EditorProps) {
           style={{ backgroundColor: color }}
         />
         <input
-          className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+          className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500"
           placeholder="Persona name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -64,7 +64,7 @@ function PersonaEditor({ initial, onSave, onCancel }: EditorProps) {
           {PALETTE.map((c) => (
             <button
               key={c}
-              className={`w-6 h-6 rounded-full transition-transform ${color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-800 scale-110' : 'hover:scale-110'}`}
+              className={`w-6 h-6 rounded-full transition-transform ${color === c ? 'ring-2 ring-slate-100 ring-offset-2 ring-offset-slate-900 scale-110' : 'hover:scale-110'}`}
               style={{ backgroundColor: c }}
               onClick={() => setColor(c)}
             />
@@ -76,7 +76,7 @@ function PersonaEditor({ initial, onSave, onCancel }: EditorProps) {
       <div>
         <label className="block text-xs text-slate-400 mb-1.5">System Prompt</label>
         <textarea
-          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 resize-none"
+          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 resize-none"
           placeholder="You are a helpful assistant…"
           rows={6}
           value={systemPrompt}
@@ -89,7 +89,7 @@ function PersonaEditor({ initial, onSave, onCancel }: EditorProps) {
         <div>
           <label className="block text-xs text-slate-400 mb-1.5">Default Provider <span className="text-slate-500">(optional)</span></label>
           <select
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
             value={defaultProviderId}
             onChange={(e) => { setDefaultProviderId(e.target.value); setDefaultModel(''); }}
           >
@@ -102,7 +102,7 @@ function PersonaEditor({ initial, onSave, onCancel }: EditorProps) {
         <div>
           <label className="block text-xs text-slate-400 mb-1.5">Default Model <span className="text-slate-500">(optional)</span></label>
           <input
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500"
             placeholder={defaultProviderId ? 'e.g. claude-sonnet-4-5' : ''}
             disabled={!defaultProviderId}
             value={defaultModel}
@@ -114,7 +114,7 @@ function PersonaEditor({ initial, onSave, onCancel }: EditorProps) {
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
         <button
-          className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors"
+          className="px-4 py-2 text-sm text-slate-300 hover:text-slate-100 transition-colors"
           onClick={onCancel}
         >
           Cancel
@@ -151,7 +151,7 @@ function PersonaRow({ persona, onEdit, onDuplicate, onDelete }: RowProps) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white truncate">{persona.name}</span>
+          <span className="text-sm font-medium text-slate-100 truncate">{persona.name}</span>
           {persona.isDefault && (
             <span className="text-xs text-slate-400 bg-slate-600 px-1.5 py-0.5 rounded">default</span>
           )}
@@ -162,7 +162,7 @@ function PersonaRow({ persona, onEdit, onDuplicate, onDelete }: RowProps) {
       </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
-          className="p-1.5 text-slate-400 hover:text-white rounded transition-colors"
+          className="p-1.5 text-slate-400 hover:text-slate-100 rounded transition-colors"
           title="Duplicate"
           onClick={onDuplicate}
         >
@@ -173,7 +173,7 @@ function PersonaRow({ persona, onEdit, onDuplicate, onDelete }: RowProps) {
         {!persona.isDefault && (
           <>
             <button
-              className="p-1.5 text-slate-400 hover:text-white rounded transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-100 rounded transition-colors"
               title="Edit"
               onClick={onEdit}
             >
@@ -242,12 +242,12 @@ export default function PersonasPanel() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-2">
-          <button className="text-slate-400 hover:text-white" onClick={() => setMode('list')}>
+          <button className="text-slate-400 hover:text-slate-100" onClick={() => setMode('list')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h3 className="text-sm font-semibold text-white">New Persona</h3>
+          <h3 className="text-sm font-semibold text-slate-100">New Persona</h3>
         </div>
         <PersonaEditor
           onSave={(data) => { addPersona(data); setMode('list'); }}
@@ -261,12 +261,12 @@ export default function PersonasPanel() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-2">
-          <button className="text-slate-400 hover:text-white" onClick={() => setMode('list')}>
+          <button className="text-slate-400 hover:text-slate-100" onClick={() => setMode('list')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h3 className="text-sm font-semibold text-white">Edit Persona</h3>
+          <h3 className="text-sm font-semibold text-slate-100">Edit Persona</h3>
         </div>
         <PersonaEditor
           initial={mode.edit}
@@ -281,7 +281,7 @@ export default function PersonasPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-white">Personas</h3>
+          <h3 className="text-sm font-semibold text-slate-100">Personas</h3>
           <p className="text-xs text-slate-400 mt-0.5">Reusable system prompt + model bundles for your conversations.</p>
         </div>
         <button
@@ -312,7 +312,7 @@ export default function PersonasPanel() {
       {/* Import / Export */}
       <div className="flex gap-2 pt-2 border-t border-slate-700">
         <button
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-slate-100 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
           onClick={handleImport}
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -321,7 +321,7 @@ export default function PersonasPanel() {
           Import JSON
         </button>
         <button
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-slate-100 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
           onClick={handleExport}
           disabled={personas.filter((p) => !p.isDefault).length === 0}
         >
