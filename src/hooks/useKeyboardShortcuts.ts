@@ -25,11 +25,19 @@ export function useKeyboardShortcuts() {
     setActiveConversation,
     setShowSettings,
     setCommandPaletteOpen,
+    toggleBottomPanel,
   } = useUiStore();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
+
+      // ⌘J — Toggle bottom panel
+      if (mod && e.key === 'j') {
+        e.preventDefault();
+        toggleBottomPanel();
+        return;
+      }
 
       // ⌘K — Command palette
       if (mod && e.key === 'k') {
@@ -87,5 +95,6 @@ export function useKeyboardShortcuts() {
     setActiveConversation,
     setShowSettings,
     setCommandPaletteOpen,
+    toggleBottomPanel,
   ]);
 }

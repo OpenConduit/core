@@ -9,6 +9,12 @@ export type { AppService } from './services/appService';
 export { settingsRegistry } from './settings/settingsRegistry';
 import './settings/coreContributions'; // side-effect: registers core sections
 
+// Bottom panel registry (#18)
+export { bottomPanelRegistry } from './bottomPanel/bottomPanelRegistry';
+export type { BottomPanelTab } from './bottomPanel/bottomPanelRegistry';
+export { debugConsole } from './utils/debugConsole';
+export type { DebugLevel, DebugEntry } from './stores/debugConsoleStore';
+
 // Root component
 export { default as App } from './App';
 

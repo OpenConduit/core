@@ -30,7 +30,14 @@ interface UiState {
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (v: boolean) => void;
 
-  // ── Notifications (#33) ──────────────────────────────────────────────────
+  // ── Bottom panel (#18) ───────────────────────────────────────────────────
+  bottomPanelOpen: boolean;
+  setBottomPanelOpen: (v: boolean) => void;
+  toggleBottomPanel: () => void;
+  bottomPanelHeight: number;
+  setBottomPanelHeight: (h: number) => void;
+  bottomPanelActiveTab: string;
+  setBottomPanelActiveTab: (tab: string) => void; 
   // addNotification accepts a partial payload; id, timestamp, and read are
   // set automatically. This keeps the API clean for #38 extension callers.
   notifications: AppNotification[];
@@ -82,6 +89,22 @@ export const useUiStore = create<UiState>()((set) => ({
   commandPaletteOpen: false,
   setCommandPaletteOpen: (v) => set({ commandPaletteOpen: v }),
 
+  bottomPanelOpen: false,
+  setBottomPanelOpen: (v) => set({ bottomPanelOpen: v }),
+  toggleBottomPanel: () => set((s) => ({ bottomPanelOpen: !s.bottomPanelOpen })),
+  bottomPanelHeight: (() => {
+    const saved = localStorage.getItem('oc-bottom-panel-height');
+    return saved ? Number(saved) : 240;
+  })(),
+  setBottomPanelHeight: (h) => {
+    localStorage.setItem('oc-bottom-panel-height', String(h));
+    set({ bottomPanelHeight: h });
+  },
+  bottomPanelActiveTab: localStorage.getItem('oc-bottom-panel-tab') ?? 'tool-calls',
+  setBottomPanelActiveTab: (tab) => {
+    localStorage.setItem('oc-bottom-panel-tab', tab);
+    set({ bottomPanelActiveTab: tab });
+  },
   notifications: [],
   addNotification: (payload) =>
     set((s) => ({
