@@ -24,6 +24,7 @@ export { default as PersonasPanel } from './components/PersonasPanel';
 export { default as StatusBar } from './components/StatusBar';
 export { default as CommandPalette } from './components/CommandPalette';
 export { default as WelcomeScreen } from './components/WelcomeScreen';
+export { default as NotificationBell } from './components/NotificationBell';
 
 // Stores
 export { useConversationStore } from './stores/conversationStore';

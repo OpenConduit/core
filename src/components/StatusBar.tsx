@@ -4,6 +4,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import type { ProviderType } from '../types';
+import NotificationBell from './NotificationBell';
 
 // Provider colour dots (matches brand palette)
 const PROVIDER_COLORS: Partial<Record<ProviderType, string>> & Record<string, string> = {
@@ -77,16 +78,14 @@ export default function StatusBar() {
   const routingOn  = settings?.routing?.enabled;
   const showRouting = routingOn || !!activeProfile;
 
-  if (!conv) return null;
-
   return (
     <div
-      className="flex-shrink-0 h-6 bg-slate-950 border-t border-slate-800 flex items-center px-3 gap-4 text-[11px] text-slate-500 select-none overflow-hidden"
+      className="flex-shrink-0 h-6 bg-slate-950 border-t border-slate-800 flex items-center px-3 gap-4 text-[11px] text-slate-500 select-none"
       role="status"
       aria-label="Status bar"
     >
-      {/* Model / routing profile indicator */}
-      {modelLabel && (
+      {/* Model / routing profile indicator — only when a conversation is active */}
+      {conv && modelLabel && (
         <div className="flex items-center gap-1.5 min-w-0">
           <div
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
@@ -101,7 +100,7 @@ export default function StatusBar() {
       <div className="flex-1" />
 
       {/* Routing badge */}
-      {showRouting && (
+      {conv && showRouting && (
         <div className="flex items-center gap-1 text-blue-500/60">
           <span aria-hidden>⚡</span>
           <span>{activeProfile ? activeProfile.name : 'Routing'}</span>
@@ -109,7 +108,7 @@ export default function StatusBar() {
       )}
 
       {/* Token counter  ↑ input / ↓ output */}
-      {tokens && (
+      {conv && tokens && (
         <div className="flex items-center gap-1 tabular-nums">
           <span className="text-slate-600">↑</span>
           <span>{fmtTokens(tokens.input)}</span>
@@ -121,20 +120,12 @@ export default function StatusBar() {
       )}
 
       {/* Cost estimate */}
-      {costUsd !== null && (
+      {conv && costUsd !== null && (
         <span className="tabular-nums text-slate-400">{fmtCost(costUsd)}</span>
       )}
 
       {/* Notification bell */}
-      <button
-        className="flex items-center justify-center w-4 h-4 text-slate-600 hover:text-slate-400 transition-colors"
-        title="Notifications"
-        aria-label="Notifications"
-      >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-      </button>
+      <NotificationBell />
     </div>
   );
 }
