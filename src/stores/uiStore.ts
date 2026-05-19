@@ -27,6 +27,8 @@ interface UiState {
   setCompareMode: (v: boolean) => void;
   showFilesPanel: boolean;
   setShowFilesPanel: (v: boolean) => void;
+  commandPaletteOpen: boolean;
+  setCommandPaletteOpen: (v: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -67,4 +69,7 @@ export const useUiStore = create<UiState>()((set) => ({
 
   showFilesPanel: false,
   setShowFilesPanel: (v) => set({ showFilesPanel: v }),
+
+  commandPaletteOpen: false,
+  setCommandPaletteOpen: (v) => set({ commandPaletteOpen: v }),
 }));

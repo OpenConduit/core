@@ -7,6 +7,7 @@ import ActivityBar from './components/ActivityBar';
 import ChromeBar from './components/ChromeBar';
 import TabBar from './components/TabBar';
 import StatusBar from './components/StatusBar';
+import CommandPalette from './components/CommandPalette';
 import PersonasPanel from './components/PersonasPanel';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import { useSettingsStore } from './stores/settingsStore';
@@ -18,7 +19,7 @@ import { useConversationStore } from './stores/conversationStore';
 
 export default function App() {
   const { loadSettings, settings } = useSettingsStore();
-  const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode, sidebarOpen, activePanel } = useUiStore();
+  const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode, sidebarOpen, activePanel, setCommandPaletteOpen } = useUiStore();
   const { conversations, addConversation, openTabs, openTab, closeTab } = useConversationStore();
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('oc-sidebar-width');
@@ -111,6 +112,10 @@ export default function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
         setShowSettings(true);
@@ -154,7 +159,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [settings, addConversation, openTab, closeTab, openTabs, activeConversationId, setActiveConversation, setShowSettings]);
+  }, [settings, addConversation, openTab, closeTab, openTabs, activeConversationId, setActiveConversation, setShowSettings, setCommandPaletteOpen]);
 
   if (!settings) {
     return (
@@ -170,7 +175,7 @@ export default function App() {
   return (
     <div className="h-full flex flex-col bg-slate-900 text-slate-100 overflow-hidden">
       {/* Full-width window chrome — traffic light area + search */}
-      <ChromeBar />
+      <ChromeBar onSearchClick={() => setCommandPaletteOpen(true)} />
 
       {/* Content row below the tab bar */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
@@ -215,6 +220,9 @@ export default function App() {
 
       {/* Settings overlay — triggered by ⌘, or activity bar gear */}
       <SettingsPanel />
+
+      {/* Command palette — triggered by ⌘K or ChromeBar search button */}
+      <CommandPalette />
     </div>
   );
 }

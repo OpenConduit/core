@@ -23,6 +23,7 @@ export { default as SystemPromptEditor } from './components/SystemPromptEditor';
 export { default as TasksPanel } from './components/TasksPanel';
 export { default as PersonasPanel } from './components/PersonasPanel';
 export { default as StatusBar } from './components/StatusBar';
+export { default as CommandPalette } from './components/CommandPalette';
 
 // Stores
 export { useConversationStore } from './stores/conversationStore';
