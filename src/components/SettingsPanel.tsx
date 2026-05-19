@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { EditorState } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { json } from '@codemirror/lang-json';
+import { oneDark } from '@codemirror/theme-one-dark';
 import { v4 as uuidv4 } from 'uuid';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
@@ -68,6 +73,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
+  json: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+    </svg>
+  ),
 } as const;
 
 // ─── SettingsPanel ────────────────────────────────────────────────────────────
@@ -96,6 +106,7 @@ export default function SettingsPanel({
     { id: 'updates',   label: 'Updates',   icon: Icons.updates },
     { id: 'analytics', label: 'Analytics', icon: Icons.analytics },
     { id: 'about',     label: 'About',     icon: Icons.about },
+    { id: 'json',      label: 'JSON',       icon: Icons.json },
   ].filter((t) => !hideTabs?.includes(t.id));
 
   const allTabs = [
@@ -180,7 +191,11 @@ export default function SettingsPanel({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className={`flex-1 ${
+            tab === 'json' && !search.trim()
+              ? 'overflow-hidden p-4 flex flex-col'
+              : 'overflow-y-auto px-6 py-5'
+          }`}>
             {search.trim() ? (
               <SchemaSearchResults search={search} settings={settings} onSave={saveSettings} />
             ) : (
@@ -201,6 +216,7 @@ export default function SettingsPanel({
                 {tab === 'updates' && <SchemaFormRenderer contribution={settingsRegistry.get('openconduit.updates')} settings={settings} onSave={saveSettings} />}
                 {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
                 {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
+                {tab === 'json' && <JsonSettingsEditor settings={settings} onSave={saveSettings} />}
                 {extraTabs?.map((t) => (
                   <React.Fragment key={t.id}>
                     {tab === t.id && t.content}
@@ -1702,6 +1718,133 @@ function LabsTab({
         contribution={settingsRegistry.get('openconduit.labs')}
         settings={settings}
         onSave={onSave}
+      />
+    </div>
+  );
+}
+
+// ─── JSON Settings Editor (#37 Phase 4) ───────────────────────────────────────
+
+const jsonEditorTheme = EditorView.theme({
+  '&': { height: '100%', fontSize: '12.5px' },
+  '.cm-scroller': {
+    fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, SFMono-Regular, monospace',
+    overflow: 'auto',
+  },
+  '.cm-content': { padding: '12px 0', caretColor: '#60a5fa' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#60a5fa' },
+  '.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
+    backgroundColor: 'rgba(59, 130, 246, 0.25) !important',
+  },
+  '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
+  '.cm-gutters': {
+    backgroundColor: '#0a0f1a',
+    borderRight: '1px solid rgba(71,85,105,0.4)',
+    color: '#475569',
+  },
+});
+
+function JsonSettingsEditor({
+  settings,
+  onSave,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Mount editor once
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: JSON.stringify(settings, null, 2),
+        extensions: [
+          history(),
+          keymap.of([...defaultKeymap, ...historyKeymap]),
+          json(),
+          oneDark,
+          jsonEditorTheme,
+          lineNumbers(),
+          highlightActiveLine(),
+          EditorView.lineWrapping,
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) { setIsDirty(true); setError(null); }
+          }),
+        ],
+      }),
+      parent: containerRef.current,
+    });
+    viewRef.current = view;
+    return () => { view.destroy(); viewRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync external changes into the editor when it hasn't been modified
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || isDirty) return;
+    const fresh = JSON.stringify(settings, null, 2);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: fresh } });
+  }, [settings, isDirty]);
+
+  const handleSave = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    try {
+      const parsed = JSON.parse(view.state.doc.toString()) as AppSettings;
+      void onSave(parsed);
+      setIsDirty(false);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const handleReset = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    const fresh = JSON.stringify(settings, null, 2);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: fresh } });
+    setIsDirty(false);
+    setError(null);
+  };
+
+  return (
+    <div className="flex flex-col gap-3 h-full">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4 flex-shrink-0">
+        <div className="min-w-0 flex-1">
+          {error ? (
+            <p className="text-xs text-red-400 font-mono truncate" title={error}>{error}</p>
+          ) : isDirty ? (
+            <p className="text-xs text-amber-400">Unsaved changes</p>
+          ) : (
+            <p className="text-xs text-slate-600">Full settings as JSON — edit and Save to apply.</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isDirty && (
+            <button onClick={handleReset} className="btn-secondary text-xs px-3 py-1.5">
+              Reset
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={!isDirty}
+            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+      {/* Editor */}
+      <div
+        ref={containerRef}
+        className="flex-1 min-h-0 overflow-hidden rounded-xl border border-slate-700/60"
       />
     </div>
   );
