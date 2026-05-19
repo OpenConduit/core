@@ -29,6 +29,8 @@ interface UiState {
   setShowFilesPanel: (v: boolean) => void;
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (v: boolean) => void;
+  keyboardShortcutsOpen: boolean;
+  setKeyboardShortcutsOpen: (v: boolean) => void;
 
   // ── Bottom panel (#18) ───────────────────────────────────────────────────
   bottomPanelOpen: boolean;
@@ -88,6 +90,9 @@ export const useUiStore = create<UiState>()((set) => ({
 
   commandPaletteOpen: false,
   setCommandPaletteOpen: (v) => set({ commandPaletteOpen: v }),
+
+  keyboardShortcutsOpen: false,
+  setKeyboardShortcutsOpen: (v) => set({ keyboardShortcutsOpen: v }),
 
   bottomPanelOpen: false,
   setBottomPanelOpen: (v) => set({ bottomPanelOpen: v }),

@@ -155,3 +155,14 @@ commandRegistry.register({
     useUiStore.getState().setCommandPaletteOpen(true);
   },
 });
+
+commandRegistry.register({
+  id: 'core.openKeyboardShortcuts',
+  label: 'Open keyboard shortcuts',
+  icon: IconSettings,
+  action: () => {
+    const { setKeyboardShortcutsOpen, setCommandPaletteOpen } = useUiStore.getState();
+    setCommandPaletteOpen(false);
+    setKeyboardShortcutsOpen(true);
+  },
+});

@@ -9,6 +9,7 @@ import TabBar from './components/TabBar';
 import StatusBar from './components/StatusBar';
 import BottomPanel from './components/BottomPanel';
 import CommandPalette from './components/CommandPalette';
+import KeyboardShortcutsPanel from './components/KeyboardShortcutsPanel';
 import PersonasPanel from './components/PersonasPanel';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import { useSettingsStore } from './stores/settingsStore';
@@ -183,6 +184,9 @@ export default function App() {
 
       {/* Command palette — triggered by ⌘K or ChromeBar search button */}
       <CommandPalette />
+
+      {/* Keyboard shortcuts editor — triggered by Manage › Keyboard Shortcuts */}
+      <KeyboardShortcutsPanel />
     </div>
   );
 }

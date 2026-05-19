@@ -69,7 +69,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export default function ActivityBar() {
-  const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings, setCommandPaletteOpen } =
+  const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings, setCommandPaletteOpen, setKeyboardShortcutsOpen } =
     useUiStore();
   const { installedThemes, activeThemeId, setActiveTheme } = useThemesStore();
   const { settings, saveSettings } = useSettingsStore();
@@ -167,11 +167,7 @@ export default function ActivityBar() {
             />
             <MenuItem
               label="Keyboard Shortcuts"
-              onClick={() => {
-                // Open command palette pre-filtered to keybinding search
-                setCommandPaletteOpen(true);
-                closeMenu();
-              }}
+              onClick={() => { setKeyboardShortcutsOpen(true); closeMenu(); }}
             />
 
             {/* Themes submenu — click-based to avoid hover-gap close */}
