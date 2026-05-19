@@ -12,15 +12,16 @@ import PersonasPanel from './components/PersonasPanel';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUiStore } from './stores/uiStore';
+import { useConversationStore } from './stores/conversationStore';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 520;
-import { useConversationStore } from './stores/conversationStore';
 
 export default function App() {
   const { loadSettings, settings } = useSettingsStore();
   const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode, sidebarOpen, activePanel, setCommandPaletteOpen } = useUiStore();
-  const { conversations, addConversation, openTabs, openTab, closeTab } = useConversationStore();
+  const { conversations, openTabs, openTab } = useConversationStore();
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('oc-sidebar-width');
     return saved ? Number(saved) : 240;
@@ -90,14 +91,12 @@ export default function App() {
       }
       return;
     }
+    // Restore first valid open tab on startup (e.g. after restart)
     const firstValid = tabs.find((id) => conversations.some((c) => c.id === id));
     if (firstValid) {
       setActiveConversation(firstValid);
-    } else if (conversations.length > 0) {
-      const id = conversations[0].id;
-      openTab?.(id);
-      setActiveConversation(id);
     }
+    // No else-if auto-open: intentionally empty tabs (e.g. close all) shows the welcome screen
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversations.length, activeConversationId]);
 
@@ -109,57 +108,8 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.providers.length]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen(true);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-        e.preventDefault();
-        setShowSettings(true);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
-        e.preventDefault();
-        if (settings) {
-          const conv = addConversation({
-            providerId: settings.defaultProviderId,
-            model: settings.defaultModel,
-          });
-          openTab?.(conv.id);
-          setActiveConversation(conv.id);
-        }
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
-        e.preventDefault();
-        if (activeConversationId) {
-          const tabs = openTabs ?? [];
-          const idx = tabs.indexOf(activeConversationId);
-          closeTab?.(activeConversationId);
-          const remaining = tabs.filter((t) => t !== activeConversationId);
-          if (remaining.length > 0) {
-            setActiveConversation(remaining[Math.min(idx, remaining.length - 1)]);
-          } else {
-            setActiveConversation(null);
-          }
-        }
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
-        e.preventDefault();
-        if (settings) {
-          const conv = addConversation({
-            providerId: settings.defaultProviderId,
-            model: settings.defaultModel,
-          });
-          openTab?.(conv.id);
-          setActiveConversation(conv.id);
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [settings, addConversation, openTab, closeTab, openTabs, activeConversationId, setActiveConversation, setShowSettings, setCommandPaletteOpen]);
+  // Global keyboard shortcuts (see hooks/useKeyboardShortcuts.ts)
+  useKeyboardShortcuts();
 
   if (!settings) {
     return (
