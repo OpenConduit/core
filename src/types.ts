@@ -320,9 +320,10 @@ export const IPC = {
   FEEDBACK_SUBMIT: 'feedback:submit',
   OPEN_EXTERNAL: 'open:external',
 
-  // Config export/import
+  // Config export/import/open
   SETTINGS_EXPORT: 'settings:export',
   SETTINGS_IMPORT: 'settings:import',
+  SETTINGS_OPEN_FILE: 'settings:open-file',
 
   // Routing
   ROUTING_EVALUATE: 'routing:evaluate',

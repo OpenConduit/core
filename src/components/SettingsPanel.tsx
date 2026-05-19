@@ -13,8 +13,57 @@ type Tab = 'general' | 'providers' | 'mcp' | 'features' | 'labs' | 'analytics' |
 export interface ExtraTab {
   id: string;
   label: string;
+  icon?: React.ReactNode;
   content: React.ReactNode;
 }
+
+// ─── Nav icons ────────────────────────────────────────────────────────────────
+
+const Icons = {
+  general: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  providers: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  ),
+  mcp: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  ),
+  personas: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  features: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+    </svg>
+  ),
+  labs: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
+    </svg>
+  ),
+  analytics: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
+  about: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+} as const;
+
+// ─── SettingsPanel ────────────────────────────────────────────────────────────
 
 export default function SettingsPanel({
   extraTabs,
@@ -29,83 +78,94 @@ export default function SettingsPanel({
 
   if (!showSettings || !settings) return null;
 
-  const builtInTabs: { id: Tab; label: string }[] = [
-    { id: 'general',   label: 'General' },
-    { id: 'providers', label: 'Providers' },
-    { id: 'mcp',       label: 'MCP' },
-    { id: 'personas',  label: 'Personas' },
-    { id: 'features',  label: 'Features' },
-    { id: 'labs',      label: 'Labs' },
-    { id: 'analytics', label: 'Analytics' },
-    { id: 'about',     label: 'About' },
+  const builtInTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'general',   label: 'General',   icon: Icons.general },
+    { id: 'providers', label: 'Providers', icon: Icons.providers },
+    { id: 'mcp',       label: 'MCP',       icon: Icons.mcp },
+    { id: 'personas',  label: 'Personas',  icon: Icons.personas },
+    { id: 'features',  label: 'Features',  icon: Icons.features },
+    { id: 'labs',      label: 'Labs',      icon: Icons.labs },
+    { id: 'analytics', label: 'Analytics', icon: Icons.analytics },
+    { id: 'about',     label: 'About',     icon: Icons.about },
   ].filter((t) => !hideTabs?.includes(t.id));
 
   const allTabs = [
     ...builtInTabs,
-    ...(extraTabs?.map((t) => ({ id: t.id, label: t.label })) ?? []),
+    ...(extraTabs?.map((t) => ({ id: t.id, label: t.label, icon: t.icon ?? Icons.general })) ?? []),
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="flex-1 bg-black/50" onClick={() => setShowSettings(false)} />
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={() => setShowSettings(false)}
+      />
 
-      {/* Panel */}
-      <div className="w-[600px] max-w-full bg-slate-900 border-l border-slate-700 flex flex-col h-full shadow-2xl">
+      {/* Dialog */}
+      <div className="relative z-10 w-full max-w-[920px] h-[88vh] bg-slate-950 rounded-2xl border border-slate-700/60 shadow-2xl flex flex-col overflow-hidden">
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-slate-100">Settings</h2>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 flex-shrink-0 bg-slate-900/80">
+          <div className="flex items-center gap-2.5">
+            <span className="text-slate-400">{Icons.general}</span>
+            <h2 className="text-sm font-semibold text-slate-100 tracking-wide">Settings</h2>
+          </div>
           <button
             onClick={() => setShowSettings(false)}
-            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-700/60 rounded-lg transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0.5 px-6 pt-3 flex-shrink-0 border-b border-slate-700/50 overflow-x-auto">
-          {allTabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-3 py-1.5 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                tab === t.id
-                  ? 'bg-slate-800 text-slate-100 border border-b-0 border-slate-700'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden">
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {tab === 'general' && <GeneralTab settings={settings} onSave={saveSettings} />}
-          {tab === 'providers' && (
-            <ProvidersTab settings={settings} onSave={saveSettings} />
-          )}
-          {tab === 'mcp' && (
-            <McpTab
-              settings={settings}
-              onSave={saveSettings}
-              mcpStatus={mcpStatus}
-              onRefreshStatus={refreshMcpStatus}
-            />
-          )}
-          {tab === 'labs' && <LabsTab settings={settings} onSave={saveSettings} />}
-          {tab === 'personas' && <PersonasPanel />}
-          {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
-          {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
-          {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
-          {extraTabs?.map((t) => (
-            <React.Fragment key={t.id}>
-              {tab === t.id && t.content}
-            </React.Fragment>
-          ))}
+          {/* Left sidebar */}
+          <div className="w-[192px] flex-shrink-0 bg-slate-900/50 border-r border-slate-700/40 p-2.5 flex flex-col gap-0.5 overflow-y-auto">
+            {allTabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-left transition-colors ${
+                  tab === t.id
+                    ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`}
+              >
+                <span className={tab === t.id ? 'text-blue-400' : 'text-slate-500'}>{t.icon}</span>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            {tab === 'general' && <GeneralTab settings={settings} onSave={saveSettings} />}
+            {tab === 'providers' && <ProvidersTab settings={settings} onSave={saveSettings} />}
+            {tab === 'mcp' && (
+              <McpTab
+                settings={settings}
+                onSave={saveSettings}
+                mcpStatus={mcpStatus}
+                onRefreshStatus={refreshMcpStatus}
+              />
+            )}
+            {tab === 'labs' && <LabsTab settings={settings} onSave={saveSettings} />}
+            {tab === 'personas' && <PersonasPanel />}
+            {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
+            {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
+            {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
+            {extraTabs?.map((t) => (
+              <React.Fragment key={t.id}>
+                {tab === t.id && t.content}
+              </React.Fragment>
+            ))}
+          </div>
+
         </div>
       </div>
     </div>
@@ -239,6 +299,17 @@ function GeneralTab({
           >
             Import Config
           </button>
+          {'openSettingsFile' in service.config && (
+            <button
+              onClick={() => (service.config as typeof service.config & { openSettingsFile(): Promise<void> }).openSettingsFile()}
+              className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open settings.json
+            </button>
+          )}
         </div>
       </Section>
     </div>

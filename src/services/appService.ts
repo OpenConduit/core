@@ -58,6 +58,8 @@ export interface AppService {
   config: {
     exportSettings(redact: boolean): Promise<boolean>;
     importSettings(): Promise<AppSettings | null>;
+    /** Opens settings.json in the system default editor (desktop only). */
+    openSettingsFile(): Promise<void>;
   };
   routing: {
     evaluate(params: {

@@ -3,6 +3,7 @@ import { useConversationStore } from '../stores/conversationStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { usePersonasStore } from '../stores/personasStore';
+import { service } from '../services';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +140,10 @@ export default function CommandPalette() {
         kind: 'command', id: 'open-settings', label: 'Open settings', shortcut: '⌘,', icon: IconSettings,
         action: () => { setShowSettings(true); close(); },
       },
+      ...('openSettingsFile' in service.config ? [{
+        kind: 'command' as const, id: 'open-settings-json', label: 'Open settings.json', icon: IconSettings,
+        action: () => { (service.config as typeof service.config & { openSettingsFile(): Promise<void> }).openSettingsFile(); close(); },
+      }] : []),
       {
         kind: 'command', id: 'close-tab', label: 'Close tab', shortcut: '⌘W', icon: IconClose,
         action: () => {
