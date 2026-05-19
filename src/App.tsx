@@ -15,6 +15,7 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useUiStore } from './stores/uiStore';
 import { useConversationStore } from './stores/conversationStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useThemesStore } from './stores/themesStore';
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 520;
@@ -23,6 +24,7 @@ export default function App() {
   const { loadSettings, settings } = useSettingsStore();
   const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode, sidebarOpen, activePanel, setCommandPaletteOpen } = useUiStore();
   const { conversations, openTabs, openTab } = useConversationStore();
+  const { restoreTheme } = useThemesStore();
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('oc-sidebar-width');
     return saved ? Number(saved) : 240;
@@ -58,6 +60,12 @@ export default function App() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  // Restore active custom theme CSS vars on mount
+  useEffect(() => {
+    restoreTheme();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Apply theme class to <html>
   useEffect(() => {

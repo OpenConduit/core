@@ -20,6 +20,10 @@ export { commandRegistry } from './commands/commandRegistry';
 export type { CommandContribution } from './commands/commandRegistry';
 import './commands/coreCommandContributions'; // side-effect: registers built-in commands
 
+// Themes store (#25 / #22)
+export { useThemesStore } from './stores/themesStore';
+export type { InstalledTheme, ThemeColors } from './types';
+
 // Root component
 export { default as App } from './App';
 
