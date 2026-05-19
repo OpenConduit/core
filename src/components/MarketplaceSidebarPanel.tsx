@@ -26,7 +26,7 @@ function EntryIcon({ id, name, emoji }: { id: string; name: string; emoji?: stri
   const url = getIconUrl(id);
   if (url) {
     return (
-      <div className="w-7 h-7 flex-shrink-0 bg-white rounded-lg p-0.5 flex items-center justify-center">
+      <div className="w-7 h-7 flex-shrink-0 bg-white dark:bg-white rounded-lg p-0.5 border border-slate-200 dark:border-transparent flex items-center justify-center">
         <img src={url} alt={name} className="w-full h-full object-contain" />
       </div>
     );
@@ -42,13 +42,13 @@ function EntryIcon({ id, name, emoji }: { id: string; name: string; emoji?: stri
 
 function Badge({ label }: { label: string }) {
   const colours: Record<string, string> = {
-    'Free tier': 'bg-green-900/40 text-green-400 border-green-700',
-    'Free':      'bg-green-900/40 text-green-400 border-green-700',
-    'API Key':   'bg-amber-900/40 text-amber-400 border-amber-700',
-    'Local':     'bg-sky-900/40   text-sky-400   border-sky-700',
-    'Local install': 'bg-sky-900/40 text-sky-400 border-sky-700',
-    'Enterprise':'bg-purple-900/40 text-purple-400 border-purple-700',
-    'Self-hosted':'bg-slate-700    text-slate-300 border-slate-600',
+    'Free tier':     'bg-green-100  text-green-700  border-green-300  dark:bg-green-900/40  dark:text-green-400  dark:border-green-700',
+    'Free':          'bg-green-100  text-green-700  border-green-300  dark:bg-green-900/40  dark:text-green-400  dark:border-green-700',
+    'API Key':       'bg-amber-100  text-amber-700  border-amber-300  dark:bg-amber-900/40  dark:text-amber-400  dark:border-amber-700',
+    'Local':         'bg-sky-100    text-sky-700    border-sky-300    dark:bg-sky-900/40    dark:text-sky-400    dark:border-sky-700',
+    'Local install': 'bg-sky-100    text-sky-700    border-sky-300    dark:bg-sky-900/40    dark:text-sky-400    dark:border-sky-700',
+    'Enterprise':    'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-400 dark:border-purple-700',
+    'Self-hosted':   'bg-slate-200  text-slate-600  border-slate-300  dark:bg-slate-700     dark:text-slate-300  dark:border-slate-600',
   };
   return (
     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${colours[label] ?? 'bg-slate-700 text-slate-400 border-slate-600'}`}>
@@ -253,14 +253,14 @@ export default function MarketplaceSidebarPanel() {
                   {/* Kind badge */}
                   <span className={`text-[9px] font-semibold px-1 py-px rounded uppercase tracking-wide ${
                     entry.kind === 'provider'
-                      ? 'bg-indigo-900/60 text-indigo-300'
-                      : 'bg-teal-900/60 text-teal-300'
+                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300'
+                      : 'bg-teal-100 text-teal-700 dark:bg-teal-900/60 dark:text-teal-300'
                   }`}>
                     {entry.kind === 'provider' ? 'Provider' : 'MCP'}
                   </span>
                   {entry.badge && <Badge label={entry.badge} />}
                   {entry.installed && (
-                    <span className="text-[9px] font-semibold px-1 py-px rounded uppercase tracking-wide bg-green-900/40 text-green-400">
+                    <span className="text-[9px] font-semibold px-1 py-px rounded uppercase tracking-wide bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
                       Added
                     </span>
                   )}
@@ -269,7 +269,7 @@ export default function MarketplaceSidebarPanel() {
                   {entry.description}
                 </p>
                 {entry.kind === 'mcp' && entry.notes && (
-                  <p className="text-[10px] text-amber-400/70 mt-0.5 leading-tight line-clamp-1">
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400/70 mt-0.5 leading-tight line-clamp-1">
                     ℹ️ {entry.notes}
                   </p>
                 )}

@@ -42,8 +42,8 @@ export const useUiStore = create<UiState>()((set) => ({
   sidebarOpen: true,
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
 
-  activePanel: 'chats',
-  setActivePanel: (panel) => set({ activePanel: panel }),
+  activePanel: (localStorage.getItem('oc-active-panel') as ActivityPanel) ?? 'chats',
+  setActivePanel: (panel) => { localStorage.setItem('oc-active-panel', panel); set({ activePanel: panel }); },
 
   pendingApprovals: [],
   addPendingApproval: (req) =>
