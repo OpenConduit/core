@@ -29,7 +29,7 @@ function fmtCost(usd: number): string {
 }
 
 export default function StatusBar() {
-  const { activeConversationId } = useUiStore();
+  const { activeConversationId, bottomPanelOpen, toggleBottomPanel } = useUiStore();
   const { conversations } = useConversationStore();
   const { settings } = useSettingsStore();
   const records = useAnalyticsStore((s) => s.records);
@@ -126,6 +126,19 @@ export default function StatusBar() {
 
       {/* Notification bell */}
       <NotificationBell />
+
+      {/* Bottom panel toggle (⌘J) */}
+      <button
+        onClick={toggleBottomPanel}
+        title="Toggle panel (⌘J)"
+        className={`flex items-center gap-1 transition-colors ${
+          bottomPanelOpen ? 'text-blue-400' : 'text-slate-600 hover:text-slate-400'
+        }`}
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 6h18M3 12h18M3 18h18" />
+        </svg>
+      </button>
     </div>
   );
 }

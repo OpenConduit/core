@@ -71,6 +71,8 @@ export interface ToolCall {
   isError?: boolean;
   approved?: boolean;
   pending?: boolean;
+  /** Wall-clock duration of the tool execution in milliseconds (#18) */
+  durationMs?: number;
 }
 
 export interface Message {

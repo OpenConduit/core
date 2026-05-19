@@ -7,6 +7,7 @@ import ActivityBar from './components/ActivityBar';
 import ChromeBar from './components/ChromeBar';
 import TabBar from './components/TabBar';
 import StatusBar from './components/StatusBar';
+import BottomPanel from './components/BottomPanel';
 import CommandPalette from './components/CommandPalette';
 import PersonasPanel from './components/PersonasPanel';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
@@ -163,6 +164,7 @@ export default function App() {
           ) : (
             <ChatArea conversationId={activeConversationId} />
           )}
+          <BottomPanel />
         </div>
       </div>
 

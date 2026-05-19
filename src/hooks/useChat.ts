@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApprovalRequest, Attachment, AiTask, AiQuestion, AppSettings, RoutingDecision } from '../types';
 import { hookRegistry } from './hookRegistry';
+import { debugConsole } from '../utils/debugConsole';
 import { useConversationStore } from '../stores/conversationStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { usePersonasStore } from '../stores/personasStore';
@@ -117,6 +118,7 @@ function ensureListeners() {
   });
 
   service.chat.onEnd((end: StreamEnd) => {
+    debugConsole.debug('Stream ended', { messageId: end.messageId, conversationId: end.conversationId, usage: end.usage });
     const { finalizeMessage, updateMessage, replaceMessages } = useConversationStore.getState();
 
     // ── Compact request: replace all messages with the summary ──────────────
@@ -194,6 +196,7 @@ function ensureListeners() {
   // Pending tool calls: sent BEFORE approval is requested so the Approve/Deny
   // buttons are visible. Update the message in-place so user can respond.
   service.chat.onToolPending((data) => {
+    debugConsole.info('Tool calls pending approval', { messageId: data.messageId, tools: data.toolCalls.map((t) => t.name) });
     useConversationStore.getState().updateMessage(data.conversationId, data.messageId, {
       isStreaming: false,
       toolCalls: data.toolCalls,
@@ -206,6 +209,7 @@ function ensureListeners() {
   });
 
   service.chat.onError((err: StreamError) => {
+    debugConsole.error('Stream error', { messageId: err.messageId, conversationId: err.conversationId, error: err.error });
     // Clean up compact state if the errored request was a summarize call
     if (compactingRequests.has(err.messageId)) {
       compactingRequests.delete(err.messageId);
@@ -219,6 +223,7 @@ function ensureListeners() {
   });
 
   service.tools.onApprovalRequest((req: ToolApprovalRequest) => {
+    debugConsole.info('Tool approval requested', { messageId: req.messageId, toolName: req.toolCall.name, toolId: req.toolCall.id });
     useUiStore.getState().addPendingApproval(req);
   });
 }
@@ -330,7 +335,9 @@ export function useChat() {
               model: routingDecision.finalModel,
             };
           }
-        } catch {
+          debugConsole.info('Routing decision', { original: `${providerId}/${model}`, final: `${routingDecision.finalProviderId}/${routingDecision.finalModel}`, reason: routingDecision.reason });
+        } catch (e) {
+          debugConsole.warn('Routing failed, using original model', { error: String(e) });
           // Routing failure is non-fatal — proceed with original model
         }
       }
@@ -461,6 +468,7 @@ export function useChat() {
 
   const approveToolCall = useCallback(
     (toolId: string, approved: boolean) => {
+      debugConsole.info('Tool approval response', { toolId, approved });
       service.tools.sendApproval({ toolId, approved });
       removePendingApproval(toolId);
     },

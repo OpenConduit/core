@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../types';
 import { service } from '../services';
+import { debugConsole } from '../utils/debugConsole';
 
 interface SettingsState {
   settings: AppSettings | null;
@@ -20,6 +21,7 @@ export const useSettingsStore = create<SettingsState>()((set, _get) => ({
   loadSettings: async () => {
     const settings = await service.settings.get();
     set({ settings });
+    debugConsole.log('Settings loaded', { defaultProvider: settings.defaultProviderId, defaultModel: settings.defaultModel, providerCount: settings.providers.length });
   },
 
   saveSettings: async (partial) => {
@@ -35,5 +37,7 @@ export const useSettingsStore = create<SettingsState>()((set, _get) => ({
   refreshMcpStatus: async () => {
     const status = await service.mcp.getStatus();
     set({ mcpStatus: status });
+    const connected = Object.values(status).filter(Boolean).length;
+    debugConsole.debug('MCP status refreshed', { total: Object.keys(status).length, connected });
   },
 }));
