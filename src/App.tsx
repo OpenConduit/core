@@ -25,7 +25,7 @@ export default function App() {
   const { loadSettings, settings } = useSettingsStore();
   const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode, sidebarOpen, activePanel, setCommandPaletteOpen } = useUiStore();
   const { conversations, openTabs, openTab } = useConversationStore();
-  const { restoreTheme } = useThemesStore();
+  const { restoreTheme, setActiveTheme } = useThemesStore();
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('oc-sidebar-width');
     return saved ? Number(saved) : 240;
@@ -67,6 +67,13 @@ export default function App() {
     restoreTheme();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sync active marketplace theme from settings (handles app restart)
+  useEffect(() => {
+    if (!settings) return;
+    setActiveTheme(settings.activeThemeId ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.activeThemeId]);
 
   // Apply theme class to <html>
   useEffect(() => {

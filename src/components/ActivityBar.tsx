@@ -1,10 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useUiStore } from '../stores/uiStore';
 import { useThemesStore } from '../stores/themesStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { usePersonasStore } from '../stores/personasStore';
+import { usePromptTemplatesStore } from '../stores/promptTemplatesStore';
+import { useRoutingProfilesStore } from '../stores/routingProfilesStore';
+import { useRegistryStore } from '../stores/registryStore';
 import { commandRegistry } from '../commands/commandRegistry';
 import { service } from '../services';
 import type { ActivityPanel } from '../stores/uiStore';
+
+function isNewer(registryVer: string | undefined, installedVer: string | undefined): boolean {
+  if (!registryVer || !installedVer) return false;
+  const parse = (v: string) => v.split('.').map(Number);
+  const [rA = 0, rB = 0, rC = 0] = parse(registryVer);
+  const [iA = 0, iB = 0, iC = 0] = parse(installedVer);
+  if (rA !== iA) return rA > iA;
+  if (rB !== iB) return rB > iB;
+  return rC > iC;
+}
 
 interface NavItem {
   id: ActivityPanel;
@@ -73,7 +87,29 @@ export default function ActivityBar() {
     useUiStore();
   const { installedThemes, activeThemeId, setActiveTheme } = useThemesStore();
   const { settings, saveSettings } = useSettingsStore();
+  const { personas: installedPersonas } = usePersonasStore();
+  const { templates: installedTemplates } = usePromptTemplatesStore();
+  const { profiles: installedProfiles } = useRoutingProfilesStore();
+  const { getEntries } = useRegistryStore();
   const currentTheme = settings?.theme ?? 'system';
+
+  const updateCount = useMemo(() => {
+    let n = 0;
+    getEntries('themes').forEach((e) => {
+      if (isNewer(e.version, installedThemes.find((t) => t.id === e.id)?.version)) n++;
+    });
+    getEntries('personas').forEach((e) => {
+      const name = (e.content as { name?: string }).name ?? e.name;
+      if (isNewer(e.version, installedPersonas.find((p) => p.name === name)?.version)) n++;
+    });
+    getEntries('prompts').forEach((e) => {
+      if (isNewer(e.version, installedTemplates.find((t) => t.name === e.name)?.version)) n++;
+    });
+    getEntries('profiles').forEach((e) => {
+      if (isNewer(e.version, installedProfiles.find((p) => p.name === e.name)?.version)) n++;
+    });
+    return n;
+  }, [getEntries, installedThemes, installedPersonas, installedTemplates, installedProfiles]);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
@@ -111,6 +147,7 @@ export default function ActivityBar() {
       <div className="flex flex-col items-center gap-1 flex-1 w-full px-1 pt-1">
         {NAV_ITEMS.map(({ id, label, icon }) => {
           const isOpen = activePanel === id && sidebarOpen;
+          const badge = id === 'marketplace' && updateCount > 0 ? updateCount : 0;
           return (
             <button
               key={id}
@@ -126,6 +163,11 @@ export default function ActivityBar() {
                 <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-blue-500 rounded-r-full" />
               )}
               {icon}
+              {badge > 0 && (
+                <span className="absolute top-1 right-1 min-w-[14px] h-[14px] bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -186,7 +228,7 @@ export default function ActivityBar() {
                   <ThemeItem
                     label="System Default"
                     active={!activeThemeId && currentTheme === 'system'}
-                    onClick={() => { saveSettings({ theme: 'system' }); setActiveTheme(null); closeMenu(); }}
+                    onClick={() => { saveSettings({ theme: 'system', activeThemeId: null }); setActiveTheme(null); closeMenu(); }}
                   />
 
                   <Separator />
@@ -195,12 +237,12 @@ export default function ActivityBar() {
                   <ThemeItem
                     label="Default Dark"
                     active={!activeThemeId && currentTheme === 'dark'}
-                    onClick={() => { saveSettings({ theme: 'dark' }); setActiveTheme(null); closeMenu(); }}
+                    onClick={() => { saveSettings({ theme: 'dark', activeThemeId: null }); setActiveTheme(null); closeMenu(); }}
                   />
                   <ThemeItem
                     label="Default Light"
                     active={!activeThemeId && currentTheme === 'light'}
-                    onClick={() => { saveSettings({ theme: 'light' }); setActiveTheme(null); closeMenu(); }}
+                    onClick={() => { saveSettings({ theme: 'light', activeThemeId: null }); setActiveTheme(null); closeMenu(); }}
                   />
 
                   {/* Marketplace-installed themes */}
@@ -212,7 +254,7 @@ export default function ActivityBar() {
                           key={t.id}
                           label={t.name}
                           active={activeThemeId === t.id}
-                          onClick={() => { setActiveTheme(t.id); closeMenu(); }}
+                          onClick={() => { saveSettings({ theme: t.colorScheme ?? 'dark', activeThemeId: t.id }); setActiveTheme(t.id); closeMenu(); }}
                         />
                       ))}
                     </>
