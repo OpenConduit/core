@@ -22,6 +22,7 @@ export { default as ContextWarningBanner } from './components/ContextWarningBann
 export { default as SystemPromptEditor } from './components/SystemPromptEditor';
 export { default as TasksPanel } from './components/TasksPanel';
 export { default as PersonasPanel } from './components/PersonasPanel';
+export { default as StatusBar } from './components/StatusBar';
 
 // Stores
 export { useConversationStore } from './stores/conversationStore';
