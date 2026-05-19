@@ -369,6 +369,26 @@ export interface ToolApprovalRequest {
   toolCall: ToolCall;
 }
 
+// ─── Notifications ──────────────────────────────────────────────────────────
+
+/**
+ * An in-app notification.
+ *
+ * Kept intentionally serializable (no React nodes) so that extensions running
+ * in sandboxed contexts (#38) can fire them via IPC without needing DOM access.
+ *
+ * `source` will be the extension id once #38 ships; defaults to 'app'.
+ */
+export interface AppNotification {
+  id: string;
+  title: string;
+  message?: string;
+  variant: 'info' | 'success' | 'warning' | 'error';
+  timestamp: number;
+  read: boolean;
+  source?: string;
+}
+
 // ─── Update / Feedback ──────────────────────────────────────────────────────
 
 export interface UpdateInfo {

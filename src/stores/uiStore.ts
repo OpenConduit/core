@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ToolApprovalRequest } from '../types';
+import type { AppNotification, ToolApprovalRequest } from '../types';
 
 export type ActivityPanel = 'chats' | 'personas' | 'marketplace';
 
@@ -29,6 +29,15 @@ interface UiState {
   setShowFilesPanel: (v: boolean) => void;
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (v: boolean) => void;
+
+  // ── Notifications (#33) ──────────────────────────────────────────────────
+  // addNotification accepts a partial payload; id, timestamp, and read are
+  // set automatically. This keeps the API clean for #38 extension callers.
+  notifications: AppNotification[];
+  addNotification: (payload: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
+  markRead: (id: string) => void;
+  markAllRead: () => void;
+  clearNotifications: () => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -72,4 +81,20 @@ export const useUiStore = create<UiState>()((set) => ({
 
   commandPaletteOpen: false,
   setCommandPaletteOpen: (v) => set({ commandPaletteOpen: v }),
+
+  notifications: [],
+  addNotification: (payload) =>
+    set((s) => ({
+      notifications: [
+        { ...payload, id: crypto.randomUUID(), timestamp: Date.now(), read: false, source: payload.source ?? 'app' },
+        ...s.notifications,
+      ].slice(0, 100),
+    })),
+  markRead: (id) =>
+    set((s) => ({
+      notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    })),
+  markAllRead: () =>
+    set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
+  clearNotifications: () => set({ notifications: [] }),
 }));
