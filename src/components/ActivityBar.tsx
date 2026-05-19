@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../stores/uiStore';
-import { useThemesStore } from '../stores/themesStore';
+import { useThemesStore, BUILT_IN_THEMES } from '../stores/themesStore';
 import { commandRegistry } from '../commands/commandRegistry';
 import { service } from '../services';
 import type { ActivityPanel } from '../stores/uiStore';
@@ -184,31 +184,34 @@ export default function ActivityBar() {
 
               {themesOpen && (
                 <div className="absolute bottom-0 left-full ml-1 w-52 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl shadow-black/50 py-1 z-50">
-                  {/* Reset to default */}
-                  <button
-                    onClick={() => { setActiveTheme(null); closeMenu(); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition-colors rounded text-left"
-                  >
-                    <span className={`w-3 text-blue-400 ${!activeThemeId ? 'opacity-100' : 'opacity-0'}`}>✓</span>
-                    <span>Default</span>
-                  </button>
+                  {/* Reset to brand token defaults */}
+                  <ThemeItem label="Brand Default" active={!activeThemeId} onClick={() => { setActiveTheme(null); closeMenu(); }} />
 
-                  {installedThemes.length > 0 && <Separator />}
+                  <Separator />
 
-                  {installedThemes.map((t) => (
-                    <button
+                  {/* Built-in themes */}
+                  {BUILT_IN_THEMES.map((t) => (
+                    <ThemeItem
                       key={t.id}
+                      label={t.name}
+                      active={activeThemeId === t.id}
                       onClick={() => { setActiveTheme(t.id); closeMenu(); }}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition-colors rounded text-left"
-                    >
-                      <span className={`w-3 text-blue-400 ${activeThemeId === t.id ? 'opacity-100' : 'opacity-0'}`}>✓</span>
-                      <span className="truncate">{t.name}</span>
-                      {t.verified && <span className="ml-auto text-slate-500 text-[10px]">✓</span>}
-                    </button>
+                    />
                   ))}
 
-                  {installedThemes.length === 0 && (
-                    <p className="px-3 py-1.5 text-slate-500 text-xs">No themes installed</p>
+                  {/* Marketplace-installed themes */}
+                  {installedThemes.length > 0 && (
+                    <>
+                      <Separator />
+                      {installedThemes.map((t) => (
+                        <ThemeItem
+                          key={t.id}
+                          label={t.name}
+                          active={activeThemeId === t.id}
+                          onClick={() => { setActiveTheme(t.id); closeMenu(); }}
+                        />
+                      ))}
+                    </>
                   )}
                 </div>
               )}
@@ -244,6 +247,18 @@ function MenuItem({ label, shortcut, onClick }: { label: string; shortcut?: stri
     >
       <span>{label}</span>
       {shortcut && <span className="text-slate-500 text-xs">{shortcut}</span>}
+    </button>
+  );
+}
+
+function ThemeItem({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition-colors rounded text-left"
+    >
+      <span className={`w-3 text-blue-400 ${active ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }

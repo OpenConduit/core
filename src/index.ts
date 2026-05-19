@@ -21,7 +21,7 @@ export type { CommandContribution } from './commands/commandRegistry';
 import './commands/coreCommandContributions'; // side-effect: registers built-in commands
 
 // Themes store (#25 / #22)
-export { useThemesStore } from './stores/themesStore';
+export { useThemesStore, BUILT_IN_THEMES } from './stores/themesStore';
 export type { InstalledTheme, ThemeColors } from './types';
 
 // Root component
