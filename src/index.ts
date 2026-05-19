@@ -15,6 +15,11 @@ export type { BottomPanelTab } from './bottomPanel/bottomPanelRegistry';
 export { debugConsole } from './utils/debugConsole';
 export type { DebugLevel, DebugEntry } from './stores/debugConsoleStore';
 
+// Command registry (#38)
+export { commandRegistry } from './commands/commandRegistry';
+export type { CommandContribution } from './commands/commandRegistry';
+import './commands/coreCommandContributions'; // side-effect: registers built-in commands
+
 // Root component
 export { default as App } from './App';
 

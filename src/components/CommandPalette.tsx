@@ -3,7 +3,8 @@ import { useConversationStore } from '../stores/conversationStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { usePersonasStore } from '../stores/personasStore';
-import { service } from '../services';
+import { commandRegistry } from '../commands/commandRegistry';
+import '../commands/coreCommandContributions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,33 +37,6 @@ const IconChat = (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
   </svg>
 );
-const IconNew = (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-  </svg>
-);
-const IconSidebar = (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-  </svg>
-);
-const IconSettings = (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>
-);
-const IconClose = (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
-const IconCompare = (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
-  </svg>
-);
-
 // ─── Mode hint ────────────────────────────────────────────────────────────────
 
 function ModeHint({ mode }: { mode: string }) {
@@ -75,8 +49,8 @@ function ModeHint({ mode }: { mode: string }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function CommandPalette() {
-  const { commandPaletteOpen, setCommandPaletteOpen, setShowSettings, setSidebarOpen, sidebarOpen, setCompareMode, activeConversationId, setActiveConversation } = useUiStore();
-  const { conversations, addConversation, openTab, closeTab, updateConversation, openTabs } = useConversationStore();
+  const { commandPaletteOpen, setCommandPaletteOpen, activeConversationId, setActiveConversation } = useUiStore();
+  const { conversations, openTab, updateConversation, openTabs } = useConversationStore();
   const { settings, models, loadModels } = useSettingsStore();
   const { personas } = usePersonasStore();
 
@@ -121,49 +95,19 @@ export default function CommandPalette() {
   // ── Build result list ──────────────────────────────────────────────────────
 
   const commands = useMemo((): ResultItem[] => {
-    const list: ResultItem[] = [
-      {
-        kind: 'command', id: 'new-conv', label: 'New conversation', shortcut: '⌘T', icon: IconNew,
-        action: () => {
-          if (!settings) return;
-          const conv = addConversation({ providerId: settings.defaultProviderId, model: settings.defaultModel });
-          openTab?.(conv.id);
-          setActiveConversation(conv.id);
-          close();
-        },
-      },
-      {
-        kind: 'command', id: 'toggle-sidebar', label: 'Toggle sidebar', icon: IconSidebar,
-        action: () => { setSidebarOpen(!sidebarOpen); close(); },
-      },
-      {
-        kind: 'command', id: 'open-settings', label: 'Open settings', shortcut: '⌘,', icon: IconSettings,
-        action: () => { setShowSettings(true); close(); },
-      },
-      ...('openSettingsFile' in service.config ? [{
-        kind: 'command' as const, id: 'open-settings-json', label: 'Open settings.json', icon: IconSettings,
-        action: () => { (service.config as typeof service.config & { openSettingsFile(): Promise<void> }).openSettingsFile(); close(); },
-      }] : []),
-      {
-        kind: 'command', id: 'close-tab', label: 'Close tab', shortcut: '⌘W', icon: IconClose,
-        action: () => {
-          if (!activeConversationId) return;
-          const tabs = openTabs ?? [];
-          const idx = tabs.indexOf(activeConversationId);
-          closeTab?.(activeConversationId);
-          const remaining = tabs.filter((t) => t !== activeConversationId);
-          setActiveConversation(remaining.length > 0 ? remaining[Math.min(idx, remaining.length - 1)] : null);
-          close();
-        },
-      },
-      {
-        kind: 'command', id: 'compare', label: 'Compare models', icon: IconCompare,
-        action: () => { setCompareMode(true); close(); },
-      },
-    ];
-    if (!bareQuery) return list;
-    return list.filter((c): c is Extract<ResultItem, { kind: 'command' }> => c.kind === 'command' && matches(c.label, bareQuery));
-  }, [settings, addConversation, openTab, closeTab, openTabs, activeConversationId, setActiveConversation, setSidebarOpen, sidebarOpen, setShowSettings, setCompareMode, close, bareQuery]);
+    const all = commandRegistry.getAll()
+      .filter((c) => !c.when || c.when())
+      .filter((c) => !bareQuery || matches(c.label, bareQuery))
+      .map((c): Extract<ResultItem, { kind: 'command' }> => ({
+        kind: 'command',
+        id: c.id,
+        label: c.label,
+        shortcut: c.shortcut,
+        icon: c.icon ?? null,
+        action: c.action,
+      }));
+    return all;
+  }, [bareQuery]);
 
   const results = useMemo((): ResultItem[] => {
     if (mode === 'command') return commands;
