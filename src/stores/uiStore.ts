@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { ToolApprovalRequest } from '../types';
 
+export type ActivityPanel = 'chats' | 'personas' | 'marketplace';
+
 interface UiState {
   activeConversationId: string | null;
   setActiveConversation: (id: string | null) => void;
@@ -10,6 +12,8 @@ interface UiState {
   setShowSettings: (v: boolean) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
+  activePanel: ActivityPanel;
+  setActivePanel: (panel: ActivityPanel) => void;
   pendingApprovals: ToolApprovalRequest[];
   addPendingApproval: (req: ToolApprovalRequest) => void;
   removePendingApproval: (toolId: string) => void;
@@ -37,6 +41,9 @@ export const useUiStore = create<UiState>()((set) => ({
 
   sidebarOpen: true,
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
+
+  activePanel: 'chats',
+  setActivePanel: (panel) => set({ activePanel: panel }),
 
   pendingApprovals: [],
   addPendingApproval: (req) =>

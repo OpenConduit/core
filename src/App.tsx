@@ -3,13 +3,20 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import CompareArea from './components/CompareArea';
 import SettingsPanel from './components/SettingsPanel';
+import ActivityBar from './components/ActivityBar';
+import PersonasPanel from './components/PersonasPanel';
+import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUiStore } from './stores/uiStore';
+
+const isMac =
+  typeof navigator !== 'undefined' &&
+  navigator.platform.toUpperCase().includes('MAC');
 import { useConversationStore } from './stores/conversationStore';
 
 export default function App() {
   const { loadSettings, settings } = useSettingsStore();
-  const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode } = useUiStore();
+  const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode, sidebarOpen, activePanel } = useUiStore();
   const { conversations, addConversation } = useConversationStore();
 
   // Bootstrap: load settings from main process
@@ -91,12 +98,29 @@ export default function App() {
 
   return (
     <div className="h-full flex bg-slate-900 text-slate-100 overflow-hidden">
-      <Sidebar />
+      <ActivityBar />
+
+      {/* Primary sidebar — panel content switches based on active activity bar item */}
+      {sidebarOpen && (
+        <aside className={`w-60 flex-shrink-0 bg-slate-800 flex flex-col border-r border-slate-700 overflow-hidden${isMac ? ' pt-8' : ''}`}>
+          {activePanel === 'chats' && <Sidebar />}
+          {activePanel === 'personas' && (
+            <div className="flex-1 overflow-y-auto p-4">
+              <PersonasPanel />
+            </div>
+          )}
+          {activePanel === 'marketplace' && <MarketplaceSidebarPanel />}
+        </aside>
+      )}
+
+      {/* Main content area */}
       {isCompareMode ? (
         <CompareArea />
       ) : (
         <ChatArea conversationId={activeConversationId} />
       )}
+
+      {/* Settings overlay — triggered by ⌘, or activity bar gear */}
       <SettingsPanel />
     </div>
   );

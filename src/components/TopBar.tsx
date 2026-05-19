@@ -188,7 +188,7 @@ export default function TopBar({ conversationId }: Props) {
   const noDragStyle = { WebkitAppRegion: 'no-drag' } as React.CSSProperties;
 
   return (
-    <header style={dragStyle} className={`flex items-center gap-3 px-4 py-2.5 border-b border-slate-700 bg-slate-900 flex-shrink-0${!sidebarOpen && isMac ? ' pl-[80px]' : ''}`}>
+    <header style={dragStyle} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-700 bg-slate-900 flex-shrink-0">
       {/* Sidebar toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
