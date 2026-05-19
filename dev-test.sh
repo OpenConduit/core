@@ -31,6 +31,11 @@ echo "🔗  Linking into client (workspace root)..."
 cd "$CLIENT_ROOT"
 npm link @openconduit/core --silent
 
+# Clear Vite's dependency pre-bundling cache so the freshly-linked local
+# package is always picked up instead of a stale published-package bundle.
+echo "🗑   Clearing Vite dep cache..."
+rm -rf node_modules/.vite packages/desktop/node_modules/.vite packages/desktop/.vite .vite 2>/dev/null || true
+
 echo ""
 echo "🚀  Starting OpenConduit (Ctrl+C to quit and restore)..."
 echo ""

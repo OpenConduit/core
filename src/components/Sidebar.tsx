@@ -6,7 +6,7 @@ import { useUiStore } from '../stores/uiStore';
 import { exportAsJson, exportAsMarkdown, downloadFile } from '../lib/export';
 
 export default function Sidebar() {
-  const { conversations, addConversation, deleteConversation } = useConversationStore();
+  const { conversations, addConversation, deleteConversation, openTab } = useConversationStore();
   const { settings } = useSettingsStore();
   const { personas } = usePersonasStore();
   const { activeConversationId, setActiveConversation } = useUiStore();
@@ -23,6 +23,7 @@ export default function Sidebar() {
       model: persona?.defaultModel ?? settings?.defaultModel,
       personaId: personaId,
     });
+    openTab?.(conv.id);
     setActiveConversation(conv.id);
     setShowPersonaPicker(false);
   };
@@ -140,7 +141,7 @@ export default function Sidebar() {
             updatedAt={conv.updatedAt}
             personaColor={conv.personaId ? (personas.find((p) => p.id === conv.personaId)?.color) : undefined}
             personaName={conv.personaId ? (personas.find((p) => p.id === conv.personaId)?.name) : undefined}
-            onClick={() => setActiveConversation(conv.id)}
+            onClick={() => { openTab?.(conv.id); setActiveConversation(conv.id); }}
             onDelete={(e) => handleDelete(e, conv.id)}
             onExportJson={(e) => handleExport(e, conv.id, 'json')}
             onExportMd={(e) => handleExport(e, conv.id, 'md')}

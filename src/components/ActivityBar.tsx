@@ -2,10 +2,6 @@ import React from 'react';
 import { useUiStore } from '../stores/uiStore';
 import type { ActivityPanel } from '../stores/uiStore';
 
-const isMac =
-  typeof navigator !== 'undefined' &&
-  navigator.platform.toUpperCase().includes('MAC');
-
 interface NavItem {
   id: ActivityPanel;
   label: string;
@@ -85,9 +81,7 @@ export default function ActivityBar() {
 
   return (
     <div
-      className={`w-12 flex-shrink-0 bg-slate-800 border-r border-slate-700 flex flex-col items-center pb-2 ${
-        isMac ? 'pt-8' : 'pt-2'
-      }`}
+      className="w-12 flex-shrink-0 bg-slate-800 border-r border-slate-700 flex flex-col items-center pb-2 pt-2"
     >
       {/* Primary nav items */}
       <div className="flex flex-col items-center gap-1 flex-1 w-full px-1 pt-1">

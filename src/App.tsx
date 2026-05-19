@@ -4,14 +4,12 @@ import ChatArea from './components/ChatArea';
 import CompareArea from './components/CompareArea';
 import SettingsPanel from './components/SettingsPanel';
 import ActivityBar from './components/ActivityBar';
+import ChromeBar from './components/ChromeBar';
+import TabBar from './components/TabBar';
 import PersonasPanel from './components/PersonasPanel';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUiStore } from './stores/uiStore';
-
-const isMac =
-  typeof navigator !== 'undefined' &&
-  navigator.platform.toUpperCase().includes('MAC');
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 520;
@@ -20,7 +18,7 @@ import { useConversationStore } from './stores/conversationStore';
 export default function App() {
   const { loadSettings, settings } = useSettingsStore();
   const { activeConversationId, setActiveConversation, setShowSettings, isCompareMode, sidebarOpen, activePanel } = useUiStore();
-
+  const { conversations, addConversation, openTabs, openTab, closeTab } = useConversationStore();
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('oc-sidebar-width');
     return saved ? Number(saved) : 240;
@@ -51,7 +49,6 @@ export default function App() {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   }, []);
-  const { conversations, addConversation } = useConversationStore();
 
   // Bootstrap: load settings from main process
   useEffect(() => {
@@ -81,13 +78,26 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.theme]);
 
-  // If no active conversation but conversations exist, select the latest
+  // If no active conversation, restore from open tabs or open the most recent conversation.
+  // Also ensure the active conversation is always present in the tab strip (e.g. after restart).
   useEffect(() => {
-    if (!activeConversationId && conversations.length > 0) {
-      setActiveConversation(conversations[0].id);
+    const tabs = openTabs ?? [];
+    if (activeConversationId) {
+      if (!tabs.includes(activeConversationId)) {
+        openTab?.(activeConversationId);
+      }
+      return;
+    }
+    const firstValid = tabs.find((id) => conversations.some((c) => c.id === id));
+    if (firstValid) {
+      setActiveConversation(firstValid);
+    } else if (conversations.length > 0) {
+      const id = conversations[0].id;
+      openTab?.(id);
+      setActiveConversation(id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations.length, activeConversationId, setActiveConversation]);
+  }, [conversations.length, activeConversationId]);
 
   // Open settings on first launch (no providers configured)
   useEffect(() => {
@@ -104,6 +114,31 @@ export default function App() {
         e.preventDefault();
         setShowSettings(true);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+        e.preventDefault();
+        if (settings) {
+          const conv = addConversation({
+            providerId: settings.defaultProviderId,
+            model: settings.defaultModel,
+          });
+          openTab?.(conv.id);
+          setActiveConversation(conv.id);
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+        e.preventDefault();
+        if (activeConversationId) {
+          const tabs = openTabs ?? [];
+          const idx = tabs.indexOf(activeConversationId);
+          closeTab?.(activeConversationId);
+          const remaining = tabs.filter((t) => t !== activeConversationId);
+          if (remaining.length > 0) {
+            setActiveConversation(remaining[Math.min(idx, remaining.length - 1)]);
+          } else {
+            setActiveConversation(null);
+          }
+        }
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault();
         if (settings) {
@@ -111,13 +146,14 @@ export default function App() {
             providerId: settings.defaultProviderId,
             model: settings.defaultModel,
           });
+          openTab?.(conv.id);
           setActiveConversation(conv.id);
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [settings, addConversation, setActiveConversation, setShowSettings]);
+  }, [settings, addConversation, openTab, closeTab, openTabs, activeConversationId, setActiveConversation, setShowSettings]);
 
   if (!settings) {
     return (
@@ -131,39 +167,48 @@ export default function App() {
   }
 
   return (
-    <div className="h-full flex bg-slate-900 text-slate-100 overflow-hidden">
-      <ActivityBar />
+    <div className="h-full flex flex-col bg-slate-900 text-slate-100 overflow-hidden">
+      {/* Full-width window chrome — traffic light area + search */}
+      <ChromeBar />
 
-      {/* Primary sidebar — panel content switches based on active activity bar item */}
-      {sidebarOpen && (
-        <aside
-          style={{ width: sidebarWidth }}
-          className={`relative flex-shrink-0 bg-slate-800 flex flex-col border-r border-slate-700 overflow-hidden${isMac ? ' pt-8' : ''}`}
-        >
-          {activePanel === 'chats' && <Sidebar />}
-          {activePanel === 'personas' && (
-            <div className="flex-1 overflow-y-auto p-4">
-              <PersonasPanel />
-            </div>
-          )}
-          {activePanel === 'marketplace' && <MarketplaceSidebarPanel />}
+      {/* Content row below the tab bar */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        <ActivityBar />
 
-          {/* Resize handle */}
-          <div
-            onMouseDown={handleResizeStart}
-            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-20 group"
+        {/* Primary sidebar — panel content switches based on active activity bar item */}
+        {sidebarOpen && (
+          <aside
+            style={{ width: sidebarWidth }}
+            className="relative flex-shrink-0 bg-slate-800 flex flex-col border-r border-slate-700 overflow-hidden"
           >
-            <div className="absolute inset-y-0 right-0 w-px bg-slate-700 group-hover:bg-blue-500 transition-colors duration-150" />
-          </div>
-        </aside>
-      )}
+            {activePanel === 'chats' && <Sidebar />}
+            {activePanel === 'personas' && (
+              <div className="flex-1 overflow-y-auto p-4">
+                <PersonasPanel />
+              </div>
+            )}
+            {activePanel === 'marketplace' && <MarketplaceSidebarPanel />}
 
-      {/* Main content area */}
-      {isCompareMode ? (
-        <CompareArea />
-      ) : (
-        <ChatArea conversationId={activeConversationId} />
-      )}
+            {/* Resize handle */}
+            <div
+              onMouseDown={handleResizeStart}
+              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-20 group"
+            >
+              <div className="absolute inset-y-0 right-0 w-px bg-slate-700 group-hover:bg-blue-500 transition-colors duration-150" />
+            </div>
+          </aside>
+        )}
+
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <TabBar />
+          {isCompareMode ? (
+            <CompareArea />
+          ) : (
+            <ChatArea conversationId={activeConversationId} />
+          )}
+        </div>
+      </div>
 
       {/* Settings overlay — triggered by ⌘, or activity bar gear */}
       <SettingsPanel />

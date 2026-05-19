@@ -5,6 +5,10 @@ import type { Conversation, Message, ToolCall } from '../types';
 
 interface ConversationState {
   conversations: Conversation[];
+  openTabs: string[];
+  openTab: (id: string) => void;
+  closeTab: (id: string) => void;
+  reorderTabs: (ids: string[]) => void;
   addConversation: (conv?: Partial<Conversation>) => Conversation;
   updateConversation: (id: string, updates: Partial<Conversation>) => void;
   deleteConversation: (id: string) => void;
@@ -24,6 +28,10 @@ export const useConversationStore = create<ConversationState>()(
   persist(
     (set, _get) => ({
       conversations: [] as Conversation[],
+      openTabs: [] as string[],
+      openTab: (id) => set((s) => s.openTabs.includes(id) ? s : { openTabs: [...s.openTabs, id] }),
+      closeTab: (id) => set((s) => ({ openTabs: s.openTabs.filter((t) => t !== id) })),
+      reorderTabs: (ids) => set({ openTabs: ids }),
 
       addConversation: (partial = {}) => {
         const conv: Conversation = {
@@ -47,7 +55,10 @@ export const useConversationStore = create<ConversationState>()(
       },
 
       deleteConversation: (id) => {
-        set((s) => ({ conversations: s.conversations.filter((c) => c.id !== id) }));
+        set((s) => ({
+          conversations: s.conversations.filter((c) => c.id !== id),
+          openTabs: s.openTabs.filter((t) => t !== id),
+        }));
       },
 
       addMessage: (convId, msg) => {
@@ -172,6 +183,12 @@ export const useConversationStore = create<ConversationState>()(
         });
       },
     }),
-    { name: 'openconduit-conversations' },
+    {
+      name: 'openconduit-conversations',
+      partialize: (state) => ({
+        conversations: state.conversations,
+        openTabs: state.openTabs,
+      }),
+    },
   ),
 );
