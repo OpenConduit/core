@@ -13,6 +13,17 @@ import { useRoutingProfilesStore } from '../stores/routingProfilesStore';
 import { useRegistryStore } from '../stores/registryStore';
 import type { RegistryType, RegistryEntry } from '../stores/registryStore';
 
+/** Returns true if `registryVer` is strictly greater than `installedVer` (semver). */
+function isNewer(registryVer: string | undefined, installedVer: string | undefined): boolean {
+  if (!registryVer || !installedVer) return false;
+  const parse = (v: string) => v.split('.').map(Number);
+  const [rA = 0, rB = 0, rC = 0] = parse(registryVer);
+  const [iA = 0, iB = 0, iC = 0] = parse(installedVer);
+  if (rA !== iA) return rA > iA;
+  if (rB !== iB) return rB > iB;
+  return rC > iC;
+}
+
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
 
 const _svgFiles = import.meta.glob(
@@ -94,10 +105,10 @@ const REGISTRY_TYPE_MAP: Record<RegistryType, TypeFilter> = {
 type UnifiedEntry =
   | { kind: 'provider'; id: string; name: string; description: string; badge: string; installed: boolean; emoji?: string }
   | { kind: 'mcp';      id: string; name: string; description: string; badge?: string; installed: boolean; emoji: string; notes?: string }
-  | { kind: 'theme';    id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; entry: RegistryEntry }
-  | { kind: 'persona';  id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; entry: RegistryEntry }
-  | { kind: 'prompt';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; entry: RegistryEntry }
-  | { kind: 'profile';  id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; entry: RegistryEntry };
+  | { kind: 'theme';    id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
+  | { kind: 'persona';  id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
+  | { kind: 'prompt';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
+  | { kind: 'profile';  id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry };
 
 // ─── Kind colour map ──────────────────────────────────────────────────────────
 
@@ -131,13 +142,16 @@ function MarketplaceRow({
   entry,
   onAdd,
   onRemove,
+  onUpdate,
 }: {
   entry: UnifiedEntry;
   onAdd: () => void;
   onRemove: () => void;
+  onUpdate: () => void;
 }) {
   const isRegistryKind = entry.kind === 'theme' || entry.kind === 'persona' || entry.kind === 'prompt' || entry.kind === 'profile';
   const canRemove = isRegistryKind && entry.kind !== 'persona'; // personas use their own delete flow
+  const hasUpdate = isRegistryKind && (entry as { hasUpdate: boolean }).hasUpdate;
 
   return (
     <div className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-700/40 transition-colors">
@@ -162,6 +176,11 @@ function MarketplaceRow({
               Installed
             </span>
           )}
+          {hasUpdate && (
+            <span className="text-[9px] font-semibold px-1 py-px rounded uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+              Update available
+            </span>
+          )}
         </div>
         <p className="text-[11px] text-slate-500 leading-tight line-clamp-2">
           {entry.description}
@@ -177,7 +196,24 @@ function MarketplaceRow({
       </div>
 
       <div className="flex flex-col gap-1 flex-shrink-0">
-        {entry.installed && canRemove ? (
+        {hasUpdate ? (
+          <>
+            <button
+              onClick={onUpdate}
+              className="text-[11px] px-2 py-1 rounded-lg font-medium transition-colors bg-amber-600 text-white hover:bg-amber-500"
+            >
+              Update
+            </button>
+            {canRemove && (
+              <button
+                onClick={onRemove}
+                className="text-[11px] px-2 py-1 rounded-lg font-medium transition-colors bg-slate-700 text-slate-400 hover:bg-red-900/40 hover:text-red-400"
+              >
+                Remove
+              </button>
+            )}
+          </>
+        ) : entry.installed && canRemove ? (
           <button
             onClick={onRemove}
             className="text-[11px] px-2 py-1 rounded-lg font-medium transition-colors bg-slate-700 text-slate-400 hover:bg-red-900/40 hover:text-red-400"
@@ -213,7 +249,7 @@ export default function MarketplaceSidebarPanel() {
   // Registry stores
   const { fetchType, getEntries, loading: regLoading, errors: regErrors } = useRegistryStore();
   const { installTheme, uninstallTheme, installedThemes, setActiveTheme } = useThemesStore();
-  const { addPersona, personas: installedPersonas } = usePersonasStore();
+  const { addPersona, deletePersona, personas: installedPersonas } = usePersonasStore();
   const { addTemplate, removeTemplate, templates: installedTemplates } = usePromptTemplatesStore();
   const { addProfile, removeProfile, profiles: installedProfiles } = useRoutingProfilesStore();
 
@@ -300,6 +336,7 @@ export default function MarketplaceSidebarPanel() {
       author: e.author,
       verified: e.verified,
       installed: installedThemeIds.has(e.id),
+      hasUpdate: isNewer(e.version, installedThemes.find((t) => t.id === e.id)?.version),
       entry: e,
     }));
 
@@ -311,6 +348,7 @@ export default function MarketplaceSidebarPanel() {
       author: e.author,
       verified: e.verified,
       installed: installedPersonaNames.has((e.content as { name?: string }).name ?? e.name),
+      hasUpdate: isNewer(e.version, installedPersonas.find((p) => p.name === ((e.content as { name?: string }).name ?? e.name))?.version),
       entry: e,
     }));
 
@@ -322,6 +360,7 @@ export default function MarketplaceSidebarPanel() {
       author: e.author,
       verified: e.verified,
       installed: installedTemplateNames.has(e.name),
+      hasUpdate: isNewer(e.version, installedTemplates.find((t) => t.name === e.name)?.version),
       entry: e,
     }));
 
@@ -333,6 +372,7 @@ export default function MarketplaceSidebarPanel() {
       author: e.author,
       verified: e.verified,
       installed: installedProfileNames.has(e.name),
+      hasUpdate: isNewer(e.version, installedProfiles.find((p) => p.name === e.name)?.version),
       entry: e,
     }));
 
@@ -354,7 +394,7 @@ export default function MarketplaceSidebarPanel() {
     }
 
     return pool;
-  }, [settings, effectiveType, cleanQuery, getEntries, installedThemeIds, installedPersonaNames, installedTemplateNames, installedProfileNames]);
+  }, [settings, effectiveType, cleanQuery, getEntries, installedThemeIds, installedPersonaNames, installedTemplateNames, installedProfileNames, installedThemes, installedPersonas, installedTemplates, installedProfiles]);
 
   const handleAdd = (entry: UnifiedEntry) => {
     if (!settings) return;
@@ -389,18 +429,22 @@ export default function MarketplaceSidebarPanel() {
       saveSettings({ mcpServers: [...(settings.mcpServers ?? []), { id: uuidv4(), ...partial }] });
 
     } else if (entry.kind === 'theme') {
-      const c = entry.entry.content as { colors?: Record<string, string> };
+      const c = entry.entry.content as { colors?: Record<string, string>; colorScheme?: string };
       if (!c.colors) return;
+      const colorScheme = c.colorScheme === 'light' ? 'light' : 'dark';
       const theme: InstalledTheme = {
         id: entry.id,
         name: entry.name,
         author: entry.author,
         verified: entry.verified,
         description: entry.description,
+        version: entry.entry.version,
+        colorScheme,
         colors: c.colors as ThemeColors,
       };
       installTheme(theme);
       setActiveTheme(entry.id);
+      saveSettings({ theme: colorScheme, activeThemeId: entry.id });
 
     } else if (entry.kind === 'persona') {
       const c = entry.entry.content as { name?: string; color?: string; systemPrompt?: string };
@@ -408,6 +452,7 @@ export default function MarketplaceSidebarPanel() {
         name: c.name ?? entry.name,
         color: c.color,
         systemPrompt: c.systemPrompt ?? '',
+        version: entry.entry.version,
       });
 
   } else if (entry.kind === 'prompt') {
@@ -449,6 +494,27 @@ export default function MarketplaceSidebarPanel() {
     } else if (entry.kind === 'profile') {
       const match = installedProfiles.find((p) => p.name === entry.name);
       if (match) removeProfile(match.id);
+    }
+  };
+
+  /** Remove the old installed copy then re-install the latest version from the registry. */
+  const handleUpdate = (entry: UnifiedEntry) => {
+    if (entry.kind === 'theme') {
+      // installTheme dedupes by id, so calling handleAdd is sufficient
+      handleAdd(entry);
+    } else if (entry.kind === 'persona') {
+      const personaName = (entry.entry.content as { name?: string }).name ?? entry.name;
+      const existing = installedPersonas.find((p) => p.name === personaName);
+      if (existing) deletePersona(existing.id);
+      handleAdd(entry);
+    } else if (entry.kind === 'prompt') {
+      const existing = installedTemplates.find((t) => t.name === entry.name);
+      if (existing) removeTemplate(existing.id);
+      handleAdd(entry);
+    } else if (entry.kind === 'profile') {
+      const existing = installedProfiles.find((p) => p.name === entry.name);
+      if (existing) removeProfile(existing.id);
+      handleAdd(entry);
     }
   };
 
@@ -536,6 +602,7 @@ export default function MarketplaceSidebarPanel() {
               entry={entry}
               onAdd={() => handleAdd(entry)}
               onRemove={() => handleRemove(entry)}
+              onUpdate={() => handleUpdate(entry)}
             />
           ))
         )}

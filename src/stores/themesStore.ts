@@ -48,12 +48,12 @@ export const BUILT_IN_THEMES: InstalledTheme[] = [
 const SEMANTIC_TO_SLATE: Array<[string, string[]]> = [
   ['--color-background', ['--color-slate-950']],
   ['--color-surface',    ['--color-slate-900']],
-  ['--color-muted',      ['--color-slate-800', '--color-slate-700']],
-  ['--color-border',     ['--color-slate-600']],
+  ['--color-muted',      ['--color-slate-800']],                           // secondary surfaces (sidebar, cards)
+  ['--color-border',     ['--color-slate-700', '--color-slate-600']],      // borders + hover bg states
   // Primary brand colour → drives action buttons, focus rings, active states
   ['--color-primary',    ['--color-blue-600', '--color-blue-500', '--color-blue-400']],
   // Body text colour → drives the main text hierarchy
-  ['--color-text',       ['--color-slate-200', '--color-slate-100']],
+  ['--color-text',       ['--color-slate-100', '--color-slate-200']],
 ];
 
 /** Write a color map onto <html> as CSS custom properties. */

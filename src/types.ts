@@ -248,6 +248,8 @@ export interface Persona {
   systemPrompt: string;
   /** Hex colour used as the avatar background, e.g. "#6366f1" */
   color?: string;
+  /** Registry version at install time, e.g. "1.0.0". */
+  version?: string;
   /** Override the default provider for conversations using this persona */
   defaultProviderId?: string;
   /** Override the default model for conversations using this persona */
@@ -280,6 +282,10 @@ export interface InstalledTheme {
   author: string;
   verified: boolean;
   description: string;
+  /** Registry version at install time, e.g. "1.0.0". */
+  version?: string;
+  /** Whether the theme expects dark or light mode. Defaults to 'dark'. */
+  colorScheme?: 'dark' | 'light';
   colors: ThemeColors;
 }
 
@@ -287,6 +293,8 @@ export interface InstalledTheme {
 
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
+  /** Id of the active marketplace theme, or null when using a built-in theme. */
+  activeThemeId?: string | null;
   providers: ProviderConfig[];
   mcpServers: McpServerConfig[];
   defaultProviderId?: string;
