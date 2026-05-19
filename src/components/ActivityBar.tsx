@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../stores/uiStore';
-import { useThemesStore, BUILT_IN_THEMES } from '../stores/themesStore';
+import { useThemesStore } from '../stores/themesStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import { commandRegistry } from '../commands/commandRegistry';
 import { service } from '../services';
 import type { ActivityPanel } from '../stores/uiStore';
@@ -71,6 +72,8 @@ export default function ActivityBar() {
   const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings, setCommandPaletteOpen } =
     useUiStore();
   const { installedThemes, activeThemeId, setActiveTheme } = useThemesStore();
+  const { settings, saveSettings } = useSettingsStore();
+  const currentTheme = settings?.theme ?? 'system';
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
@@ -171,33 +174,38 @@ export default function ActivityBar() {
               }}
             />
 
-            {/* Themes submenu */}
-            <div
-              className="relative"
-              onMouseEnter={() => setThemesOpen(true)}
-              onMouseLeave={() => setThemesOpen(false)}
-            >
-              <button className="w-full flex items-center justify-between px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition-colors rounded">
+            {/* Themes submenu — click-based to avoid hover-gap close */}
+            <div className="relative">
+              <button
+                onClick={() => setThemesOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition-colors rounded"
+              >
                 <span>Themes</span>
                 <span className="text-slate-500">›</span>
               </button>
 
               {themesOpen && (
-                <div className="absolute bottom-0 left-full ml-1 w-52 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl shadow-black/50 py-1 z-50">
-                  {/* Reset to brand token defaults */}
-                  <ThemeItem label="Brand Default" active={!activeThemeId} onClick={() => { setActiveTheme(null); closeMenu(); }} />
+                <div className="absolute bottom-0 left-full w-52 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl shadow-black/50 py-1 z-50">
+                  {/* Follow system preference */}
+                  <ThemeItem
+                    label="System Default"
+                    active={!activeThemeId && currentTheme === 'system'}
+                    onClick={() => { saveSettings({ theme: 'system' }); setActiveTheme(null); closeMenu(); }}
+                  />
 
                   <Separator />
 
-                  {/* Built-in themes */}
-                  {BUILT_IN_THEMES.map((t) => (
-                    <ThemeItem
-                      key={t.id}
-                      label={t.name}
-                      active={activeThemeId === t.id}
-                      onClick={() => { setActiveTheme(t.id); closeMenu(); }}
-                    />
-                  ))}
+                  {/* Built-in light / dark — wired to settings.theme which App.tsx applies via html.dark */}
+                  <ThemeItem
+                    label="Default Dark"
+                    active={!activeThemeId && currentTheme === 'dark'}
+                    onClick={() => { saveSettings({ theme: 'dark' }); setActiveTheme(null); closeMenu(); }}
+                  />
+                  <ThemeItem
+                    label="Default Light"
+                    active={!activeThemeId && currentTheme === 'light'}
+                    onClick={() => { saveSettings({ theme: 'light' }); setActiveTheme(null); closeMenu(); }}
+                  />
 
                   {/* Marketplace-installed themes */}
                   {installedThemes.length > 0 && (
