@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../stores/uiStore';
+import { useThemesStore } from '../stores/themesStore';
+import { useSettingsStore } from '../stores/settingsStore';
+import { commandRegistry } from '../commands/commandRegistry';
+import { service } from '../services';
 import type { ActivityPanel } from '../stores/uiStore';
 
 interface NavItem {
@@ -65,24 +69,44 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export default function ActivityBar() {
-  const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings } =
+  const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings, setCommandPaletteOpen, setKeyboardShortcutsOpen } =
     useUiStore();
+  const { installedThemes, activeThemeId, setActiveTheme } = useThemesStore();
+  const { settings, saveSettings } = useSettingsStore();
+  const currentTheme = settings?.theme ?? 'system';
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const gearRef = useRef<HTMLButtonElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+          gearRef.current && !gearRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setThemesOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
+
+  const closeMenu = () => { setMenuOpen(false); setThemesOpen(false); };
 
   const handlePanelClick = (panel: ActivityPanel) => {
     if (activePanel === panel) {
-      // Same panel — toggle sidebar open/closed
       setSidebarOpen(!sidebarOpen);
     } else {
-      // Different panel — switch and ensure sidebar is open
       setActivePanel(panel);
       setSidebarOpen(true);
     }
   };
 
   return (
-    <div
-      className="w-12 flex-shrink-0 bg-slate-800 border-r border-slate-700 flex flex-col items-center pb-2 pt-2"
-    >
+    <div className="w-12 flex-shrink-0 bg-slate-800 border-r border-slate-700 flex flex-col items-center pb-2 pt-2">
       {/* Primary nav items */}
       <div className="flex flex-col items-center gap-1 flex-1 w-full px-1 pt-1">
         {NAV_ITEMS.map(({ id, label, icon }) => {
@@ -98,7 +122,6 @@ export default function ActivityBar() {
                   : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
               }`}
             >
-              {/* Active accent line on the left edge */}
               {isOpen && (
                 <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-blue-500 rounded-r-full" />
               )}
@@ -108,16 +131,142 @@ export default function ActivityBar() {
         })}
       </div>
 
-      {/* Settings gear at bottom */}
-      <div className="w-full px-1">
+      {/* Manage menu anchor */}
+      <div className="w-full px-1 relative">
         <button
-          onClick={() => setShowSettings(true)}
-          title="Settings"
-          className="w-full h-10 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
+          ref={gearRef}
+          onClick={() => { setMenuOpen((v) => !v); setThemesOpen(false); }}
+          title="Manage"
+          className={`w-full h-10 flex items-center justify-center rounded-lg transition-colors ${
+            menuOpen
+              ? 'text-slate-100 bg-slate-700'
+              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+          }`}
         >
           {SETTINGS_ICON}
         </button>
+
+        {/* Floating menu */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            className="absolute bottom-0 left-full ml-1.5 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl shadow-black/50 py-1 z-50 text-sm"
+          >
+            <MenuItem
+              label="Command Palette..."
+              shortcut="⌘K"
+              onClick={() => { commandRegistry.execute('core.openCommandPalette'); closeMenu(); }}
+            />
+
+            <Separator />
+
+            <MenuItem
+              label="Settings"
+              shortcut="⌘,"
+              onClick={() => { setShowSettings(true); closeMenu(); }}
+            />
+            <MenuItem
+              label="Keyboard Shortcuts"
+              onClick={() => { setKeyboardShortcutsOpen(true); closeMenu(); }}
+            />
+
+            {/* Themes submenu — click-based to avoid hover-gap close */}
+            <div className="relative">
+              <button
+                onClick={() => setThemesOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition-colors rounded"
+              >
+                <span>Themes</span>
+                <span className="text-slate-500">›</span>
+              </button>
+
+              {themesOpen && (
+                <div className="absolute bottom-0 left-full w-52 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl shadow-black/50 py-1 z-50">
+                  {/* Follow system preference */}
+                  <ThemeItem
+                    label="System Default"
+                    active={!activeThemeId && currentTheme === 'system'}
+                    onClick={() => { saveSettings({ theme: 'system' }); setActiveTheme(null); closeMenu(); }}
+                  />
+
+                  <Separator />
+
+                  {/* Built-in light / dark — wired to settings.theme which App.tsx applies via html.dark */}
+                  <ThemeItem
+                    label="Default Dark"
+                    active={!activeThemeId && currentTheme === 'dark'}
+                    onClick={() => { saveSettings({ theme: 'dark' }); setActiveTheme(null); closeMenu(); }}
+                  />
+                  <ThemeItem
+                    label="Default Light"
+                    active={!activeThemeId && currentTheme === 'light'}
+                    onClick={() => { saveSettings({ theme: 'light' }); setActiveTheme(null); closeMenu(); }}
+                  />
+
+                  {/* Marketplace-installed themes */}
+                  {installedThemes.length > 0 && (
+                    <>
+                      <Separator />
+                      {installedThemes.map((t) => (
+                        <ThemeItem
+                          key={t.id}
+                          label={t.name}
+                          active={activeThemeId === t.id}
+                          onClick={() => { setActiveTheme(t.id); closeMenu(); }}
+                        />
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            <MenuItem
+              label="Check for Updates..."
+              onClick={async () => {
+                closeMenu();
+                try {
+                  await service.updater.checkForUpdates();
+                } catch {
+                  // updater not available in this environment
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function MenuItem({ label, shortcut, onClick }: { label: string; shortcut?: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition-colors rounded"
+    >
+      <span>{label}</span>
+      {shortcut && <span className="text-slate-500 text-xs">{shortcut}</span>}
+    </button>
+  );
+}
+
+function ThemeItem({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition-colors rounded text-left"
+    >
+      <span className={`w-3 text-blue-400 ${active ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function Separator() {
+  return <div className="my-1 border-t border-slate-700" />;
 }

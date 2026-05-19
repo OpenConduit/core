@@ -20,6 +20,14 @@ export { commandRegistry } from './commands/commandRegistry';
 export type { CommandContribution } from './commands/commandRegistry';
 import './commands/coreCommandContributions'; // side-effect: registers built-in commands
 
+// Themes store (#25 / #22)
+export { useThemesStore, BUILT_IN_THEMES } from './stores/themesStore';
+export type { InstalledTheme, ThemeColors } from './types';
+
+// Keybindings store
+export { useKeybindingsStore, getEffectiveBinding } from './stores/keybindingsStore';
+export type { Binding } from './stores/keybindingsStore';
+
 // Root component
 export { default as App } from './App';
 
@@ -38,6 +46,7 @@ export { default as TasksPanel } from './components/TasksPanel';
 export { default as PersonasPanel } from './components/PersonasPanel';
 export { default as StatusBar } from './components/StatusBar';
 export { default as CommandPalette } from './components/CommandPalette';
+export { default as KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
 export { default as WelcomeScreen } from './components/WelcomeScreen';
 export { default as NotificationBell } from './components/NotificationBell';
 

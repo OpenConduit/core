@@ -260,6 +260,29 @@ export interface Persona {
   isDefault?: boolean;
 }
 
+// ─── Themes (#25) ──────────────────────────────────────────────────────────
+
+/** The CSS variable map defined by the #25 marketplace schema. */
+export interface ThemeColors {
+  '--color-primary': string;
+  '--color-surface': string;
+  '--color-background': string;
+  '--color-muted': string;
+  '--color-text': string;
+  '--color-border': string;
+  [key: string]: string; // allow additional custom variables
+}
+
+/** A theme entry as installed from the marketplace registry. */
+export interface InstalledTheme {
+  id: string;
+  name: string;
+  author: string;
+  verified: boolean;
+  description: string;
+  colors: ThemeColors;
+}
+
 // ─── App Settings ──────────────────────────────────────────────────────────
 
 export interface AppSettings {

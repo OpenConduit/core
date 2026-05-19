@@ -1,22 +1,31 @@
 import { useEffect } from 'react';
 import { commandRegistry } from '../commands/commandRegistry';
+import { useKeybindingsStore, getEffectiveBinding } from '../stores/keybindingsStore';
+import { useUiStore } from '../stores/uiStore';
 import '../commands/coreCommandContributions';
 
 /**
  * Global keyboard shortcut handler.
  *
  * Keybindings are driven by `commandRegistry` — each `CommandContribution`
- * with a `keybinding` field is automatically wired here. To add or change a
- * shortcut, register (or update) a command in `coreCommandContributions.ts`
- * or from an extension via `commandRegistry.register(...)`.
+ * with a `keybinding` field is automatically wired here. User overrides from
+ * `keybindingsStore` take precedence over the default registry bindings.
+ *
+ * Shortcuts are suppressed while the Keyboard Shortcuts panel is open so that
+ * key combos can be recorded there without accidentally firing commands.
  */
 export function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Suppress all shortcuts while the keyboard shortcuts editor is open —
+      // the panel's KeyRow recorder captures input with capture:true instead.
+      if (useUiStore.getState().keyboardShortcutsOpen) return;
+
       const mod = e.metaKey || e.ctrlKey;
+      const { overrides } = useKeybindingsStore.getState();
 
       for (const cmd of commandRegistry.getAll()) {
-        const kb = cmd.keybinding;
+        const kb = getEffectiveBinding(cmd, overrides);
         if (!kb) continue;
 
         const keyMatch = e.key.toLowerCase() === kb.key.toLowerCase();
@@ -34,5 +43,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []); // registry is a stable module-level reference
+  }, []); // registry and stores are stable module-level references
 }
