@@ -6,6 +6,7 @@ import SettingsPanel from './components/SettingsPanel';
 import ActivityBar from './components/ActivityBar';
 import ChromeBar from './components/ChromeBar';
 import TabBar from './components/TabBar';
+import StatusBar from './components/StatusBar';
 import PersonasPanel from './components/PersonasPanel';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import { useSettingsStore } from './stores/settingsStore';
@@ -209,6 +210,8 @@ export default function App() {
           )}
         </div>
       </div>
+
+      <StatusBar />
 
       {/* Settings overlay — triggered by ⌘, or activity bar gear */}
       <SettingsPanel />
