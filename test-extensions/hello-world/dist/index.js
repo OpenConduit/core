@@ -64,7 +64,7 @@ root.innerHTML = `
       color: var(--oc-badge-text);
       font-weight: 600;
     }
-    .section { background: var(--oc-bg-surface); border: 1px solid var(--oc-border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .section { background: var(--oc-bg-surface); border: 1px solid var(--oc-border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--oc-card-shadow); }
     .section-title { font-size: 11px; font-weight: 600; color: var(--oc-section-title); text-transform: uppercase; letter-spacing: 0.05em; }
     .kv { display: flex; justify-content: space-between; gap: 8px; }
     .kv-key { color: var(--oc-text-muted); }
