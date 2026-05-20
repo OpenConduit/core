@@ -35,6 +35,12 @@ const IconCompare = React.createElement('svg', { className: 'w-4 h-4', fill: 'no
 const IconPanel = React.createElement('svg', { className: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
   React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 1.5, d: 'M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z' }));
 
+const IconSecondarySidebar = React.createElement('svg', { className: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 1.5, d: 'M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4M9 3h10a2 2 0 012 2v14a2 2 0 01-2 2H9M9 3v18' }));
+
+const IconSplit = React.createElement('svg', { className: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 1.5, d: 'M12 3v18M3 12h18' }));
+
 // ─── Registrations ────────────────────────────────────────────────────────────
 
 commandRegistry.register({
@@ -164,5 +170,34 @@ commandRegistry.register({
     const { setKeyboardShortcutsOpen, setCommandPaletteOpen } = useUiStore.getState();
     setCommandPaletteOpen(false);
     setKeyboardShortcutsOpen(true);
+  },
+});
+
+commandRegistry.register({
+  id: 'core.toggleSecondarySidebar',
+  label: 'Toggle secondary sidebar',
+  shortcut: '⌘⇧B',
+  keybinding: { key: 'b', mod: true, shift: true },
+  icon: IconSecondarySidebar,
+  action: () => {
+    useUiStore.getState().toggleSecondarySidebar();
+    useUiStore.getState().setCommandPaletteOpen(false);
+  },
+});
+
+commandRegistry.register({
+  id: 'core.toggleSplitPane',
+  label: 'Toggle split pane',
+  shortcut: '⌘\\',
+  keybinding: { key: '\\', mod: true },
+  icon: IconSplit,
+  action: () => {
+    const { splitPaneOpen, openSplitPane, closeSplitPane, splitPaneContent } = useUiStore.getState();
+    if (splitPaneOpen) {
+      closeSplitPane();
+    } else if (splitPaneContent) {
+      openSplitPane(splitPaneContent);
+    }
+    useUiStore.getState().setCommandPaletteOpen(false);
   },
 });

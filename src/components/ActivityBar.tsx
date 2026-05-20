@@ -66,6 +66,12 @@ const SETTINGS_ICON = (
   </svg>
 );
 
+const SECONDARY_SIDEBAR_ICON = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4M9 3h10a2 2 0 012 2v14a2 2 0 01-2 2H9M9 3v18" />
+  </svg>
+);
+
 /** Structural first item — always rendered before extension contributions. */
 const NAV_ITEMS_BEFORE: NavItem[] = [
   { id: 'chats', label: 'Chats', icon: CHATS_ICON },
@@ -77,7 +83,7 @@ const NAV_ITEMS_AFTER: NavItem[] = [
 ];
 
 export default function ActivityBar() {
-  const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings, setCommandPaletteOpen, setKeyboardShortcutsOpen } =
+  const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings, setCommandPaletteOpen, setKeyboardShortcutsOpen, secondarySidebarOpen, toggleSecondarySidebar } =
     useUiStore();
   const { installedThemes, activeThemeId, setActiveTheme } = useThemesStore();
   const { settings, saveSettings } = useSettingsStore();
@@ -175,6 +181,21 @@ export default function ActivityBar() {
             </button>
           );
         })}
+      </div>
+
+      {/* Secondary sidebar toggle */}
+      <div className="w-full px-1 mb-1">
+        <button
+          onClick={toggleSecondarySidebar}
+          title={`${secondarySidebarOpen ? 'Close' : 'Open'} secondary sidebar (⌘⇧B)`}
+          className={`w-full h-10 flex items-center justify-center rounded-lg transition-colors ${
+            secondarySidebarOpen
+              ? 'text-slate-100 bg-slate-700'
+              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+          }`}
+        >
+          {SECONDARY_SIDEBAR_ICON}
+        </button>
       </div>
 
       {/* Manage menu anchor */}

@@ -61,6 +61,23 @@ interface UiState {
   injectMessage: (text: string) => void;
   /** Clear the injected message after it has been consumed. */
   clearInjectedMessage: () => void;
+
+  // ── Secondary sidebar (#28) ───────────────────────────────────────────────
+  secondarySidebarOpen: boolean;
+  setSecondarySidebarOpen: (v: boolean) => void;
+  toggleSecondarySidebar: () => void;
+  secondarySidebarWidth: number;
+  setSecondarySidebarWidth: (w: number) => void;
+  secondarySidebarPanel: 'context' | 'outline' | 'related';
+  setSecondarySidebarPanel: (panel: 'context' | 'outline' | 'related') => void;
+
+  // ── Split pane (#29) ─────────────────────────────────────────────────────
+  splitPaneOpen: boolean;
+  splitPaneWidth: number;
+  setSplitPaneWidth: (w: number) => void;
+  splitPaneContent: { type: 'code' | 'file' | 'preview' | 'conversation'; language?: string; payload: string } | null;
+  openSplitPane: (content: { type: 'code' | 'file' | 'preview' | 'conversation'; language?: string; payload: string }) => void;
+  closeSplitPane: () => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -143,4 +160,34 @@ export const useUiStore = create<UiState>()((set) => ({
   injectedMessage: null,
   injectMessage: (text) => set({ injectedMessage: text }),
   clearInjectedMessage: () => set({ injectedMessage: null }),
+
+  secondarySidebarOpen: false,
+  setSecondarySidebarOpen: (v) => set({ secondarySidebarOpen: v }),
+  toggleSecondarySidebar: () => set((s) => ({ secondarySidebarOpen: !s.secondarySidebarOpen })),
+  secondarySidebarWidth: (() => {
+    const saved = localStorage.getItem('oc-secondary-sidebar-width');
+    return saved ? Number(saved) : 280;
+  })(),
+  setSecondarySidebarWidth: (w) => {
+    localStorage.setItem('oc-secondary-sidebar-width', String(w));
+    set({ secondarySidebarWidth: w });
+  },
+  secondarySidebarPanel: (localStorage.getItem('oc-secondary-sidebar-panel') as 'context' | 'outline' | 'related') ?? 'context',
+  setSecondarySidebarPanel: (panel) => {
+    localStorage.setItem('oc-secondary-sidebar-panel', panel);
+    set({ secondarySidebarPanel: panel });
+  },
+
+  splitPaneOpen: false,
+  splitPaneWidth: (() => {
+    const saved = localStorage.getItem('oc-split-pane-width');
+    return saved ? Number(saved) : 420;
+  })(),
+  setSplitPaneWidth: (w) => {
+    localStorage.setItem('oc-split-pane-width', String(w));
+    set({ splitPaneWidth: w });
+  },
+  splitPaneContent: null,
+  openSplitPane: (content) => set({ splitPaneOpen: true, splitPaneContent: content }),
+  closeSplitPane: () => set({ splitPaneOpen: false, splitPaneContent: null }),
 }));
