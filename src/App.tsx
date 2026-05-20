@@ -12,7 +12,8 @@ import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutsPanel from './components/KeyboardShortcutsPanel';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import SecondarySidebar from './components/SecondarySidebar';
-import SplitPane from './components/SplitPane';
+import SplitPane, { PaneCodeViewer } from './components/SplitPane';
+import { PaneContext } from './contexts/PaneContext';
 // Register all built-in extensions (side-effect import)
 import './extensions';
 import { extensionRegistry } from './extensions/extensionRegistry';
@@ -39,6 +40,7 @@ export default function App() {
     isCompareMode, sidebarOpen, activePanel, setCommandPaletteOpen,
     secondarySidebarOpen, secondarySidebarWidth, setSecondarySidebarWidth,
     splitPaneOpen, splitPaneWidth, setSplitPaneWidth,
+    leftPaneContent, closeLeftPane,
   } = useUiStore();
   const { conversations, openTabs, openTab } = useConversationStore();
   const { restoreTheme, setActiveTheme } = useThemesStore();
@@ -240,30 +242,43 @@ export default function App() {
 
         {/* Main content area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <TabBar />
-            <div className="flex-1 flex min-h-0 overflow-hidden">
-              {isCompareMode ? (
-                <CompareArea />
-              ) : (
-                <ChatArea conversationId={activeConversationId} />
-              )}
-              {splitPaneOpen && (
-                <>
-                  {/* Split divider */}
-                  <div
-                    onMouseDown={handleSplitResizeStart}
-                    className="w-1 flex-shrink-0 cursor-col-resize group"
-                  >
-                    <div className="h-full w-px bg-slate-700 group-hover:bg-blue-500 transition-colors duration-150" />
-                  </div>
-                  <div style={{ width: splitPaneWidth }} className="flex-shrink-0 flex flex-col min-h-0">
-                    <SplitPane />
-                  </div>
-                </>
-              )}
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            {/* Left pane — TabBar + body (chat or code/file/preview viewer) */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <TabBar />
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                {isCompareMode ? (
+                  <CompareArea />
+                ) : leftPaneContent ? (
+                  <PaneContext.Provider value="left">
+                    <div className="flex flex-col h-full">
+                      <PaneCodeViewer content={leftPaneContent} onClose={closeLeftPane} />
+                    </div>
+                  </PaneContext.Provider>
+                ) : (
+                  <PaneContext.Provider value="left">
+                    <ChatArea conversationId={activeConversationId} />
+                  </PaneContext.Provider>
+                )}
+              </div>
             </div>
-            <BottomPanel />
+            {/* Right pane */}
+            {splitPaneOpen && (
+              <>
+                <div
+                  onMouseDown={handleSplitResizeStart}
+                  className="w-1 flex-shrink-0 cursor-col-resize group"
+                >
+                  <div className="h-full w-px bg-slate-700 group-hover:bg-blue-500 transition-colors duration-150" />
+                </div>
+                <div style={{ width: splitPaneWidth }} className="flex-shrink-0 flex flex-col min-h-0">
+                  <SplitPane />
+                </div>
+              </>
+            )}
           </div>
+          <BottomPanel />
+        </div>
 
           {/* Secondary sidebar (#28) */}
           {secondarySidebarOpen && (

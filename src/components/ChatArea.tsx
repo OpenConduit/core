@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function ChatArea({ conversationId }: Props) {
-  const { conversation, isStreaming, isCompacting, sendMessage, abortStream, approveToolCall, sendAnswers, compactContext, trimOldMessages } = useChat();
+  const { conversation, isStreaming, isCompacting, sendMessage, abortStream, approveToolCall, sendAnswers, compactContext, trimOldMessages } = useChat(conversationId);
   const { settings } = useSettingsStore();
   const { clearMessages } = useConversationStore();
   const { activeConversationId } = useUiStore();

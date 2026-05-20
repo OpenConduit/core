@@ -228,7 +228,7 @@ function ensureListeners() {
   });
 }
 
-export function useChat() {
+export function useChat(conversationId?: string | null) {
   const { conversations, addMessage, updateConversation, replaceMessages } = useConversationStore();
   const { settings } = useSettingsStore();
   const {
@@ -241,6 +241,8 @@ export function useChat() {
     injectedMessage,
     clearInjectedMessage,
   } = useUiStore();
+
+  const effectiveId = conversationId ?? activeConversationId;
 
   useEffect(() => {
     ensureListeners();
@@ -259,15 +261,15 @@ export function useChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [injectedMessage]);
 
-  const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null;
+  const activeConversation = conversations.find((c) => c.id === effectiveId) ?? null;
 
   const sendMessage = useCallback(
     async (content: string, attachments?: Attachment[]) => {
-      if (!activeConversationId || !settings || isStreaming) return;
+      if (!effectiveId || !settings || isStreaming) return;
 
       const conv = useConversationStore
         .getState()
-        .conversations.find((c) => c.id === activeConversationId);
+        .conversations.find((c) => c.id === effectiveId);
       if (!conv) return;
 
       const persona = conv.personaId
@@ -289,21 +291,21 @@ export function useChat() {
         attachments,
         timestamp: Date.now(),
       };
-      addMessage(activeConversationId, userMsg);
+      addMessage(effectiveId, userMsg);
 
       // Auto-title from first user message
       if (conv.messages.length === 0) {
         const title = content.slice(0, 60) + (content.length > 60 ? '…' : '');
-        updateConversation(activeConversationId, { title });
+        updateConversation(effectiveId, { title });
       }
 
       // Build request from latest state
       const freshConv = useConversationStore
         .getState()
-        .conversations.find((c) => c.id === activeConversationId)!;
+        .conversations.find((c) => c.id === effectiveId)!;
 
       let request: ChatRequest = {
-        conversationId: activeConversationId,
+        conversationId: effectiveId,
         // Strip any empty assistant placeholders left over from prior failed turns
         // so they don't get forwarded to the provider as `content: null`.
         messages: freshConv.messages.filter(
@@ -366,7 +368,7 @@ export function useChat() {
       // causing updateMessage to silently drop the error because the message
       // doesn't exist in the store yet.
       const messageId = uuidv4();
-      addMessage(activeConversationId, {
+      addMessage(effectiveId, {
         id: messageId,
         role: 'assistant',
         content: '',
@@ -379,20 +381,20 @@ export function useChat() {
 
       await service.chat.send({ ...request, messageId });
     },
-    [activeConversationId, settings, isStreaming, addMessage, updateConversation, setIsStreaming],
+    [effectiveId, settings, isStreaming, addMessage, updateConversation, setIsStreaming],
   );
 
   const abortStream = useCallback(() => {
-    if (activeConversationId) {
-      service.chat.abort(activeConversationId);
+    if (effectiveId) {
+      service.chat.abort(effectiveId);
       useUiStore.getState().setIsStreaming(false);
     }
-  }, [activeConversationId]);
+  }, [effectiveId]);
 
   /** Summarize the conversation and replace all messages with the summary. */
   const compactContext = useCallback(async () => {
-    if (!activeConversationId || !settings || isStreaming || isCompacting) return;
-    const conv = useConversationStore.getState().conversations.find((c) => c.id === activeConversationId);
+    if (!effectiveId || !settings || isStreaming || isCompacting) return;
+    const conv = useConversationStore.getState().conversations.find((c) => c.id === effectiveId);
     if (!conv || conv.messages.length < 2) return;
 
     const providerId = conv.providerId ?? settings.defaultProviderId;
@@ -415,7 +417,7 @@ export function useChat() {
     }
 
     const request: ChatRequest = {
-      conversationId: activeConversationId,
+      conversationId: effectiveId,
       messages: [
         ...safeMessages,
         {
@@ -435,7 +437,7 @@ export function useChat() {
     try {
       const messageId = uuidv4();
       compactingRequests.add(messageId);
-      addMessage(activeConversationId, {
+      addMessage(effectiveId, {
         id: messageId,
         role: 'assistant',
         content: '',
@@ -449,12 +451,12 @@ export function useChat() {
       useUiStore.getState().setIsCompacting(false);
       setIsStreaming(false);
     }
-  }, [activeConversationId, settings, isStreaming, isCompacting, addMessage, setIsStreaming]);
+  }, [effectiveId, settings, isStreaming, isCompacting, addMessage, setIsStreaming]);
 
   /** Drop the oldest messages until context usage falls below 50% (or remove oldest 4 if no limit known). */
   const trimOldMessages = useCallback(() => {
-    if (!activeConversationId) return;
-    const conv = useConversationStore.getState().conversations.find((c) => c.id === activeConversationId);
+    if (!effectiveId) return;
+    const conv = useConversationStore.getState().conversations.find((c) => c.id === effectiveId);
     if (!conv || conv.messages.length <= 2) return;
 
     const providerId = conv.providerId ?? settings?.defaultProviderId ?? '';
@@ -478,8 +480,8 @@ export function useChat() {
       messages = messages.slice(toDrop);
     }
 
-    replaceMessages(activeConversationId, messages);
-  }, [activeConversationId, settings, replaceMessages]);
+    replaceMessages(effectiveId, messages);
+  }, [effectiveId, settings, replaceMessages]);
 
   const approveToolCall = useCallback(
     (toolId: string, approved: boolean) => {

@@ -78,9 +78,16 @@ interface UiState {
   splitPaneContent: { type: 'code' | 'file' | 'preview' | 'conversation'; language?: string; payload: string } | null;
   openSplitPane: (content: { type: 'code' | 'file' | 'preview' | 'conversation'; language?: string; payload: string }) => void;
   closeSplitPane: () => void;
+  rightPaneTabs: string[];
+  closeRightPaneTab: (id: string) => void;
+
+  // ── Left pane content — allows main area to show code/file/preview (#29) ──
+  leftPaneContent: { type: 'code' | 'file' | 'preview'; language?: string; payload: string } | null;
+  openInLeftPane: (content: { type: 'code' | 'file' | 'preview'; language?: string; payload: string }) => void;
+  closeLeftPane: () => void;
 }
 
-export const useUiStore = create<UiState>()((set) => ({
+export const useUiStore = create<UiState>()((set, get) => ({
   activeConversationId: null,
   setActiveConversation: (id) => set({ activeConversationId: id }),
 
@@ -188,6 +195,34 @@ export const useUiStore = create<UiState>()((set) => ({
     set({ splitPaneWidth: w });
   },
   splitPaneContent: null,
-  openSplitPane: (content) => set({ splitPaneOpen: true, splitPaneContent: content }),
-  closeSplitPane: () => set({ splitPaneOpen: false, splitPaneContent: null }),
+  rightPaneTabs: [],
+  openSplitPane: (content) => {
+    if (content.type === 'conversation') {
+      const tabs = get().rightPaneTabs;
+      if (!tabs.includes(content.payload)) {
+        set({ rightPaneTabs: [...tabs, content.payload] });
+      }
+    }
+    set({ splitPaneOpen: true, splitPaneContent: content });
+  },
+  closeSplitPane: () => set({ splitPaneOpen: false, splitPaneContent: null, rightPaneTabs: [] }),
+  closeRightPaneTab: (id) => {
+    const state = get();
+    const tabs = state.rightPaneTabs.filter((t) => t !== id);
+    const isActive = state.splitPaneContent?.type === 'conversation' && state.splitPaneContent.payload === id;
+    if (isActive) {
+      if (tabs.length > 0) {
+        set({ rightPaneTabs: tabs, splitPaneContent: { type: 'conversation', payload: tabs[tabs.length - 1] } });
+      } else {
+        set({ splitPaneOpen: false, splitPaneContent: null, rightPaneTabs: [] });
+      }
+    } else {
+      set({ rightPaneTabs: tabs });
+    }
+  },
+
+  // Left pane content
+  leftPaneContent: null,
+  openInLeftPane: (content) => set({ leftPaneContent: content }),
+  closeLeftPane: () => set({ leftPaneContent: null }),
 }));
