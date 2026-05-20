@@ -18,6 +18,10 @@ export type { DebugLevel, DebugEntry } from './stores/debugConsoleStore';
 // Command registry (#38)
 export { commandRegistry } from './commands/commandRegistry';
 export type { CommandContribution } from './commands/commandRegistry';
+
+// Extension platform (#38)
+export { extensionRegistry } from './extensions/extensionRegistry';
+export type { ExtensionManifest, ActivityBarContribution } from './extensions/types';
 import './commands/coreCommandContributions'; // side-effect: registers built-in commands
 
 // Themes store (#25 / #22)

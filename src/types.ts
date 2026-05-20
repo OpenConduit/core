@@ -387,6 +387,24 @@ export interface SettingsContribution {
   sections: SettingsSection[];
 }
 
+// ─── Extension Loader ────────────────────────────────────────────────────────
+
+/**
+ * Metadata returned by the main process for each extension installed in
+ * `userData/extensions/<id>/`. Consumed by `loadInstalledExtensions()` in the
+ * renderer to dynamically import each extension's bundled entry point.
+ */
+export interface InstalledExtensionInfo {
+  /** Namespaced extension id, e.g. `'acme.map'`. */
+  id: string;
+  /** Human-readable display name. */
+  name: string;
+  /** SemVer version string. */
+  version: string;
+  /** Absolute path to the extension's bundled JS entry point. */
+  entryPoint: string;
+}
+
 // ─── IPC Channel Names ─────────────────────────────────────────────────────
 
 export const IPC = {
@@ -428,6 +446,9 @@ export const IPC = {
 
   // Routing
   ROUTING_EVALUATE: 'routing:evaluate',
+
+  // Extensions
+  EXTENSIONS_GET_INSTALLED: 'extensions:get-installed',
 } as const;
 
 // ─── Chat Request / Response ────────────────────────────────────────────────

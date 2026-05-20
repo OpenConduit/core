@@ -10,8 +10,11 @@ import StatusBar from './components/StatusBar';
 import BottomPanel from './components/BottomPanel';
 import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutsPanel from './components/KeyboardShortcutsPanel';
-import PersonasPanel from './components/PersonasPanel';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
+// Register all built-in extensions (side-effect import)
+import './extensions';
+import { extensionRegistry } from './extensions/extensionRegistry';
+import { loadInstalledExtensions } from './extensions/loader';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUiStore } from './stores/uiStore';
 import { useConversationStore } from './stores/conversationStore';
@@ -61,6 +64,15 @@ export default function App() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  // Expose the extension SDK surface on window so dynamically-loaded extension
+  // bundles can call extensionRegistry.registerExtension() without bundling core.
+  useEffect(() => {
+    (window as Window & { __openConduit?: unknown }).__openConduit = { extensionRegistry };
+    // Load marketplace-installed extensions from userData/extensions/
+    loadInstalledExtensions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Restore active custom theme CSS vars on mount
   useEffect(() => {
@@ -155,12 +167,17 @@ export default function App() {
             className="relative flex-shrink-0 bg-slate-800 flex flex-col border-r border-slate-700 overflow-hidden"
           >
             {activePanel === 'chats' && <Sidebar />}
-            {activePanel === 'personas' && (
-              <div className="flex-1 overflow-y-auto p-4">
-                <PersonasPanel />
-              </div>
-            )}
             {activePanel === 'marketplace' && <MarketplaceSidebarPanel />}
+            {/* Extension-contributed sidebar panels */}
+            {(() => {
+              const ExtPanel = extensionRegistry.getSidebarPanel(activePanel);
+              if (!ExtPanel) return null;
+              return (
+                <div className="flex-1 overflow-y-auto p-4">
+                  <ExtPanel />
+                </div>
+              );
+            })()}
 
             {/* Resize handle */}
             <div
