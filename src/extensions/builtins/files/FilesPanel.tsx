@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useUiStore } from '../../../stores/uiStore';
 import { useSavedFilesStore, type SavedFile } from '../../../stores/filesStore';
 
 // ─── Preview helpers ──────────────────────────────────────────────────────────
@@ -243,16 +242,12 @@ function FileRow({ file, onDelete, onRename, onPreview }: FileRowProps) {
 }
 
 export default function FilesPanel() {
-  const { showFilesPanel, setShowFilesPanel } = useUiStore();
   const { files, deleteFile, renameFile } = useSavedFilesStore();
   const [previewFile, setPreviewFile] = useState<SavedFile | null>(null);
 
-  if (!showFilesPanel) return null;
-
   return (
     <div
-      className={`absolute inset-y-0 right-0 bg-slate-900 border-l border-slate-700 flex flex-col z-40 shadow-2xl ${previewFile ? 'w-[520px]' : 'w-72'}`}
-      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      className={`flex flex-col h-full bg-slate-900 ${previewFile ? 'min-w-0' : ''}`}
     >
       {/* Header */}
       {previewFile ? (
@@ -268,15 +263,6 @@ export default function FilesPanel() {
             </svg>
           </button>
           <span className="text-xs text-slate-400 truncate flex-1">{previewFile.name}</span>
-          <button
-            type="button"
-            onClick={() => setShowFilesPanel(false)}
-            className="p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
       ) : (
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-700 flex-shrink-0">
@@ -291,15 +277,6 @@ export default function FilesPanel() {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setShowFilesPanel(false)}
-          className="p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
       )}
 
