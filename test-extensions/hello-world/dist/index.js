@@ -117,6 +117,30 @@ root.innerHTML = `
     .check-icon.fail { color: var(--oc-status-err); }
     .check-label { flex: 1; font-family: monospace; font-size: 11px; }
     .check-note { color: var(--oc-text-muted); font-size: 11px; }
+    /* Settings rows */
+    .settings-rows { display: flex; flex-direction: column; gap: 8px; }
+    .setting-row {
+      border: 1px solid var(--oc-border); border-radius: 6px; padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 4px; background: var(--oc-bg);
+    }
+    .setting-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .setting-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .setting-label { font-size: 12px; font-weight: 500; color: var(--oc-text); }
+    .setting-key { font-family: monospace; font-size: 10px; color: var(--oc-text-muted); }
+    .setting-controls { display: flex; align-items: center; gap: 5px; flex-shrink: 0; flex-wrap: wrap; }
+    .setting-btn { padding: 3px 8px; font-size: 11px; }
+    .setting-btn.get { background: var(--oc-bg); color: var(--oc-text); border: 1px solid var(--oc-border); }
+    .setting-btn.get:hover { background: var(--oc-bg-surface); }
+    .setting-desc { font-size: 11px; color: var(--oc-text-muted); }
+    .setting-status { font-size: 11px; color: var(--oc-text-muted); min-height: 14px; }
+    .setting-status.ok  { color: var(--oc-status-ok); }
+    .setting-status.err { color: var(--oc-status-err); }
+    input[type="number"] {
+      background: var(--oc-bg); border: 1px solid var(--oc-border); border-radius: 6px;
+      color: var(--oc-text); font-size: 12px; padding: 5px 8px; outline: none; width: 72px;
+    }
+    input[type="number"]:focus { border-color: var(--oc-btn-bg); }
+    input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--oc-btn-bg); flex-shrink: 0; }
   </style>
 
   <div class="panel">
@@ -159,6 +183,13 @@ root.innerHTML = `
       </div>
       <div id="custom-status" class="status" style="min-height:14px"></div>
       <pre id="custom-out" style="display:none"></pre>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Extension Settings</div>
+      <p>Read or write this extension\'s settings via <code>settings.get</code> / <code>settings.set</code>. Returns the <em>"not yet implemented"</em> stub until #55 lands — inputs show defaults until then.</p>
+      <button id="btn-settings-read-all" style="align-self:flex-start">Read all from host</button>
+      <div class="settings-rows" id="settings-rows"></div>
     </div>
 
     <div class="section">
@@ -292,7 +323,138 @@ document.getElementById('btn-custom').addEventListener('click', async () => {
   }
 });
 
-// ─── 7. Sandbox security checks ───────────────────────────────────────────────
+// ─── 7. Extension settings ───────────────────────────────────────────────────
+const EXTENSION_SETTINGS = [
+  {
+    key:         'test.hello-world.greeting',
+    type:        'string',
+    default:     'Hello!',
+    label:       'Greeting message',
+    description: 'Custom greeting shown at the top of the panel.',
+  },
+  {
+    key:         'test.hello-world.autoRefresh',
+    type:        'boolean',
+    default:     false,
+    label:       'Auto-refresh on open',
+    description: 'Automatically refresh API data when the panel opens.',
+  },
+  {
+    key:         'test.hello-world.maxItems',
+    type:        'number',
+    default:     10,
+    label:       'Max items',
+    description: 'Maximum number of items to display in lists.',
+  },
+];
+
+const settingsRows = document.getElementById('settings-rows');
+
+EXTENSION_SETTINGS.forEach((s, i) => {
+  let inputHtml;
+  if (s.type === 'boolean') {
+    inputHtml = `<input type="checkbox" id="setting-input-${i}" ${s.default ? 'checked' : ''} />`;
+  } else if (s.type === 'number') {
+    inputHtml = `<input type="number" id="setting-input-${i}" value="${s.default}" />`;
+  } else {
+    inputHtml = `<input type="text" id="setting-input-${i}" value="${s.default}" style="max-width:160px" />`;
+  }
+
+  const row = document.createElement('div');
+  row.className = 'setting-row';
+  row.innerHTML = `
+    <div class="setting-header">
+      <div class="setting-info">
+        <span class="setting-label">${s.label}</span>
+        <span class="setting-key">${s.key}</span>
+      </div>
+      <div class="setting-controls">
+        ${inputHtml}
+        <button class="setting-btn get" id="setting-btn-get-${i}">Get</button>
+        <button class="setting-btn" id="setting-btn-set-${i}">Set</button>
+      </div>
+    </div>
+    <div class="setting-desc">${s.description}</div>
+    <div class="setting-status" id="setting-status-${i}"></div>
+  `;
+  settingsRows.appendChild(row);
+
+  async function getSettingValue() {
+    const statusEl = document.getElementById('setting-status-' + i);
+    statusEl.textContent = 'reading…';
+    statusEl.className = 'setting-status';
+    try {
+      const resp = await callApi('settings.get', [s.key]);
+      if (resp.error) {
+        statusEl.textContent = `stub (expected until #55): ${resp.error}`;
+        statusEl.className = 'setting-status err';
+      } else {
+        const input = document.getElementById('setting-input-' + i);
+        if (s.type === 'boolean') input.checked = !!resp.result;
+        else input.value = resp.result !== undefined ? String(resp.result) : String(s.default);
+        statusEl.textContent = 'read ok';
+        statusEl.className = 'setting-status ok';
+      }
+    } catch (err) {
+      document.getElementById('setting-status-' + i).textContent = err.message;
+      document.getElementById('setting-status-' + i).className = 'setting-status err';
+    }
+  }
+
+  document.getElementById('setting-btn-get-' + i).addEventListener('click', getSettingValue);
+
+  document.getElementById('setting-btn-set-' + i).addEventListener('click', async () => {
+    const statusEl = document.getElementById('setting-status-' + i);
+    const input    = document.getElementById('setting-input-' + i);
+    const value    = s.type === 'boolean' ? input.checked
+                   : s.type === 'number'  ? Number(input.value)
+                   : input.value;
+
+    statusEl.textContent = 'saving…';
+    statusEl.className = 'setting-status';
+    try {
+      const resp = await callApi('settings.set', [s.key, value]);
+      if (resp.error) {
+        statusEl.textContent = `stub (expected until #55): ${resp.error}`;
+        statusEl.className = 'setting-status err';
+      } else {
+        statusEl.textContent = 'saved ok';
+        statusEl.className = 'setting-status ok';
+      }
+    } catch (err) {
+      statusEl.textContent = err.message;
+      statusEl.className = 'setting-status err';
+    }
+  });
+});
+
+document.getElementById('btn-settings-read-all').addEventListener('click', async () => {
+  for (let i = 0; i < EXTENSION_SETTINGS.length; i++) {
+    const s = EXTENSION_SETTINGS[i];
+    const statusEl = document.getElementById('setting-status-' + i);
+    statusEl.textContent = 'reading…';
+    statusEl.className = 'setting-status';
+    try {
+      const resp = await callApi('settings.get', [s.key]);
+      if (resp.error) {
+        statusEl.textContent = 'stub (expected until #55)';
+        statusEl.className = 'setting-status err';
+      } else {
+        const input = document.getElementById('setting-input-' + i);
+        if (s.type === 'boolean') input.checked = !!resp.result;
+        else input.value = resp.result !== undefined ? String(resp.result) : String(s.default);
+        statusEl.textContent = 'read ok';
+        statusEl.className = 'setting-status ok';
+      }
+    } catch {
+      const statusEl2 = document.getElementById('setting-status-' + i);
+      statusEl2.textContent = 'error';
+      statusEl2.className = 'setting-status err';
+    }
+  }
+});
+
+// ─── 8. Sandbox security checks ─────────────────────────────────────────────────
 const CHECKS = [
   {
     label: 'parent.document access',

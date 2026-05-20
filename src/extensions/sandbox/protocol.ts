@@ -54,9 +54,20 @@ export interface SandboxActivityBarItem {
   order?: number;
 }
 
+/** A single extension setting declared in the manifest. */
+export interface SandboxSettingDefinition {
+  /** Dot-namespaced key, e.g. `my-ext.theme`. Should be prefixed with the extension id. */
+  key: string;
+  type: 'string' | 'boolean' | 'number';
+  default: string | boolean | number;
+  description?: string;
+}
+
 /** All contribution types a sandboxed extension can declare. */
 export interface SandboxContributions {
   activityBarItems?: SandboxActivityBarItem[];
+  /** Declares the settings keys this extension owns. Used by the host settings UI. */
+  settings?: SandboxSettingDefinition[];
 }
 
 /**
