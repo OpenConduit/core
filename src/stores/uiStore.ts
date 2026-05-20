@@ -61,9 +61,33 @@ interface UiState {
   injectMessage: (text: string) => void;
   /** Clear the injected message after it has been consumed. */
   clearInjectedMessage: () => void;
+
+  // ── Secondary sidebar (#28) ───────────────────────────────────────────────
+  secondarySidebarOpen: boolean;
+  setSecondarySidebarOpen: (v: boolean) => void;
+  toggleSecondarySidebar: () => void;
+  secondarySidebarWidth: number;
+  setSecondarySidebarWidth: (w: number) => void;
+  secondarySidebarPanel: 'context' | 'outline' | 'related';
+  setSecondarySidebarPanel: (panel: 'context' | 'outline' | 'related') => void;
+
+  // ── Split pane (#29) ─────────────────────────────────────────────────────
+  splitPaneOpen: boolean;
+  splitPaneWidth: number;
+  setSplitPaneWidth: (w: number) => void;
+  splitPaneContent: { type: 'code' | 'file' | 'preview' | 'conversation'; language?: string; payload: string } | null;
+  openSplitPane: (content: { type: 'code' | 'file' | 'preview' | 'conversation'; language?: string; payload: string }) => void;
+  closeSplitPane: () => void;
+  rightPaneTabs: string[];
+  closeRightPaneTab: (id: string) => void;
+
+  // ── Left pane content — allows main area to show code/file/preview (#29) ──
+  leftPaneContent: { type: 'code' | 'file' | 'preview'; language?: string; payload: string } | null;
+  openInLeftPane: (content: { type: 'code' | 'file' | 'preview'; language?: string; payload: string }) => void;
+  closeLeftPane: () => void;
 }
 
-export const useUiStore = create<UiState>()((set) => ({
+export const useUiStore = create<UiState>()((set, get) => ({
   activeConversationId: null,
   setActiveConversation: (id) => set({ activeConversationId: id }),
 
@@ -143,4 +167,62 @@ export const useUiStore = create<UiState>()((set) => ({
   injectedMessage: null,
   injectMessage: (text) => set({ injectedMessage: text }),
   clearInjectedMessage: () => set({ injectedMessage: null }),
+
+  secondarySidebarOpen: false,
+  setSecondarySidebarOpen: (v) => set({ secondarySidebarOpen: v }),
+  toggleSecondarySidebar: () => set((s) => ({ secondarySidebarOpen: !s.secondarySidebarOpen })),
+  secondarySidebarWidth: (() => {
+    const saved = localStorage.getItem('oc-secondary-sidebar-width');
+    return saved ? Number(saved) : 280;
+  })(),
+  setSecondarySidebarWidth: (w) => {
+    localStorage.setItem('oc-secondary-sidebar-width', String(w));
+    set({ secondarySidebarWidth: w });
+  },
+  secondarySidebarPanel: (localStorage.getItem('oc-secondary-sidebar-panel') as 'context' | 'outline' | 'related') ?? 'context',
+  setSecondarySidebarPanel: (panel) => {
+    localStorage.setItem('oc-secondary-sidebar-panel', panel);
+    set({ secondarySidebarPanel: panel });
+  },
+
+  splitPaneOpen: false,
+  splitPaneWidth: (() => {
+    const saved = localStorage.getItem('oc-split-pane-width');
+    return saved ? Number(saved) : 420;
+  })(),
+  setSplitPaneWidth: (w) => {
+    localStorage.setItem('oc-split-pane-width', String(w));
+    set({ splitPaneWidth: w });
+  },
+  splitPaneContent: null,
+  rightPaneTabs: [],
+  openSplitPane: (content) => {
+    if (content.type === 'conversation') {
+      const tabs = get().rightPaneTabs;
+      if (!tabs.includes(content.payload)) {
+        set({ rightPaneTabs: [...tabs, content.payload] });
+      }
+    }
+    set({ splitPaneOpen: true, splitPaneContent: content });
+  },
+  closeSplitPane: () => set({ splitPaneOpen: false, splitPaneContent: null, rightPaneTabs: [] }),
+  closeRightPaneTab: (id) => {
+    const state = get();
+    const tabs = state.rightPaneTabs.filter((t) => t !== id);
+    const isActive = state.splitPaneContent?.type === 'conversation' && state.splitPaneContent.payload === id;
+    if (isActive) {
+      if (tabs.length > 0) {
+        set({ rightPaneTabs: tabs, splitPaneContent: { type: 'conversation', payload: tabs[tabs.length - 1] } });
+      } else {
+        set({ splitPaneOpen: false, splitPaneContent: null, rightPaneTabs: [] });
+      }
+    } else {
+      set({ rightPaneTabs: tabs });
+    }
+  },
+
+  // Left pane content
+  leftPaneContent: null,
+  openInLeftPane: (content) => set({ leftPaneContent: content }),
+  closeLeftPane: () => set({ leftPaneContent: null }),
 }));

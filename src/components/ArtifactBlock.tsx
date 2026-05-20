@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import hljs from 'highlight.js';
 import { useSavedFilesStore } from '../stores/filesStore';
+import { useUiStore } from '../stores/uiStore';
+import { usePaneContext } from '../contexts/PaneContext';
 
 const PREVIEWABLE = new Set(['html', 'svg', 'mermaid']);
 
@@ -34,6 +36,8 @@ export default function ArtifactBlock({ language, code, conversationId }: Props)
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const { saveFile } = useSavedFilesStore();
+  const { openSplitPane, openInLeftPane } = useUiStore();
+  const pane = usePaneContext();
 
   const highlighted = useMemo(() => {
     try {
@@ -122,6 +126,23 @@ export default function ArtifactBlock({ language, code, conversationId }: Props)
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
               </svg>
             )}
+          </button>
+
+          {/* Open in the other pane */}
+          <button
+            onClick={() => {
+              if (pane === 'right') {
+                openInLeftPane({ type: 'code', language, payload: code });
+              } else {
+                openSplitPane({ type: 'code', language, payload: code });
+              }
+            }}
+            title={pane === 'right' ? 'Open in main pane' : 'Open in split pane (⌘\\)'}
+            className="p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
           </button>
         </div>
       </div>

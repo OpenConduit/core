@@ -9,7 +9,7 @@ export default function Sidebar() {
   const { conversations, addConversation, deleteConversation, openTab } = useConversationStore();
   const { settings } = useSettingsStore();
   const { personas } = usePersonasStore();
-  const { activeConversationId, setActiveConversation } = useUiStore();
+  const { activeConversationId, setActiveConversation, openSplitPane } = useUiStore();
   const [query, setQuery] = useState('');
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -145,6 +145,7 @@ export default function Sidebar() {
             onDelete={(e) => handleDelete(e, conv.id)}
             onExportJson={(e) => handleExport(e, conv.id, 'json')}
             onExportMd={(e) => handleExport(e, conv.id, 'md')}
+            onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: conv.id }); }}
           />
           ));
         })()}
@@ -165,6 +166,7 @@ interface ConversationItemProps {
   onDelete: (e: React.MouseEvent) => void;
   onExportJson: (e: React.MouseEvent) => void;
   onExportMd: (e: React.MouseEvent) => void;
+  onOpenInSplit: (e: React.MouseEvent) => void;
 }
 
 function ConversationItem({
@@ -177,6 +179,7 @@ function ConversationItem({
   onDelete,
   onExportJson,
   onExportMd,
+  onOpenInSplit,
 }: ConversationItemProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -210,6 +213,17 @@ function ConversationItem({
         </div>
         <p className="text-xs text-slate-500 mt-0.5">{label}</p>
       </div>
+
+      {/* Split pane button */}
+      <button
+        onClick={onOpenInSplit}
+        title="Open in split pane"
+        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-600 text-slate-400 hover:text-slate-200 transition-all"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4m0-18h10a2 2 0 012 2v14a2 2 0 01-2 2H9m0-18v18" />
+        </svg>
+      </button>
 
       {/* Context menu trigger */}
       <button
