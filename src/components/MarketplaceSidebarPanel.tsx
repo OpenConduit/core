@@ -12,6 +12,7 @@ import type { PromptVariable } from '../stores/promptTemplatesStore';
 import { useRoutingProfilesStore } from '../stores/routingProfilesStore';
 import { useRegistryStore } from '../stores/registryStore';
 import type { RegistryType, RegistryEntry } from '../stores/registryStore';
+import { loadInstalledExtensions } from '../extensions/loader';
 
 /** Returns true if `registryVer` is strictly greater than `installedVer` (semver). */
 function isNewer(registryVer: string | undefined, installedVer: string | undefined): boolean {
@@ -396,7 +397,7 @@ export default function MarketplaceSidebarPanel() {
     return pool;
   }, [settings, effectiveType, cleanQuery, getEntries, installedThemeIds, installedPersonaNames, installedTemplateNames, installedProfileNames, installedThemes, installedPersonas, installedTemplates, installedProfiles]);
 
-  const handleAdd = (entry: UnifiedEntry) => {
+  const handleAdd = async (entry: UnifiedEntry) => {
     if (!settings) return;
 
     if (entry.kind === 'provider') {
@@ -481,6 +482,10 @@ export default function MarketplaceSidebarPanel() {
         fromRegistry: true,
       });
     }
+
+    // Re-run the extension loader so any newly-downloaded bundle extension
+    // appears immediately without requiring an app restart.
+    await loadInstalledExtensions();
   };
 
   const handleRemove = (entry: UnifiedEntry) => {
@@ -498,23 +503,23 @@ export default function MarketplaceSidebarPanel() {
   };
 
   /** Remove the old installed copy then re-install the latest version from the registry. */
-  const handleUpdate = (entry: UnifiedEntry) => {
+  const handleUpdate = async (entry: UnifiedEntry) => {
     if (entry.kind === 'theme') {
       // installTheme dedupes by id, so calling handleAdd is sufficient
-      handleAdd(entry);
+      await handleAdd(entry);
     } else if (entry.kind === 'persona') {
       const personaName = (entry.entry.content as { name?: string }).name ?? entry.name;
       const existing = installedPersonas.find((p) => p.name === personaName);
       if (existing) deletePersona(existing.id);
-      handleAdd(entry);
+      await handleAdd(entry);
     } else if (entry.kind === 'prompt') {
       const existing = installedTemplates.find((t) => t.name === entry.name);
       if (existing) removeTemplate(existing.id);
-      handleAdd(entry);
+      await handleAdd(entry);
     } else if (entry.kind === 'profile') {
       const existing = installedProfiles.find((p) => p.name === entry.name);
       if (existing) removeProfile(existing.id);
-      handleAdd(entry);
+      await handleAdd(entry);
     }
   };
 
