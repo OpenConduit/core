@@ -36,7 +36,14 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Publish
-        run: npm publish --tag alpha
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *"-"* ]]; then
+            DIST_TAG=$(echo "$VERSION" | sed 's/[0-9]*\.[0-9]*\.[0-9]*-\([a-zA-Z]*\).*/\1/')
+            npm publish --tag "$DIST_TAG"
+          else
+            npm publish
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
