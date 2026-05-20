@@ -238,11 +238,26 @@ export function useChat() {
     isCompacting,
     pendingApprovals,
     removePendingApproval,
+    injectedMessage,
+    clearInjectedMessage,
   } = useUiStore();
 
   useEffect(() => {
     ensureListeners();
   }, []);
+
+  // ── Extension message injection (#55) ──────────────────────────────────────
+  // When an extension calls api.conversations.sendMessage(), it sets
+  // injectedMessage in uiStore. Pick it up here and send it through the normal
+  // chat pipeline, then clear the queue.
+  useEffect(() => {
+    if (!injectedMessage) return;
+    const text = injectedMessage;
+    clearInjectedMessage();
+    void sendMessage(text);
+    // sendMessage is defined below via useCallback — the dependency is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [injectedMessage]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null;
 

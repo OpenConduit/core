@@ -7,7 +7,94 @@ import type {
   OnToolCallHook,
 } from '../hooks/hookRegistry';
 import type { BottomPanelTab } from '../bottomPanel/bottomPanelRegistry';
-import type { SettingsContribution } from '../types';
+import type { AppSettings, SettingsContribution, Conversation, Message, Persona, AiTask } from '../types';
+import type { SavedFile } from '../stores/filesStore';
+import type { MessageDecorator } from './messageDecoratorRegistry';
+
+// ─── Shared primitives ────────────────────────────────────────────────────────
+
+/** A function that removes a subscription or registration when called. */
+export type Unsubscribe = () => void;
+
+// Re-export so consumers only need to import from this file.
+export type { MessageDecorator } from './messageDecoratorRegistry';
+
+// ─── Extension API ────────────────────────────────────────────────────────────
+
+/**
+ * Runtime API object passed to an extension's `activate` function.
+ * This is the only sanctioned way for an extension to interact with core
+ * application state — it provides scoped, permission-gated access to
+ * conversations, settings, UI, and shared stores.
+ *
+ * Write-access methods (`conversations.sendMessage`, `settings.set`) require
+ * the corresponding permission string to be declared in the extension manifest.
+ */
+export interface ExtensionAPI {
+  /** Read and interact with conversations. */
+  conversations: {
+    /** Returns the currently active conversation, or `null` if none. */
+    getActive(): Conversation | null;
+    /** Returns all conversations in the store. */
+    getAll(): Conversation[];
+    /** Alias for {@link getAll}. */
+    list(): Conversation[];
+    /**
+     * Injects a message into the active conversation as if the user typed it.
+     * Requires the `'conversations.write'` permission.
+     */
+    sendMessage(text: string): void;
+    /**
+     * Subscribe to new messages arriving in the active conversation.
+     * Returns an unsubscribe function.
+     */
+    onNewMessage(cb: (msg: Message) => void): Unsubscribe;
+  };
+
+  /** Read and write extension-specific settings. */
+  settings: {
+    /** Read a settings value by its dot-separated key. */
+    get<T>(key: string): T | undefined;
+    /** Returns the full settings object, or `null` if not yet loaded. */
+    getAll(): AppSettings | null;
+    /**
+     * Persist a settings value by its dot-separated key.
+     * Requires the `'settings.write'` permission.
+     */
+    set(key: string, value: unknown): void;
+    /**
+     * Subscribe to changes for a specific settings key.
+     * Returns an unsubscribe function.
+     */
+    onChange(key: string, cb: (value: unknown) => void): Unsubscribe;
+  };
+
+  /** UI integration points. */
+  ui: {
+    /**
+     * Register a decorator rendered below each chat message.
+     * Returns an unsubscribe function that removes the decorator.
+     */
+    registerMessageDecorator(decorator: MessageDecorator): Unsubscribe;
+    /** Display a notification in the app's notification center. */
+    showNotification(opts: {
+      message: string;
+      type?: 'info' | 'success' | 'warning' | 'error';
+    }): void;
+    /** Returns the id of the currently active sidebar panel (e.g. `'chats'`, `'marketplace'`). */
+    getActivePanel(): string;
+  };
+
+  /** Read-only access to shared application stores. */
+  store: {
+    /** Returns all defined personas. */
+    getPersonas(): Persona[];
+    /** Returns all saved files. */
+    getSavedFiles(): SavedFile[];
+    /** Returns the current task list. */
+    getTasks(): AiTask[];
+  };
+}
 
 // ─── Activity Bar ─────────────────────────────────────────────────────────────
 
@@ -54,6 +141,20 @@ export interface ExtensionManifest {
    * All marketplace-installed extensions default to `true`.
    */
   sandboxed?: boolean;
+  /**
+   * Declared permissions that gate write-access `ExtensionAPI` methods.
+   *
+   * Recognised values:
+   * - `'conversations.write'` — allows `api.conversations.sendMessage()`
+   * - `'settings.write'`      — allows `api.settings.set()`
+   */
+  permissions?: string[];
+  /**
+   * Called once after the extension is registered.
+   * Receives a scoped `ExtensionAPI` object as its only argument.
+   * First-party builtins can use this instead of reaching into stores directly.
+   */
+  activate?: (api: ExtensionAPI) => void | Promise<void>;
   contributes?: {
     /** Sidebar panels contributed to the ActivityBar. */
     activityBarItems?: ActivityBarContribution[];

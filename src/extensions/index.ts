@@ -8,9 +8,14 @@ import './builtins/mcp';
 export { extensionRegistry } from './extensionRegistry';
 export { useActivityBarItems } from './useActivityBarItems';
 export { loadInstalledExtensions } from './loader';
+export { createExtensionAPI } from './extensionHost';
+export { messageDecoratorRegistry } from './messageDecoratorRegistry';
 export type {
   ExtensionManifest,
   ActivityBarContribution,
+  ExtensionAPI,
+  Unsubscribe,
+  MessageDecorator,
 } from './types';
 export type {
   SandboxContributions,

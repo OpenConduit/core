@@ -2,6 +2,7 @@ import React, { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message, AiQuestion } from '../types';
+import type { MessageDecorator } from '../extensions/messageDecoratorRegistry';
 import ToolCallCard from './ToolCallCard';
 import QuestionsCard from './QuestionsCard';
 import ArtifactBlock from './ArtifactBlock';
@@ -13,9 +14,11 @@ interface Props {
   onApprove?: (toolId: string) => void;
   onDeny?: (toolId: string) => void;
   onSendAnswers?: (questions: AiQuestion[], answers: Record<string, string>) => void;
+  /** Extension-contributed decorators rendered below each message bubble. */
+  decorators?: MessageDecorator[];
 }
 
-const MessageBubble = memo(function MessageBubble({ message, conversationId, onApprove, onDeny, onSendAnswers }: Props) {
+const MessageBubble = memo(function MessageBubble({ message, conversationId, onApprove, onDeny, onSendAnswers, decorators }: Props) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
   const [thinkingOpen, setThinkingOpen] = useState(false);
@@ -270,6 +273,16 @@ const MessageBubble = memo(function MessageBubble({ message, conversationId, onA
               <span className="text-slate-500">reason   </span>
               <span className="text-slate-300">{message.routingDecision.reason}</span>
             </div>
+          </div>
+        )}
+
+        {/* Extension-contributed decorators */}
+        {decorators && decorators.length > 0 && (
+          <div className="w-full mt-1 space-y-1">
+            {decorators.map((d, i) => {
+              const node = d(message);
+              return node ? <React.Fragment key={i}>{node}</React.Fragment> : null;
+            })}
           </div>
         )}
       </div>
