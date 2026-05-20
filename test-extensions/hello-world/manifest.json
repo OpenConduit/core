@@ -1,0 +1,17 @@
+{
+  "id": "test.hello-world",
+  "name": "Hello World",
+  "version": "0.1.0",
+  "description": "Test extension that exercises the Phase 5 sandbox infrastructure.",
+  "author": "OpenConduit Dev",
+  "entryPoint": "dist/index.js",
+  "contributes": {
+    "activityBarItems": [
+      {
+        "panelId": "test.hello-world",
+        "label": "Hello World (sandbox test)",
+        "order": 90
+      }
+    ]
+  }
+}
