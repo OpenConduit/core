@@ -8,6 +8,11 @@ interface ExtensionsApi {
 }
 type ApiWindow = Window & { api?: { extensions?: ExtensionsApi } };
 
+/** Returns 'dark' if the host document has the Tailwind `dark` class on <html>. */
+function getHostTheme(): 'light' | 'dark' {
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+}
+
 interface SandboxedPanelProps {
   /** The extension's namespaced id — used for debug labels only. */
   extensionId: string;
@@ -50,7 +55,7 @@ export function SandboxedPanel({ extensionId, entryPoint }: SandboxedPanelProps)
     api.extensions
       .readFile(entryPoint)
       .then((code) => {
-        const html = buildSandboxDocument(code);
+        const html = buildSandboxDocument(code, getHostTheme());
         const blob = new Blob([html], { type: 'text/html' });
         objectUrl = URL.createObjectURL(blob);
         setBlobUrl(objectUrl);
@@ -64,6 +69,18 @@ export function SandboxedPanel({ extensionId, entryPoint }: SandboxedPanelProps)
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [extensionId, entryPoint]);
+
+  /* Watch for host theme changes and forward them to the iframe */
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const frame = iframeRef.current;
+      if (!frame?.contentWindow) return;
+      const msg: HostToSandboxMessage = { type: 'oc:theme', theme: getHostTheme() };
+      frame.contentWindow.postMessage(msg, '*');
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   /* Handle postMessage calls from the extension */
   useEffect(() => {

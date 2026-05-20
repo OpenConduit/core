@@ -24,7 +24,14 @@ export type SandboxToHostMessage =
 /** Messages sent FROM the host window to the sandboxed extension iframe. */
 export type HostToSandboxMessage =
   /** Response to an `oc:api` call. */
-  | { type: 'oc:api-response'; id: string; result?: unknown; error?: string };
+  | { type: 'oc:api-response'; id: string; result?: unknown; error?: string }
+  /**
+   * Sent by the host whenever the application theme changes (and once on
+   * initial load). The runtime shim applies the value as
+   * `document.documentElement.dataset.theme` so extension CSS variables
+   * respond automatically.
+   */
+  | { type: 'oc:theme'; theme: 'light' | 'dark' };
 
 // ─── Serialisable contribution shapes ────────────────────────────────────────
 //

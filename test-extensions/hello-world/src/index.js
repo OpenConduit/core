@@ -50,39 +50,39 @@ const root = document.getElementById('root');
 root.innerHTML = `
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; font-size: 13px; }
+    body { margin: 0; background: var(--oc-bg); color: var(--oc-text); font-family: system-ui, sans-serif; font-size: 13px; }
     .panel { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-    h2 { margin: 0; font-size: 14px; font-weight: 600; color: #f1f5f9; }
-    p  { margin: 0; color: #94a3b8; line-height: 1.5; }
+    h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--oc-text-heading); }
+    p  { margin: 0; color: var(--oc-text-muted); line-height: 1.5; }
     .badge {
       display: inline-block;
-      background: #1e293b;
-      border: 1px solid #334155;
+      background: var(--oc-badge-bg);
+      border: 1px solid var(--oc-badge-border);
       border-radius: 6px;
       padding: 2px 8px;
       font-size: 11px;
-      color: #7c3aed;
+      color: var(--oc-badge-text);
       font-weight: 600;
     }
-    .section { background: #1e293b; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .section-title { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .section { background: var(--oc-bg-surface); border: 1px solid var(--oc-border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .section-title { font-size: 11px; font-weight: 600; color: var(--oc-section-title); text-transform: uppercase; letter-spacing: 0.05em; }
     .kv { display: flex; justify-content: space-between; gap: 8px; }
-    .kv-key { color: #64748b; }
-    .kv-val { color: #e2e8f0; font-family: monospace; font-size: 12px; }
+    .kv-key { color: var(--oc-text-muted); }
+    .kv-val { color: var(--oc-text); font-family: monospace; font-size: 12px; }
     button {
-      background: #3b82f6; color: #fff; border: none; border-radius: 6px;
+      background: var(--oc-btn-bg); color: #fff; border: none; border-radius: 6px;
       padding: 6px 12px; font-size: 12px; cursor: pointer; transition: background .15s;
     }
-    button:hover { background: #2563eb; }
-    button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+    button:hover { background: var(--oc-btn-hover); }
+    button:disabled { background: var(--oc-btn-disabled-bg); color: var(--oc-btn-disabled-text); cursor: not-allowed; }
     pre {
-      margin: 0; background: #0f172a; border: 1px solid #334155; border-radius: 6px;
-      padding: 10px; font-size: 11px; color: #7dd3fc; overflow: auto;
+      margin: 0; background: var(--oc-pre-bg); border: 1px solid var(--oc-border); border-radius: 6px;
+      padding: 10px; font-size: 11px; color: var(--oc-pre-text); overflow: auto;
       white-space: pre-wrap; word-break: break-all;
     }
-    .status { font-size: 11px; color: #64748b; }
-    .status.ok  { color: #34d399; }
-    .status.err { color: #f87171; }
+    .status { font-size: 11px; color: var(--oc-text-muted); }
+    .status.ok  { color: var(--oc-status-ok); }
+    .status.err { color: var(--oc-status-err); }
   </style>
 
   <div class="panel">

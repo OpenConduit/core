@@ -29,6 +29,9 @@ export const SANDBOX_RUNTIME = /* javascript */ `(function () {
       var cb = _pending[msg.id];
       if (cb) { delete _pending[msg.id]; cb(msg.result, msg.error); }
     }
+    if (msg.type === 'oc:theme' && (msg.theme === 'light' || msg.theme === 'dark')) {
+      document.documentElement.dataset.theme = msg.theme;
+    }
   });
 
   /* ── Helpers ───────────────────────────────────────────────────────────── */
