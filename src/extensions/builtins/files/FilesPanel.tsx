@@ -103,13 +103,16 @@ function formatDate(ts: number): string {
     : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-function typeBadge(mimeType: string): string {
-  if (mimeType === 'text/html') return 'HTML';
-  if (mimeType === 'image/svg+xml') return 'SVG';
-  if (mimeType.includes('javascript')) return 'JS';
-  if (mimeType === 'text/css') return 'CSS';
-  if (mimeType === 'application/json') return 'JSON';
-  return mimeType.split('/').pop()?.toUpperCase().slice(0, 4) ?? 'FILE';
+function typeBadge(file: SavedFile): { label: string; className: string } {
+  if (file.name.endsWith('.mmd')) return { label: 'MMD', className: 'bg-violet-900/60 text-violet-300' };
+  if (file.mimeType === 'text/html') return { label: 'HTML', className: 'bg-orange-900/60 text-orange-300' };
+  if (file.mimeType === 'image/svg+xml') return { label: 'SVG', className: 'bg-blue-900/60 text-blue-300' };
+  if (file.mimeType.includes('javascript')) return { label: 'JS', className: 'bg-yellow-900/60 text-yellow-300' };
+  if (file.mimeType === 'text/css') return { label: 'CSS', className: 'bg-cyan-900/60 text-cyan-300' };
+  if (file.mimeType === 'application/json') return { label: 'JSON', className: 'bg-green-900/60 text-green-300' };
+  if (file.mimeType === 'text/markdown' || file.name.endsWith('.md')) return { label: 'MD', className: 'bg-slate-700 text-slate-300' };
+  const ext = file.name.split('.').pop()?.toUpperCase().slice(0, 4);
+  return { label: ext ?? 'FILE', className: 'bg-slate-700 text-slate-400' };
 }
 
 function downloadFile(file: SavedFile) {
@@ -148,11 +151,13 @@ function FileRow({ file, onDelete, onRename, onPreview }: FileRowProps) {
     });
   }
 
+  const badge = typeBadge(file);
+
   return (
-    <div className="px-3 py-2.5 border-b border-slate-800 hover:bg-slate-800/50 transition-colors group">
+    <div className="px-3 py-2 border-b border-slate-800/80 hover:bg-slate-800/40 transition-colors group">
       <div className="flex items-start gap-2">
-        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 uppercase tracking-wide flex-shrink-0 mt-0.5">
-          {typeBadge(file.mimeType)}
+        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 tracking-wide ${badge.className}`}>
+          {badge.label}
         </span>
         <div className="flex-1 min-w-0">
           {editing ? (
@@ -176,10 +181,10 @@ function FileRow({ file, onDelete, onRename, onPreview }: FileRowProps) {
               {file.name}
             </button>
           )}
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px] text-slate-600">{formatDate(file.savedAt)}</span>
+          <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
+            <span className="text-[10px] text-slate-500">{formatDate(file.savedAt)}</span>
             <span className="text-[10px] text-slate-700">·</span>
-            <span className="text-[10px] text-slate-600">{formatBytes(file.size)}</span>
+            <span className="text-[10px] text-slate-500">{formatBytes(file.size)}</span>
           </div>
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
