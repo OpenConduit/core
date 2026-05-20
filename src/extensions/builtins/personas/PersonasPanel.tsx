@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { usePersonasStore } from '../stores/personasStore';
-import { useSettingsStore } from '../stores/settingsStore';
-import type { Persona } from '../types';
+import { usePersonasStore } from '../../../stores/personasStore';
+import { useSettingsStore } from '../../../stores/settingsStore';
+import type { Persona } from '../../../types';
 
 // ─── Colour palette ────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useUiStore } from '../stores/uiStore';
-import { useSavedFilesStore, type SavedFile } from '../stores/filesStore';
+import { useUiStore } from '../../../stores/uiStore';
+import { useSavedFilesStore, type SavedFile } from '../../../stores/filesStore';
 
 // ─── Preview helpers ──────────────────────────────────────────────────────────
 

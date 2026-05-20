@@ -13,7 +13,7 @@ import { service } from '../services';
 import { settingsRegistry } from '../settings/settingsRegistry';
 import '../settings/coreContributions'; // ensure core sections are registered
 import { McpMarketplace, ProviderMarketplace } from './MarketplacePanel';
-import PersonasPanel from './PersonasPanel';
+import PersonasPanel from '../extensions/builtins/personas/PersonasPanel';
 
 type Tab = 'general' | 'providers' | 'mcp' | 'features' | 'labs' | 'analytics' | 'about' | string;
 

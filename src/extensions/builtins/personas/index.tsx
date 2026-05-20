@@ -1,6 +1,6 @@
 import React from 'react';
-import PersonasPanel from '../../components/PersonasPanel';
-import { extensionRegistry } from '../extensionRegistry';
+import PersonasPanel from './PersonasPanel';
+import { extensionRegistry } from '../../extensionRegistry';
 
 const PERSONAS_ICON = (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

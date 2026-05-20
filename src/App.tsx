@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
-import CompareArea from './components/CompareArea';
+import CompareArea from './extensions/builtins/compare/CompareArea';
 import SettingsPanel from './components/SettingsPanel';
 import ActivityBar from './components/ActivityBar';
 import ChromeBar from './components/ChromeBar';
