@@ -148,6 +148,8 @@ export interface Conversation {
   branchOf?: string;
   /** The message index (0-based) in the parent conversation at which this branch was forked. */
   branchAtMessageIndex?: number;
+  /** Preserved fork origin when a branch has been detached from its parent. */
+  detachedFrom?: { convId: string; messageIndex: number };
 }
 
 // ─── Token Usage ──────────────────────────────────────────────────────────

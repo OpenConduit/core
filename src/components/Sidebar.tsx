@@ -401,7 +401,7 @@ export default function Sidebar() {
   const {
     conversations, addConversation, deleteConversation, updateConversation,
     openTab, folders, createFolder, updateFolder, deleteFolder,
-    toggleFolderCollapsed, moveConversation,
+    toggleFolderCollapsed, moveConversation, detachBranch,
   } = useConversationStore();
   const { settings } = useSettingsStore();
   const { personas } = usePersonasStore();
@@ -535,10 +535,10 @@ export default function Sidebar() {
   };
 
   // ── Context menu builders ──────────────────────────────────────────────
-  const openConvCtxMenu = (e: React.MouseEvent, conv: { id: string; folderId?: string | null }) => {
+  const openConvCtxMenu = (e: React.MouseEvent, conv: { id: string; folderId?: string | null; branchOf?: string }) => {
     e.preventDefault();
     e.stopPropagation();
-    const { id, folderId } = conv;
+    const { id, folderId, branchOf } = conv;
     setCtxMenu({
       x: e.clientX, y: e.clientY,
       items: [
@@ -546,7 +546,8 @@ export default function Sidebar() {
         { label: 'Open in Split Pane', action: () => openSplitPane({ type: 'conversation', payload: id }) },
         'sep',
         { label: 'Rename', action: () => setRenamingConvId(id) },
-        { label: 'Move to Folder\u2026', action: () => setMovePickerConvId(id) },
+        ...(branchOf ? [] : [{ label: 'Move to Folder\u2026', action: () => setMovePickerConvId(id) } as CtxMenuItem]),
+        ...(branchOf ? ['sep' as CtxMenuItem, { label: 'Detach Branch', action: () => detachBranch(id) } as CtxMenuItem] : []),
         'sep',
         { label: 'Export JSON', action: () => handleExport(id, 'json') },
         { label: 'Export Markdown', action: () => handleExport(id, 'md') },
@@ -603,7 +604,7 @@ export default function Sidebar() {
             personaColor={branch.personaId ? personas.find((p) => p.id === branch.personaId)?.color : undefined}
             personaName={branch.personaId ? personas.find((p) => p.id === branch.personaId)?.name : undefined}
             onClick={() => { openTab?.(branch.id); setActiveConversation(branch.id); }}
-            onContextMenu={(e) => openConvCtxMenu(e, { id: branch.id, folderId: branch.folderId })}
+            onContextMenu={(e) => openConvCtxMenu(e, { id: branch.id, folderId: branch.folderId, branchOf: branch.branchOf })}
             onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: branch.id }); }}
             onDragStart={(e) => handleConvDragStart(e, branch.id)}
             onDragEnd={handleConvDragEnd}
@@ -651,7 +652,7 @@ export default function Sidebar() {
             personaColor={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.color : undefined}
             personaName={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.name : undefined}
             onClick={() => { openTab?.(conv.id); setActiveConversation(conv.id); }}
-            onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId })}
+            onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId, branchOf: conv.branchOf })}
             onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: conv.id }); }}
             onDragStart={(e) => handleConvDragStart(e, conv.id)}
             onDragEnd={handleConvDragEnd}
@@ -739,7 +740,7 @@ export default function Sidebar() {
                 personaColor={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.color : undefined}
                 personaName={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.name : undefined}
                 onClick={() => { openTab?.(conv.id); setActiveConversation(conv.id); }}
-                onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId })}
+                onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId, branchOf: conv.branchOf })}
                 onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: conv.id }); }}
                 onDragStart={(e) => handleConvDragStart(e, conv.id)}
                 onDragEnd={handleConvDragEnd}

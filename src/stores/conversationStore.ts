@@ -24,6 +24,7 @@ interface ConversationState {
   setConversations: (conversations: Array<Omit<Conversation, 'messages'> & { messages?: Message[] }>) => void;
 
   branchConversation: (convId: string, messageIndex: number) => Conversation;
+  detachBranch: (convId: string) => void;
 
   // ── Folders ────────────────────────────────────────────────────────────────
   folders: ConversationFolder[];
@@ -89,6 +90,16 @@ export const useConversationStore = create<ConversationState>()(
         };
         set((s) => ({ conversations: [branch, ...s.conversations] }));
         return branch;
+      },
+
+      detachBranch: (convId) => {
+        set((s) => ({
+          conversations: s.conversations.map((c) =>
+            c.id === convId && c.branchOf
+              ? { ...c, branchOf: undefined, detachedFrom: { convId: c.branchOf, messageIndex: c.branchAtMessageIndex ?? 0 }, branchAtMessageIndex: undefined }
+              : c
+          ),
+        }));
       },
 
       deleteConversation: (id) => {
