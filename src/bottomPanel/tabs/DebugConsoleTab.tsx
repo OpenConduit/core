@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useDebugConsoleStore, type DebugLevel } from '../../stores/debugConsoleStore';
+import { useDebugConsoleStore, type DebugLevel, type LogCategory } from '../../stores/debugConsoleStore';
 
 const LEVELS: DebugLevel[] = ['debug', 'log', 'info', 'warn', 'error'];
 const LEVEL_ORDER: Record<DebugLevel | 'all', number> = { all: -1, debug: 0, log: 1, info: 2, warn: 3, error: 4 };
@@ -10,6 +10,14 @@ const LEVEL_STYLES: Record<DebugLevel, { badge: string; text: string; label: str
   info:  { badge: 'bg-blue-900/60 text-blue-300',   text: 'text-blue-200',    label: 'INFO'  },
   warn:  { badge: 'bg-yellow-900/60 text-yellow-300', text: 'text-yellow-200', label: 'WARN'  },
   error: { badge: 'bg-red-900/60 text-red-300',     text: 'text-red-200',     label: 'ERROR' },
+};
+
+const CATEGORY_STYLES: Record<LogCategory, string> = {
+  provider: 'text-violet-400',
+  mcp:      'text-cyan-400',
+  routing:  'text-amber-400',
+  settings: 'text-slate-400',
+  app:      'text-green-400',
 };
 
 function fmtTime(ts: number): string {
@@ -127,6 +135,11 @@ export default function DebugConsoleTab() {
                 <span className={`flex-shrink-0 text-[9px] font-semibold px-1 rounded ${s.badge}`}>
                   {s.label}
                 </span>
+                {entry.category && (
+                  <span className={`flex-shrink-0 text-[9px] font-medium ${CATEGORY_STYLES[entry.category]}`}>
+                    [{entry.category}]
+                  </span>
+                )}
                 <span className={`break-all ${s.text}`}>{entry.message}</span>
                 <DataPreview data={entry.data} />
               </div>

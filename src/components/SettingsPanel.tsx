@@ -83,6 +83,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
     </svg>
   ),
+  logging: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  ),
 } as const;
 
 // ─── SettingsPanel ────────────────────────────────────────────────────────────
@@ -117,6 +122,7 @@ export default function SettingsPanel({
     { id: 'features',  label: 'Features',  icon: Icons.features },
     { id: 'labs',      label: 'Labs',      icon: Icons.labs },
     { id: 'updates',   label: 'Updates',   icon: Icons.updates },
+    { id: 'logging',   label: 'Logging',   icon: Icons.logging },
     { id: 'analytics', label: 'Analytics', icon: Icons.analytics },
     { id: 'about',     label: 'About',     icon: Icons.about },
     { id: 'json',      label: 'JSON',       icon: Icons.json },
@@ -228,6 +234,7 @@ export default function SettingsPanel({
                 {tab === 'personas' && <PersonasPanel />}
                 {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
                 {tab === 'updates' && <SchemaFormRenderer contribution={settingsRegistry.get('openconduit.updates')} settings={settings} onSave={saveSettings} />}
+                {tab === 'logging' && <LoggingTab settings={settings} onSave={saveSettings} />}
                 {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
                 {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
                 {tab === 'json' && <JsonSettingsEditor settings={settings} onSave={saveSettings} />}
@@ -1743,6 +1750,41 @@ function LabsTab({
         settings={settings}
         onSave={onSave}
       />
+    </div>
+  );
+}
+
+// ─── Logging Tab ──────────────────────────────────────────────────────────────
+
+function LoggingTab({
+  settings,
+  onSave,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+}) {
+  return (
+    <div className="space-y-6">
+      <SchemaFormRenderer
+        contribution={settingsRegistry.get('openconduit.logging')}
+        settings={settings}
+        onSave={onSave}
+      />
+      {/* Open logs folder */}
+      <div className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-800/30 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-slate-200">Log files</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Daily <code className="text-slate-300">debug-YYYY-MM-DD.log</code> files in <code className="text-slate-300">userData/logs/</code>. Kept for 7 days.
+          </p>
+        </div>
+        <button
+          onClick={() => (window as any)?.api?.log?.open?.()}
+          className="shrink-0 ml-4 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+        >
+          Open folder
+        </button>
+      </div>
     </div>
   );
 }

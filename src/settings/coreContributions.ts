@@ -164,3 +164,51 @@ settingsRegistry.register({
     },
   ],
 });
+
+// ─── Logging ──────────────────────────────────────────────────────────────────
+
+settingsRegistry.register({
+  id: 'openconduit.logging',
+  label: 'Logging',
+  order: 75,
+  sections: [
+    {
+      title: 'Debug Logging',
+      description: 'Enable verbose logs for specific subsystems. Entries appear in the Debug Console panel (bottom bar). Errors are always logged regardless of these settings.',
+      properties: [
+        {
+          type: 'boolean',
+          key: 'logging.provider',
+          title: 'AI Provider',
+          description: 'Log request sent, stream chunks received, token usage, and stream errors for each AI call.',
+          default: false,
+          order: 1,
+        },
+        {
+          type: 'boolean',
+          key: 'logging.mcp',
+          title: 'MCP / Tools',
+          description: 'Log tool call dispatch, results, approval requests, and MCP server connection events.',
+          default: false,
+          order: 2,
+        },
+        {
+          type: 'boolean',
+          key: 'logging.routing',
+          title: 'Routing',
+          description: 'Log routing decisions, model selection, and fallback events.',
+          default: false,
+          order: 3,
+        },
+        {
+          type: 'boolean',
+          key: 'logging.settings',
+          title: 'Settings',
+          description: 'Log settings load/save and MCP status refresh events.',
+          default: false,
+          order: 4,
+        },
+      ],
+    },
+  ],
+});
