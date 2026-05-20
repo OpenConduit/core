@@ -85,7 +85,7 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 // ── Global context menu (fixed-position, cursor-anchored) ──────────────────
-type CtxMenuItem = { label: string; action: () => void; danger?: boolean } | 'sep';
+type CtxMenuItem = { label: string; action: () => void; danger?: boolean } | { info: string } | 'sep';
 
 interface CtxMenuState { x: number; y: number; items: CtxMenuItem[] }
 
@@ -108,6 +108,8 @@ function GlobalCtxMenu({ state, onClose }: { state: CtxMenuState; onClose: () =>
       {state.items.map((item, i) =>
         item === 'sep' ? (
           <div key={i} className="my-1 h-px bg-slate-700/70" />
+        ) : 'info' in item ? (
+          <div key={i} className="px-3 py-[4px] text-[11px] text-slate-500 select-none">{item.info}</div>
         ) : (
           <button
             key={item.label}
@@ -535,13 +537,17 @@ export default function Sidebar() {
   };
 
   // ── Context menu builders ──────────────────────────────────────────────
-  const openConvCtxMenu = (e: React.MouseEvent, conv: { id: string; folderId?: string | null; branchOf?: string }) => {
+  const openConvCtxMenu = (e: React.MouseEvent, conv: { id: string; folderId?: string | null; branchOf?: string; createdAt?: number }) => {
     e.preventDefault();
     e.stopPropagation();
-    const { id, folderId, branchOf } = conv;
+    const { id, folderId, branchOf, createdAt } = conv;
+    const createdLabel = createdAt
+      ? `Created ${new Date(createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} ${new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      : undefined;
     setCtxMenu({
       x: e.clientX, y: e.clientY,
       items: [
+        ...(createdLabel ? [{ info: createdLabel } as CtxMenuItem, 'sep' as CtxMenuItem] : []),
         { label: 'Open', action: () => { openTab?.(id); setActiveConversation(id); } },
         { label: 'Open in Split Pane', action: () => openSplitPane({ type: 'conversation', payload: id }) },
         'sep',
@@ -604,7 +610,7 @@ export default function Sidebar() {
             personaColor={branch.personaId ? personas.find((p) => p.id === branch.personaId)?.color : undefined}
             personaName={branch.personaId ? personas.find((p) => p.id === branch.personaId)?.name : undefined}
             onClick={() => { openTab?.(branch.id); setActiveConversation(branch.id); }}
-            onContextMenu={(e) => openConvCtxMenu(e, { id: branch.id, folderId: branch.folderId, branchOf: branch.branchOf })}
+            onContextMenu={(e) => openConvCtxMenu(e, { id: branch.id, folderId: branch.folderId, branchOf: branch.branchOf, createdAt: branch.createdAt })}
             onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: branch.id }); }}
             onDragStart={(e) => handleConvDragStart(e, branch.id)}
             onDragEnd={handleConvDragEnd}
@@ -652,7 +658,7 @@ export default function Sidebar() {
             personaColor={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.color : undefined}
             personaName={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.name : undefined}
             onClick={() => { openTab?.(conv.id); setActiveConversation(conv.id); }}
-            onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId, branchOf: conv.branchOf })}
+            onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId, branchOf: conv.branchOf, createdAt: conv.createdAt })}
             onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: conv.id }); }}
             onDragStart={(e) => handleConvDragStart(e, conv.id)}
             onDragEnd={handleConvDragEnd}
@@ -740,7 +746,7 @@ export default function Sidebar() {
                 personaColor={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.color : undefined}
                 personaName={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.name : undefined}
                 onClick={() => { openTab?.(conv.id); setActiveConversation(conv.id); }}
-                onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId, branchOf: conv.branchOf })}
+                onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId, branchOf: conv.branchOf, createdAt: conv.createdAt })}
                 onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: conv.id }); }}
                 onDragStart={(e) => handleConvDragStart(e, conv.id)}
                 onDragEnd={handleConvDragEnd}
