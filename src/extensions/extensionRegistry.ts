@@ -1,5 +1,9 @@
 import type React from 'react';
 import type { ActivityBarContribution, ExtensionManifest } from './types';
+import { commandRegistry } from '../commands/commandRegistry';
+import { hookRegistry } from '../hooks/hookRegistry';
+import { bottomPanelRegistry } from '../bottomPanel/bottomPanelRegistry';
+import { settingsRegistry } from '../settings/settingsRegistry';
 
 /**
  * Tracks all registered extensions and their contributions.
@@ -29,20 +33,47 @@ class ExtensionRegistry {
    */
   registerExtension(
     manifest: ExtensionManifest,
-    contributions: {
-      activityBarItems?: ActivityBarContribution[];
-    } = {}
+    contributions: NonNullable<ExtensionManifest['contributes']> = {}
   ): void {
     if (this.manifests.has(manifest.id)) return;
     this.manifests.set(manifest.id, manifest);
 
+    // ── Activity bar ──────────────────────────────────────────────────────────
     if (contributions.activityBarItems) {
       for (const item of contributions.activityBarItems) {
-        // Guard against duplicate panelIds
         if (!this.activityBarItems.some((i) => i.panelId === item.panelId)) {
           this.activityBarItems.push(item);
         }
       }
+    }
+
+    // ── Commands ──────────────────────────────────────────────────────────────
+    if (contributions.commands) {
+      for (const cmd of contributions.commands) {
+        commandRegistry.register(cmd);
+      }
+    }
+
+    // ── Bottom panel tabs ─────────────────────────────────────────────────────
+    if (contributions.bottomPanelTabs) {
+      for (const tab of contributions.bottomPanelTabs) {
+        bottomPanelRegistry.register(tab);
+      }
+    }
+
+    // ── Settings tab ──────────────────────────────────────────────────────────
+    if (contributions.settingsTab) {
+      settingsRegistry.register(contributions.settingsTab);
+    }
+
+    // ── Chat pipeline hooks ───────────────────────────────────────────────────
+    if (contributions.hooks) {
+      const { hooks } = contributions;
+      const prefix = manifest.id;
+      if (hooks.beforeSend)    hookRegistry.registerBeforeSend(`${prefix}.beforeSend`, hooks.beforeSend);
+      if (hooks.onResponse)    hookRegistry.registerOnResponse(`${prefix}.onResponse`, hooks.onResponse);
+      if (hooks.onStreamChunk) hookRegistry.registerOnStreamChunk(`${prefix}.onStreamChunk`, hooks.onStreamChunk);
+      if (hooks.onToolCall)    hookRegistry.registerOnToolCall(`${prefix}.onToolCall`, hooks.onToolCall);
     }
 
     this.notify();

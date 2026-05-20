@@ -15,6 +15,10 @@ import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import './extensions';
 import { extensionRegistry } from './extensions/extensionRegistry';
 import { loadInstalledExtensions } from './extensions/loader';
+import { hookRegistry } from './hooks/hookRegistry';
+import { commandRegistry } from './commands/commandRegistry';
+import { bottomPanelRegistry } from './bottomPanel/bottomPanelRegistry';
+import { settingsRegistry } from './settings/settingsRegistry';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUiStore } from './stores/uiStore';
 import { useConversationStore } from './stores/conversationStore';
@@ -68,7 +72,13 @@ export default function App() {
   // Expose the extension SDK surface on window so dynamically-loaded extension
   // bundles can call extensionRegistry.registerExtension() without bundling core.
   useEffect(() => {
-    (window as Window & { __openConduit?: unknown }).__openConduit = { extensionRegistry };
+    (window as Window & { __openConduit?: unknown }).__openConduit = {
+      extensionRegistry,
+      hookRegistry,
+      commandRegistry,
+      bottomPanelRegistry,
+      settingsRegistry,
+    };
     // Load marketplace-installed extensions from userData/extensions/
     loadInstalledExtensions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
