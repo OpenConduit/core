@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApprovalRequest, Attachment, AiTask, AiQuestion, AppSettings, RoutingDecision } from '../types';
+import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApprovalRequest, Attachment, AiTask, AiQuestion, AppSettings, ConversationFolder, RoutingDecision } from '../types';
 import { hookRegistry } from './hookRegistry';
 import { debugConsole } from '../utils/debugConsole';
 import { useConversationStore } from '../stores/conversationStore';
@@ -80,6 +80,15 @@ function parseAndStripQuestions(content: string): { content: string; questions: 
 }
 
 /** Compose the final system prompt from persona + conversation overrides + all enabled augmentations */
+/** Walk ancestor folders and return the systemPrompt of the nearest one that has one. */
+function getFolderSystemPrompt(folderId: string | null | undefined, folders: ConversationFolder[]): string | undefined {
+  if (!folderId) return undefined;
+  const folder = folders.find((f) => f.id === folderId);
+  if (!folder) return undefined;
+  if (folder.systemPrompt?.trim()) return folder.systemPrompt.trim();
+  return getFolderSystemPrompt(folder.parentId, folders);
+}
+
 function buildSystemPrompt(basePrompt: string | undefined, settings: AppSettings, personaPrompt?: string): string | undefined {
   const parts: string[] = [];
 
@@ -229,7 +238,7 @@ function ensureListeners() {
 }
 
 export function useChat(conversationId?: string | null) {
-  const { conversations, addMessage, updateConversation, replaceMessages } = useConversationStore();
+  const { conversations, addMessage, updateConversation, replaceMessages, folders } = useConversationStore();
   const { settings } = useSettingsStore();
   const {
     activeConversationId,
@@ -314,7 +323,11 @@ export function useChat(conversationId?: string | null) {
         providerId,
         model,
         parameters: conv.parameters ?? persona?.parameters ?? settings.defaultParameters,
-        systemPrompt: buildSystemPrompt(conv.systemPrompt, settings, persona?.systemPrompt),
+        systemPrompt: buildSystemPrompt(
+          getFolderSystemPrompt(conv.folderId, useConversationStore.getState().folders) ?? conv.systemPrompt,
+          settings,
+          persona?.systemPrompt,
+        ),
         enabledMcpServerIds:
           freshConv.activeMcpServerIds ??
           persona?.defaultMcpServerIds ??

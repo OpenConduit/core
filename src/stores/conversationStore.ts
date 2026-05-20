@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import type { Conversation, Message, ToolCall } from '../types';
+import type { Conversation, ConversationFolder, FolderFile, Message, ToolCall } from '../types';
 
 interface ConversationState {
   conversations: Conversation[];
@@ -22,6 +22,20 @@ interface ConversationState {
   /** Bulk-replace the conversation list. Used by server-backed implementations
    * (e.g. cloud) to seed the store from an API response. Messages default to []. */
   setConversations: (conversations: Array<Omit<Conversation, 'messages'> & { messages?: Message[] }>) => void;
+
+  // ── Folders ────────────────────────────────────────────────────────────────
+  folders: ConversationFolder[];
+  createFolder: (name: string, parentId?: string | null) => ConversationFolder;
+  updateFolder: (id: string, updates: Partial<Omit<ConversationFolder, 'id'>>) => void;
+  deleteFolder: (id: string) => void;
+  toggleFolderCollapsed: (id: string) => void;
+  moveConversation: (convId: string, folderId: string | null) => void;
+
+  // ── Folder Files ───────────────────────────────────────────────────────────
+  folderFiles: FolderFile[];
+  addFolderFile: (file: Omit<FolderFile, 'id' | 'createdAt'>) => FolderFile;
+  deleteFolderFile: (id: string) => void;
+  renameFolderFile: (id: string, name: string) => void;
 }
 
 export const useConversationStore = create<ConversationState>()(
@@ -182,12 +196,88 @@ export const useConversationStore = create<ConversationState>()(
           conversations: convs.map((c) => ({ ...c, messages: c.messages ?? [] })),
         });
       },
+
+      // ── Folders ────────────────────────────────────────────────────────────
+      folders: [] as ConversationFolder[],
+
+      createFolder: (name, parentId = null) => {
+        const siblings = _get().folders.filter((f) => f.parentId === parentId);
+        const order = siblings.length > 0 ? Math.max(...siblings.map((f) => f.order)) + 1 : 0;
+        const folder: ConversationFolder = {
+          id: uuidv4(),
+          name,
+          parentId: parentId ?? null,
+          order,
+          collapsed: false,
+        };
+        set((s) => ({ folders: [...s.folders, folder] }));
+        return folder;
+      },
+
+      updateFolder: (id, updates) => {
+        set((s) => ({
+          folders: s.folders.map((f) => (f.id === id ? { ...f, ...updates } : f)),
+        }));
+      },
+
+      deleteFolder: (id) => {
+        const state = _get();
+        // Collect all descendant folder ids recursively
+        const collectDescendants = (folderId: string): string[] => {
+          const children = state.folders.filter((f) => f.parentId === folderId);
+          return [folderId, ...children.flatMap((c) => collectDescendants(c.id))];
+        };
+        const toDelete = new Set(collectDescendants(id));
+        // Move conversations in deleted folders to root
+        set((s) => ({
+          folders: s.folders.filter((f) => !toDelete.has(f.id)),
+          conversations: s.conversations.map((c) =>
+            c.folderId && toDelete.has(c.folderId) ? { ...c, folderId: null } : c,
+          ),
+          folderFiles: s.folderFiles.filter((ff) => !toDelete.has(ff.folderId)),
+        }));
+      },
+
+      toggleFolderCollapsed: (id) => {
+        set((s) => ({
+          folders: s.folders.map((f) => (f.id === id ? { ...f, collapsed: !f.collapsed } : f)),
+        }));
+      },
+
+      moveConversation: (convId, folderId) => {
+        set((s) => ({
+          conversations: s.conversations.map((c) =>
+            c.id === convId ? { ...c, folderId: folderId ?? null } : c,
+          ),
+        }));
+      },
+
+      // ── Folder Files ───────────────────────────────────────────────────────
+      folderFiles: [] as FolderFile[],
+
+      addFolderFile: (file) => {
+        const newFile: FolderFile = { ...file, id: uuidv4(), createdAt: Date.now() };
+        set((s) => ({ folderFiles: [...s.folderFiles, newFile] }));
+        return newFile;
+      },
+
+      deleteFolderFile: (id) => {
+        set((s) => ({ folderFiles: s.folderFiles.filter((f) => f.id !== id) }));
+      },
+
+      renameFolderFile: (id, name) => {
+        set((s) => ({
+          folderFiles: s.folderFiles.map((f) => (f.id === id ? { ...f, name } : f)),
+        }));
+      },
     }),
     {
       name: 'openconduit-conversations',
       partialize: (state) => ({
         conversations: state.conversations,
         openTabs: state.openTabs,
+        folders: state.folders,
+        folderFiles: state.folderFiles,
       }),
     },
   ),

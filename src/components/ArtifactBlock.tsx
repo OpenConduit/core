@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import hljs from 'highlight.js';
 import { useSavedFilesStore } from '../stores/filesStore';
 import { useUiStore } from '../stores/uiStore';
 import { usePaneContext } from '../contexts/PaneContext';
+import { useConversationStore } from '../stores/conversationStore';
 
 const PREVIEWABLE = new Set(['html', 'svg', 'mermaid']);
 
@@ -35,9 +36,56 @@ export default function ArtifactBlock({ language, code, conversationId }: Props)
   const [preview, setPreview] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [folderSaved, setFolderSaved] = useState(false);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const folderPickerRef = useRef<HTMLDivElement>(null);
   const { saveFile } = useSavedFilesStore();
   const { openSplitPane, openInLeftPane } = useUiStore();
   const pane = usePaneContext();
+  const { conversations, folders, addFolderFile } = useConversationStore();
+
+  const conv = conversationId ? conversations.find((c) => c.id === conversationId) : undefined;
+
+  const saveToFolder = useCallback(
+    (folderId: string) => {
+      const ext = EXT_MAP[language] ?? language;
+      const mimeType = MIME_MAP[language] ?? 'text/plain';
+      addFolderFile({
+        folderId,
+        name: `artifact.${ext}`,
+        language,
+        content: code,
+        mimeType,
+        size: new Blob([code]).size,
+        source: 'ai-artifact',
+        conversationId,
+      });
+      setFolderSaved(true);
+      setShowFolderPicker(false);
+      setTimeout(() => setFolderSaved(false), 2000);
+    },
+    [code, language, conversationId, addFolderFile],
+  );
+
+  const handleFolderSave = useCallback(() => {
+    if (conv?.folderId) {
+      saveToFolder(conv.folderId);
+    } else {
+      setShowFolderPicker((v) => !v);
+    }
+  }, [conv, saveToFolder]);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!showFolderPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (folderPickerRef.current && !folderPickerRef.current.contains(e.target as Node)) {
+        setShowFolderPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showFolderPicker]);
 
   const highlighted = useMemo(() => {
     try {
@@ -127,6 +175,56 @@ export default function ArtifactBlock({ language, code, conversationId }: Props)
               </svg>
             )}
           </button>
+
+          {/* Save to folder */}
+          <div className="relative">
+            <button
+              onClick={handleFolderSave}
+              title={conv?.folderId ? 'Save to folder' : 'Save to a folder…'}
+              className={`p-1 rounded transition-colors ${
+                folderSaved
+                  ? 'text-green-400'
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {folderSaved ? (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                </svg>
+              )}
+            </button>
+
+            {showFolderPicker && folders.length > 0 && (
+              <div
+                ref={folderPickerRef}
+                className="absolute right-0 top-7 z-50 bg-slate-700 rounded-lg shadow-xl border border-slate-600 py-1 min-w-[160px] max-h-52 overflow-y-auto"
+              >
+                <p className="text-xs text-slate-500 px-3 py-1">Save to folder</p>
+                {folders.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => saveToFolder(f.id)}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-600 transition-colors text-slate-300 truncate"
+                  >
+                    {f.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {showFolderPicker && folders.length === 0 && (
+              <div
+                ref={folderPickerRef}
+                className="absolute right-0 top-7 z-50 bg-slate-700 rounded-lg shadow-xl border border-slate-600 py-2 px-3 min-w-[170px]"
+              >
+                <p className="text-xs text-slate-400">No folders yet. Create one in the sidebar.</p>
+              </div>
+            )}
+          </div>
 
           {/* Open in the other pane */}
           <button
