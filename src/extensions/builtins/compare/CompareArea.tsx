@@ -1,11 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useCompare } from '../hooks/useCompare';
-import type { CompareColumn } from '../hooks/useCompare';
-import InputBar from './InputBar';
-import { useSettingsStore } from '../stores/settingsStore';
-import { useUiStore } from '../stores/uiStore';
+import { useCompare } from '../../../hooks/useCompare';
+import type { CompareColumn } from '../../../hooks/useCompare';
+import InputBar from '../../../components/InputBar';
+import { useSettingsStore } from '../../../stores/settingsStore';
+import { useUiStore } from '../../../stores/uiStore';
 
 // ─── Column header with unified model picker ──────────────────────────────────
 

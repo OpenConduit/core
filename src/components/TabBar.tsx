@@ -3,7 +3,6 @@ import { useConversationStore } from '../stores/conversationStore';
 import { useUiStore } from '../stores/uiStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { usePersonasStore } from '../stores/personasStore';
-import { useSavedFilesStore } from '../stores/filesStore';
 import ModelPickerButton from './ModelPickerButton';
 
 interface ContextMenuState {
@@ -24,12 +23,9 @@ export default function TabBar() {
     setActiveConversation,
     setShowSettings,
     setCompareMode,
-    showFilesPanel,
-    setShowFilesPanel,
   } = useUiStore();
   const { settings, models, loadModels } = useSettingsStore();
   const { personas } = usePersonasStore();
-  const fileCount = useSavedFilesStore((s) => s.files.length);
 
   // Rename state
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -247,25 +243,6 @@ export default function TabBar() {
                 conv={activeConv}
               />
 
-              {/* Files panel toggle */}
-              <button
-                onClick={() => setShowFilesPanel(!showFilesPanel)}
-                className={`relative p-1.5 rounded-lg transition-colors ml-0.5 ${
-                  showFilesPanel
-                    ? 'text-blue-400 bg-slate-700'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
-                }`}
-                title="Saved files"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                {fileCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-blue-600 rounded-full text-[8px] font-bold text-white flex items-center justify-center">
-                    {fileCount > 9 ? '9+' : fileCount}
-                  </span>
-                )}
-              </button>
 
               {/* Compare models */}
               <button

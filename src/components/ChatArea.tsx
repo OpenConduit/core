@@ -4,8 +4,6 @@ import MessageList from './MessageList';
 import InputBar from './InputBar';
 import SystemPromptEditor from './SystemPromptEditor';
 import ParameterControls from './ParameterControls';
-import TasksPanel from './TasksPanel';
-import FilesPanel from './FilesPanel';
 import ContextWarningBanner from './ContextWarningBanner';
 import { useChat } from '../hooks/useChat';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -32,9 +30,6 @@ export default function ChatArea({ conversationId }: Props) {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-slate-900 relative">
-      {/* Floating AI task tracker (only visible when tasks exist + labs enabled) */}
-      <TasksPanel />
-
       <MessageList
         messages={conversation?.messages ?? []}
         conversationId={conversationId ?? undefined}
@@ -69,8 +64,6 @@ export default function ChatArea({ conversationId }: Props) {
         conversationId={conversationId}
       />
 
-      {/* Files panel — slides in over the right side of chat */}
-      <FilesPanel />
     </div>
   );
 }
