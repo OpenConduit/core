@@ -447,6 +447,20 @@ export default function Sidebar() {
     }
   };
 
+  // Delete key on selected conversation
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (!activeConversationId) return;
+      e.preventDefault();
+      handleDeleteConversation(activeConversationId);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [activeConversationId]);
+
   const handleDeleteFolder = (id: string) => {
     if (confirm('Delete folder and move all conversations to root?')) deleteFolder(id);
   };
