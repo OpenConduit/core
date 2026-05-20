@@ -1,0 +1,40 @@
+{
+  "id": "test.hello-world",
+  "name": "Hello World",
+  "version": "0.2.0",
+  "description": "Test extension that exercises the Phase 5 sandbox infrastructure.",
+  "author": "OpenConduit Dev",
+  "entryPoint": "dist/index.js",
+  "contributes": {
+    "activityBarItems": [
+      {
+        "panelId": "test.hello-world",
+        "label": "Hello World (sandbox test)",
+        "order": 90
+      }
+    ],
+    "settings": [
+      {
+        "key": "test.hello-world.greeting",
+        "type": "string",
+        "default": "Hello!",
+        "title": "Greeting message",
+        "description": "Custom greeting shown at the top of the panel."
+      },
+      {
+        "key": "test.hello-world.autoRefresh",
+        "type": "boolean",
+        "default": false,
+        "title": "Auto-refresh on open",
+        "description": "Automatically refresh API data when the panel opens."
+      },
+      {
+        "key": "test.hello-world.maxItems",
+        "type": "number",
+        "default": 10,
+        "title": "Max items",
+        "description": "Maximum number of items to display in lists."
+      }
+    ]
+  }
+}

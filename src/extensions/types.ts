@@ -48,6 +48,12 @@ export interface ExtensionManifest {
   version: string;
   description?: string;
   author?: string;
+  /**
+   * When `true` the extension runs in a sandboxed iframe (Phase 5).
+   * First-party builtins are always `false` (or omitted).
+   * All marketplace-installed extensions default to `true`.
+   */
+  sandboxed?: boolean;
   contributes?: {
     /** Sidebar panels contributed to the ActivityBar. */
     activityBarItems?: ActivityBarContribution[];
