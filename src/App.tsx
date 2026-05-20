@@ -14,6 +14,7 @@ import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 // Register all built-in extensions (side-effect import)
 import './extensions';
 import { extensionRegistry } from './extensions/extensionRegistry';
+import { loadInstalledExtensions } from './extensions/loader';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUiStore } from './stores/uiStore';
 import { useConversationStore } from './stores/conversationStore';
@@ -63,6 +64,15 @@ export default function App() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  // Expose the extension SDK surface on window so dynamically-loaded extension
+  // bundles can call extensionRegistry.registerExtension() without bundling core.
+  useEffect(() => {
+    (window as Window & { __openConduit?: unknown }).__openConduit = { extensionRegistry };
+    // Load marketplace-installed extensions from userData/extensions/
+    loadInstalledExtensions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Restore active custom theme CSS vars on mount
   useEffect(() => {

@@ -21,6 +21,7 @@ import type { ActivityBarContribution, ExtensionManifest } from './types';
 class ExtensionRegistry {
   private readonly manifests = new Map<string, ExtensionManifest>();
   private readonly activityBarItems: ActivityBarContribution[] = [];
+  private readonly listeners = new Set<() => void>();
 
   /**
    * Register an extension and its contributions.
@@ -43,6 +44,22 @@ class ExtensionRegistry {
         }
       }
     }
+
+    this.notify();
+  }
+
+  /** Notify all subscribers that the registry has changed. */
+  private notify(): void {
+    this.listeners.forEach((l) => l());
+  }
+
+  /**
+   * Subscribe to registry changes. Called whenever a new extension registers.
+   * Returns an unsubscribe function.
+   */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   /**

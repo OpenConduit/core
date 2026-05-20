@@ -7,7 +7,7 @@ import { usePromptTemplatesStore } from '../stores/promptTemplatesStore';
 import { useRoutingProfilesStore } from '../stores/routingProfilesStore';
 import { useRegistryStore } from '../stores/registryStore';
 import { commandRegistry } from '../commands/commandRegistry';
-import { extensionRegistry } from '../extensions/extensionRegistry';
+import { useActivityBarItems } from '../extensions/useActivityBarItems';
 import { service } from '../services';
 import type { ActivityPanel } from '../stores/uiStore';
 
@@ -105,14 +105,15 @@ export default function ActivityBar() {
     return n;
   }, [getEntries, installedThemes, installedPersonas, installedTemplates, installedProfiles]);
 
+  // Dynamic items contributed by extensions — reactive, updates when new extensions load
+  const extensionItems = useActivityBarItems();
+
   // Build the full nav item list: structural-before + extension contributions + structural-after
   const allNavItems = useMemo((): NavItem[] => [
     ...NAV_ITEMS_BEFORE,
-    ...extensionRegistry.getActivityBarItems().map(({ panelId, label, icon }) => ({ id: panelId, label, icon })),
+    ...extensionItems.map(({ panelId, label, icon }) => ({ id: panelId, label, icon })),
     ...NAV_ITEMS_AFTER,
-  // extensionRegistry is populated at module-load time so no reactive deps are needed
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], []);
+  ], [extensionItems]);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
