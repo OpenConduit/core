@@ -93,6 +93,31 @@ export interface Message {
   routingDecision?: RoutingDecision;
 }
 
+// ─── Conversation Folders ────────────────────────────────────────────────────
+
+export interface ConversationFolder {
+  id: string;
+  name: string;
+  parentId: string | null; // null = root
+  order: number;
+  collapsed: boolean;
+  /** AI instructions applied to all conversations in this folder (overrides conversation-level prompt). Cascades: nearest ancestor with a prompt wins. */
+  systemPrompt?: string;
+}
+
+export interface FolderFile {
+  id: string;
+  folderId: string;
+  name: string;
+  language?: string;       // programming language for code artifacts
+  content: string;         // text content (code, markdown, etc.)
+  mimeType: string;
+  size: number;            // bytes
+  createdAt: number;
+  source: 'ai-artifact' | 'user-upload';
+  conversationId?: string; // originating conversation, if any
+}
+
 // ─── Conversation Types ────────────────────────────────────────────────────
 
 export interface Conversation {
@@ -117,6 +142,8 @@ export interface Conversation {
    * When undefined, falls back to globally-enabled servers.
    */
   activeMcpServerIds?: string[];
+  /** Folder this conversation belongs to. null / undefined = unfiled (root). */
+  folderId?: string | null;
 }
 
 // ─── Token Usage ──────────────────────────────────────────────────────────
