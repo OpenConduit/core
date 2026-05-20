@@ -1,6 +1,46 @@
 import { useRef, useEffect, useState, createElement } from 'react';
 import { buildSandboxDocument } from './buildSandboxDocument';
 import type { SandboxToHostMessage, HostToSandboxMessage } from './protocol';
+import type { ExtensionAPI } from '../types';
+import { createExtensionAPI } from '../extensionHost';
+
+/**
+ * API methods that return subscription/unsubscribe functions cannot be
+ * serialised over the postMessage bridge. They are blocked with a clear error.
+ */
+const SUBSCRIPTION_METHODS = new Set([
+  'conversations.onNewMessage',
+  'settings.onChange',
+  'ui.registerMessageDecorator',
+]);
+
+async function dispatchApiCall(
+  api: ExtensionAPI,
+  path: string,
+  args: unknown[],
+): Promise<unknown> {
+  if (SUBSCRIPTION_METHODS.has(path)) {
+    throw new Error(
+      `"${path}" is a subscription method and cannot be called over the sandbox bridge.`,
+    );
+  }
+
+  const parts = path.split('.');
+  if (parts.length !== 2) throw new Error(`Invalid API path: "${path}"`);
+  const [ns, method] = parts;
+
+  const namespace = (api as unknown as Record<string, unknown>)[ns];
+  if (!namespace || typeof namespace !== 'object') {
+    throw new Error(`Unknown API namespace: "${ns}"`);
+  }
+
+  const fn = (namespace as Record<string, unknown>)[method];
+  if (typeof fn !== 'function') {
+    throw new Error(`Unknown API method: "${path}"`);
+  }
+
+  return await (fn as (...a: unknown[]) => unknown)(...args);
+}
 
 /** Minimal type for the extensions bridge exposed by the Electron preload. */
 interface ExtensionsApi {
@@ -41,6 +81,23 @@ export function SandboxedPanel({ extensionId, entryPoint }: SandboxedPanelProps)
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Lazily-created ExtensionAPI instance scoped to this sandboxed extension.
+  // Sandboxed extensions are granted all permissions — the iframe sandbox is
+  // the security boundary.
+  const apiRef = useRef<ExtensionAPI | null>(null);
+  function getApi(): ExtensionAPI {
+    if (!apiRef.current) {
+      apiRef.current = createExtensionAPI({
+        id: extensionId,
+        name: extensionId,
+        version: '0.0.0',
+        sandboxed: true,
+        permissions: ['conversations.write', 'settings.write'],
+      });
+    }
+    return apiRef.current;
+  }
 
   /* Load the extension bundle and build the sandbox document */
   useEffect(() => {
@@ -92,14 +149,20 @@ export function SandboxedPanel({ extensionId, entryPoint }: SandboxedPanelProps)
       if (typeof msg?.type !== 'string' || !msg.type.startsWith('oc:')) return;
 
       if (msg.type === 'oc:api') {
-        // Proxy ExtensionAPI calls to the host — full implementation tracked in #55.
-        console.warn(`[SandboxedPanel:${extensionId}] api.${msg.path}() called but ExtensionAPI is not yet implemented (#55).`);
-        const response: HostToSandboxMessage = {
-          type: 'oc:api-response',
-          id: msg.id,
-          error: 'ExtensionAPI not yet implemented. See issue #55.',
-        };
-        frame.contentWindow?.postMessage(response, '*');
+        const callId = msg.id;
+        dispatchApiCall(getApi(), msg.path, msg.args)
+          .then((result) => {
+            const response: HostToSandboxMessage = { type: 'oc:api-response', id: callId, result };
+            frame.contentWindow?.postMessage(response, '*');
+          })
+          .catch((err: unknown) => {
+            const response: HostToSandboxMessage = {
+              type: 'oc:api-response',
+              id: callId,
+              error: err instanceof Error ? err.message : String(err),
+            };
+            frame.contentWindow?.postMessage(response, '*');
+          });
       }
     }
 

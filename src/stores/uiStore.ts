@@ -53,6 +53,14 @@ interface UiState {
   markRead: (id: string) => void;
   markAllRead: () => void;
   clearNotifications: () => void;
+
+  // ── Extension message injection (#55) ────────────────────────────────────
+  /** Message text queued by an extension via `api.conversations.sendMessage()`. */
+  injectedMessage: string | null;
+  /** Set a message to be sent programmatically by the active conversation. */
+  injectMessage: (text: string) => void;
+  /** Clear the injected message after it has been consumed. */
+  clearInjectedMessage: () => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -131,4 +139,8 @@ export const useUiStore = create<UiState>()((set) => ({
   markAllRead: () =>
     set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
   clearNotifications: () => set({ notifications: [] }),
+
+  injectedMessage: null,
+  injectMessage: (text) => set({ injectedMessage: text }),
+  clearInjectedMessage: () => set({ injectedMessage: null }),
 }));

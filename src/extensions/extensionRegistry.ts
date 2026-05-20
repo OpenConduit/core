@@ -1,12 +1,14 @@
 import { createElement } from 'react';
 import type React from 'react';
-import type { ActivityBarContribution, ExtensionManifest, SettingsProperty } from './types';
+import type { ActivityBarContribution, ExtensionManifest } from './types';
+import type { SettingsProperty } from '../types';
 import type { SandboxContributions, SerializableSandboxManifest } from './sandbox/protocol';
 import { SandboxedPanel } from './sandbox/SandboxedPanel';
 import { commandRegistry } from '../commands/commandRegistry';
 import { hookRegistry } from '../hooks/hookRegistry';
 import { bottomPanelRegistry } from '../bottomPanel/bottomPanelRegistry';
 import { settingsRegistry } from '../settings/settingsRegistry';
+import { createExtensionAPI } from './extensionHost';
 
 /**
  * Tracks all registered extensions and their contributions.
@@ -77,6 +79,15 @@ class ExtensionRegistry {
       if (hooks.onResponse)    hookRegistry.registerOnResponse(`${prefix}.onResponse`, hooks.onResponse);
       if (hooks.onStreamChunk) hookRegistry.registerOnStreamChunk(`${prefix}.onStreamChunk`, hooks.onStreamChunk);
       if (hooks.onToolCall)    hookRegistry.registerOnToolCall(`${prefix}.onToolCall`, hooks.onToolCall);
+    }
+
+    // ── activate(api) ─────────────────────────────────────────────────────
+    if (manifest.activate) {
+      try {
+        void manifest.activate(createExtensionAPI(manifest));
+      } catch (err) {
+        console.error(`[ExtensionRegistry] activate() failed for "${manifest.id}":`, err);
+      }
     }
 
     this.notify();

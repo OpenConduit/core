@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Message } from '../types';
 import MessageBubble from './MessageBubble';
+import { messageDecoratorRegistry } from '../extensions/messageDecoratorRegistry';
+import type { MessageDecorator } from '../extensions/messageDecoratorRegistry';
 
 interface Props {
   messages: Message[];
@@ -12,6 +14,15 @@ interface Props {
 
 export default function MessageList({ messages, conversationId, onApprove, onDeny, onSendAnswers }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [decorators, setDecorators] = useState<MessageDecorator[]>(() =>
+    messageDecoratorRegistry.getAll(),
+  );
+
+  useEffect(() => {
+    return messageDecoratorRegistry.subscribe(() => {
+      setDecorators(messageDecoratorRegistry.getAll());
+    });
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -47,6 +58,7 @@ export default function MessageList({ messages, conversationId, onApprove, onDen
             onApprove={onApprove}
             onDeny={onDeny}
             onSendAnswers={onSendAnswers}
+            decorators={decorators}
           />
         ))}
       <div ref={bottomRef} />

@@ -170,7 +170,7 @@ root.innerHTML = `
 
     <div class="section">
       <div class="section-title">API Explorer</div>
-      <p>Fires <code>oc:api</code> calls and shows host responses. All paths return the <em>"not yet implemented"</em> stub until issue #55 lands.</p>
+      <p>Fires <code>oc:api</code> calls and shows live host responses via the <code>ExtensionAPI</code> bridge.</p>
       <hr class="divider" />
       <div class="section-title" style="font-size:10px">Preset paths</div>
       <div class="preset-table" id="preset-table"></div>
@@ -187,7 +187,7 @@ root.innerHTML = `
 
     <div class="section">
       <div class="section-title">Extension Settings</div>
-      <p>Read or write this extension\'s settings via <code>settings.get</code> / <code>settings.set</code>. Returns the <em>"not yet implemented"</em> stub until #55 lands — inputs show defaults until then.</p>
+      <p>Read or write this extension\'s settings via <code>settings.get</code> / <code>settings.set</code>.</p>
       <button id="btn-settings-read-all" style="align-self:flex-start">Read all from host</button>
       <div class="settings-rows" id="settings-rows"></div>
     </div>
@@ -242,10 +242,10 @@ applyTheme(document.documentElement.dataset.theme || 'light');
 // ─── 5. Preset API paths ──────────────────────────────────────────────────────
 const PRESETS = [
   { path: 'conversations.getActive', args: []         },
-  { path: 'conversations.list',      args: []         },
+  { path: 'conversations.getAll',    args: []         },
   { path: 'settings.get',            args: ['theme']  },
-  { path: 'settings.getAll',         args: []         },
-  { path: 'ui.getActivePanel',       args: []         },
+  { path: 'store.getPersonas',       args: []         },
+  { path: 'store.getTasks',          args: []         },
 ];
 
 const presetTable = document.getElementById('preset-table');
