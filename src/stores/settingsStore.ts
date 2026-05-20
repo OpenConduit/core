@@ -2,6 +2,22 @@ import { create } from 'zustand';
 import type { AppSettings } from '../types';
 import { service } from '../services';
 import { debugConsole } from '../utils/debugConsole';
+import { useDebugConsoleStore, type LogCategory } from './debugConsoleStore';
+
+function syncLoggingCategories(settings: AppSettings) {
+  const l = settings.logging;
+  if (!l) {
+    useDebugConsoleStore.getState().setEnabledCategories(new Set());
+    return;
+  }
+  const cats = new Set<LogCategory>();
+  if (l.provider) cats.add('provider');
+  if (l.mcp)      cats.add('mcp');
+  if (l.routing)  cats.add('routing');
+  if (l.settings) cats.add('settings');
+  cats.add('app'); // 'app' category always enabled
+  useDebugConsoleStore.getState().setEnabledCategories(cats);
+}
 
 interface SettingsState {
   settings: AppSettings | null;
@@ -21,12 +37,14 @@ export const useSettingsStore = create<SettingsState>()((set, _get) => ({
   loadSettings: async () => {
     const settings = await service.settings.get();
     set({ settings });
-    debugConsole.log('Settings loaded', { defaultProvider: settings.defaultProviderId, defaultModel: settings.defaultModel, providerCount: settings.providers.length });
+    syncLoggingCategories(settings);
+    debugConsole.log('Settings loaded', { defaultProvider: settings.defaultProviderId, defaultModel: settings.defaultModel, providerCount: settings.providers.length }, 'settings');
   },
 
   saveSettings: async (partial) => {
     const updated = await service.settings.set(partial);
     set({ settings: updated });
+    syncLoggingCategories(updated);
   },
 
   loadModels: async (providerId: string) => {
@@ -38,6 +56,6 @@ export const useSettingsStore = create<SettingsState>()((set, _get) => ({
     const status = await service.mcp.getStatus();
     set({ mcpStatus: status });
     const connected = Object.values(status).filter(Boolean).length;
-    debugConsole.debug('MCP status refreshed', { total: Object.keys(status).length, connected });
+    debugConsole.debug('MCP status refreshed', { total: Object.keys(status).length, connected }, 'settings');
   },
 }));

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ToolCall } from '../types';
 
 interface Props {
@@ -25,8 +25,9 @@ export default function ToolCallCard({ toolCall, onApprove, onDeny }: Props) {
   const isError = toolCall.isError;
 
   // Pending calls start open so Approve/Deny are immediately visible;
-  // completed calls start collapsed.
+  // completed calls start collapsed. If a pending call completes, auto-collapse.
   const [open, setOpen] = useState(isPending);
+  useEffect(() => { if (!isPending) setOpen(false); }, [isPending]);
 
   // Colour scheme derived from state
   const accent = isPending

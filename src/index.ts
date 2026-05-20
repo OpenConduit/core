@@ -13,7 +13,7 @@ import './settings/coreContributions'; // side-effect: registers core sections
 export { bottomPanelRegistry } from './bottomPanel/bottomPanelRegistry';
 export type { BottomPanelTab } from './bottomPanel/bottomPanelRegistry';
 export { debugConsole } from './utils/debugConsole';
-export type { DebugLevel, DebugEntry } from './stores/debugConsoleStore';
+export type { DebugLevel, DebugEntry, LogCategory } from './stores/debugConsoleStore';
 
 // Command registry (#38)
 export { commandRegistry } from './commands/commandRegistry';

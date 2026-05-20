@@ -350,6 +350,17 @@ export interface AppSettings {
   routing?: RoutingConfig;
   /** Named routing profiles — can be assigned per-conversation via routingProfileId */
   routingProfiles?: RoutingProfile[];
+  /** Per-category debug logging toggles (written to the Debug Console panel) */
+  logging?: {
+    /** AI request sent, stream chunks/end, and stream errors */
+    provider: boolean;
+    /** Tool call dispatch, results, and MCP server connection events */
+    mcp: boolean;
+    /** Routing decisions, model selection, and fallback events */
+    routing: boolean;
+    /** Settings load/save and MCP status refresh events */
+    settings: boolean;
+  };
 }
 
 // ─── Settings Contribution Schema (#37) ───────────────────────────────────
@@ -512,6 +523,10 @@ export const IPC = {
 
   // Extensions
   EXTENSIONS_GET_INSTALLED: 'extensions:get-installed',
+
+  // Debug logging
+  LOG_WRITE: 'log:write',
+  LOG_OPEN:  'log:open',
 } as const;
 
 // ─── Chat Request / Response ────────────────────────────────────────────────
