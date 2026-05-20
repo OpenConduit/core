@@ -18,18 +18,21 @@
         "key": "test.hello-world.greeting",
         "type": "string",
         "default": "Hello!",
+        "title": "Greeting message",
         "description": "Custom greeting shown at the top of the panel."
       },
       {
         "key": "test.hello-world.autoRefresh",
         "type": "boolean",
         "default": false,
+        "title": "Auto-refresh on open",
         "description": "Automatically refresh API data when the panel opens."
       },
       {
         "key": "test.hello-world.maxItems",
         "type": "number",
         "default": 10,
+        "title": "Max items",
         "description": "Maximum number of items to display in lists."
       }
     ]

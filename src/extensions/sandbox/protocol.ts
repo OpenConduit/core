@@ -58,6 +58,8 @@ export interface SandboxActivityBarItem {
 export interface SandboxSettingDefinition {
   /** Dot-namespaced key, e.g. `my-ext.theme`. Should be prefixed with the extension id. */
   key: string;
+  /** Display label rendered in the Settings panel. Falls back to a title-cased last key segment if omitted. */
+  title?: string;
   type: 'string' | 'boolean' | 'number';
   default: string | boolean | number;
   description?: string;

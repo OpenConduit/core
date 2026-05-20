@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import type React from 'react';
-import type { ActivityBarContribution, ExtensionManifest } from './types';
+import type { ActivityBarContribution, ExtensionManifest, SettingsProperty } from './types';
 import type { SandboxContributions, SerializableSandboxManifest } from './sandbox/protocol';
 import { SandboxedPanel } from './sandbox/SandboxedPanel';
 import { commandRegistry } from '../commands/commandRegistry';
@@ -141,6 +141,34 @@ class ExtensionRegistry {
           panel: PanelComponent,
         });
       }
+    }
+
+    // ── Settings ──────────────────────────────────────────────────────────────
+    if (contributions.settings && contributions.settings.length > 0) {
+      settingsRegistry.register({
+        id: manifest.id,
+        label: manifest.name,
+        order: 100,
+        sections: [
+          {
+            title: manifest.name,
+            properties: contributions.settings.map((s, idx) => {
+              const rawSegment = s.key.split('.').pop() ?? s.key;
+              const derivedTitle = rawSegment
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^[a-z]/, (c) => c.toUpperCase());
+              return {
+                type: s.type,
+                key: s.key,
+                title: s.title ?? derivedTitle,
+                description: s.description,
+                default: s.default,
+                order: idx + 1,
+              } as SettingsProperty;
+            }),
+          },
+        ],
+      });
     }
 
     this.notify();
