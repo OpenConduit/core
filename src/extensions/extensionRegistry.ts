@@ -1,5 +1,8 @@
+import { createElement } from 'react';
 import type React from 'react';
 import type { ActivityBarContribution, ExtensionManifest } from './types';
+import type { SandboxContributions, SerializableSandboxManifest } from './sandbox/protocol';
+import { SandboxedPanel } from './sandbox/SandboxedPanel';
 import { commandRegistry } from '../commands/commandRegistry';
 import { hookRegistry } from '../hooks/hookRegistry';
 import { bottomPanelRegistry } from '../bottomPanel/bottomPanelRegistry';
@@ -74,6 +77,70 @@ class ExtensionRegistry {
       if (hooks.onResponse)    hookRegistry.registerOnResponse(`${prefix}.onResponse`, hooks.onResponse);
       if (hooks.onStreamChunk) hookRegistry.registerOnStreamChunk(`${prefix}.onStreamChunk`, hooks.onStreamChunk);
       if (hooks.onToolCall)    hookRegistry.registerOnToolCall(`${prefix}.onToolCall`, hooks.onToolCall);
+    }
+
+    this.notify();
+  }
+
+  /**
+   * Register a sandboxed third-party extension (Phase 5).
+   *
+   * Unlike `registerExtension`, this path is used for marketplace-installed
+   * extensions whose manifest was pre-read by the Electron preload. The
+   * extension's entry-point bundle is **not** executed in the main renderer;
+   * instead each activity bar panel contribution is backed by a
+   * `SandboxedPanel` that loads the bundle lazily inside a sandboxed iframe
+   * when the panel is first opened.
+   *
+   * Calling this twice with the same `manifest.id` is a no-op (idempotent).
+   */
+  registerSandboxedExtension(
+    manifest: SerializableSandboxManifest,
+    contributions: SandboxContributions,
+    entryPoint: string
+  ): void {
+    if (this.manifests.has(manifest.id)) return;
+
+    // Store a synthetic ExtensionManifest so getManifest() / getAllManifests() work.
+    this.manifests.set(manifest.id, { ...manifest, sandboxed: true });
+
+    if (contributions.activityBarItems) {
+      for (const item of contributions.activityBarItems) {
+        if (this.activityBarItems.some((i) => i.panelId === item.panelId)) continue;
+
+        // Capture loop variables for the closure.
+        const extId = manifest.id;
+        const ep = entryPoint;
+
+        // Generic puzzle-piece icon for sandboxed extensions.
+        // Extensions can provide a custom icon via `iconSvg` in a future release.
+        const icon = item.iconSvg
+          ? createElement('span', {
+              dangerouslySetInnerHTML: { __html: item.iconSvg },
+              style: { display: 'flex', alignItems: 'center' },
+            })
+          : createElement(
+              'svg',
+              { className: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              createElement('path', {
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round',
+                strokeWidth: 1.5,
+                d: 'M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z',
+              })
+            );
+
+        const PanelComponent: React.ComponentType = () =>
+          createElement(SandboxedPanel, { extensionId: extId, entryPoint: ep });
+
+        this.activityBarItems.push({
+          panelId: item.panelId,
+          label: item.label,
+          order: item.order,
+          icon,
+          panel: PanelComponent,
+        });
+      }
     }
 
     this.notify();

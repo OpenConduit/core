@@ -403,6 +403,29 @@ export interface InstalledExtensionInfo {
   version: string;
   /** Absolute path to the extension's bundled JS entry point. */
   entryPoint: string;
+  /**
+   * Pre-read manifest from the extension's `extension.json`.
+   * When present, the loader registers the extension's contributions
+   * *without* running its code first, enabling lazy activation — the
+   * extension bundle is only fetched when its panel is first opened.
+   * Populated by the Electron preload; absent for legacy extensions that
+   * lack an `extension.json`.
+   */
+  manifest?: {
+    id: string;
+    name: string;
+    version: string;
+    description?: string;
+    author?: string;
+    contributes?: {
+      activityBarItems?: Array<{
+        panelId: string;
+        label: string;
+        iconSvg?: string;
+        order?: number;
+      }>;
+    };
+  };
 }
 
 // ─── IPC Channel Names ─────────────────────────────────────────────────────

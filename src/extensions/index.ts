@@ -12,3 +12,11 @@ export type {
   ExtensionManifest,
   ActivityBarContribution,
 } from './types';
+export type {
+  SandboxContributions,
+  SandboxActivityBarItem,
+  SandboxToHostMessage,
+  HostToSandboxMessage,
+  SerializableSandboxManifest,
+} from './sandbox/protocol';
+export { SandboxedPanel } from './sandbox/SandboxedPanel';
