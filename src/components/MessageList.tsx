@@ -50,10 +50,11 @@ export default function MessageList({ messages, conversationId, onApprove, onDen
     <div className="flex-1 overflow-y-auto py-4">
       {messages
         .filter((m) => m.role !== 'tool_result')
-        .map((msg) => (
+        .map((msg, index) => (
           <MessageBubble
             key={msg.id}
             message={msg}
+            messageIndex={index}
             conversationId={conversationId}
             onApprove={onApprove}
             onDeny={onDeny}

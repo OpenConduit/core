@@ -7,9 +7,12 @@ import ToolCallCard from './ToolCallCard';
 import QuestionsCard from './QuestionsCard';
 import ArtifactBlock from './ArtifactBlock';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useConversationStore } from '../stores/conversationStore';
+import { useUiStore } from '../stores/uiStore';
 
 interface Props {
   message: Message;
+  messageIndex?: number;
   conversationId?: string;
   onApprove?: (toolId: string) => void;
   onDeny?: (toolId: string) => void;
@@ -18,12 +21,24 @@ interface Props {
   decorators?: MessageDecorator[];
 }
 
-const MessageBubble = memo(function MessageBubble({ message, conversationId, onApprove, onDeny, onSendAnswers, decorators }: Props) {
+const MessageBubble = memo(function MessageBubble({ message, messageIndex, conversationId, onApprove, onDeny, onSendAnswers, decorators }: Props) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
   const [thinkingOpen, setThinkingOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [branched, setBranched] = useState(false);
   const debugMode = useSettingsStore((s) => s.settings?.labs?.debugMode ?? false);
+  const { branchConversation, openTab } = useConversationStore();
+  const { setActiveConversation } = useUiStore();
+
+  function handleBranch() {
+    if (!conversationId || messageIndex === undefined) return;
+    const branch = branchConversation(conversationId, messageIndex);
+    openTab?.(branch.id);
+    setActiveConversation(branch.id);
+    setBranched(true);
+    setTimeout(() => setBranched(false), 2000);
+  }
 
   function handleCopy() {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -220,6 +235,23 @@ const MessageBubble = memo(function MessageBubble({ message, conversationId, onA
               ) : (
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              )}
+            </button>
+          )}
+          {conversationId && messageIndex !== undefined && !message.isStreaming && (
+            <button
+              onClick={handleBranch}
+              title="Branch conversation here"
+              className="ml-1 text-[10px] text-slate-600 hover:text-green-400 transition-colors flex items-center gap-0.5"
+            >
+              {branched ? (
+                <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 3v12m0 0a3 3 0 106 0m-6 0a3 3 0 006 0m0 0V9m0 0a3 3 0 106 0 3 3 0 00-6 0" />
                 </svg>
               )}
             </button>
