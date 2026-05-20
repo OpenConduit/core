@@ -78,6 +78,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
     </svg>
   ),
+  extension: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+    </svg>
+  ),
 } as const;
 
 // ─── SettingsPanel ────────────────────────────────────────────────────────────
@@ -93,6 +98,14 @@ export default function SettingsPanel({
   const { settings, saveSettings, refreshMcpStatus, mcpStatus } = useSettingsStore();
   const [tab, setTab] = useState<Tab>('general');
   const [search, setSearch] = useState('');
+  const [extContributions, setExtContributions] = useState<SettingsContribution[]>(() =>
+    settingsRegistry.getAll().filter((c) => !c.id.startsWith('openconduit.'))
+  );
+  useEffect(() => {
+    return settingsRegistry.subscribe(() => {
+      setExtContributions(settingsRegistry.getAll().filter((c) => !c.id.startsWith('openconduit.')));
+    });
+  }, []);
 
   if (!showSettings || !settings) return null;
 
@@ -112,6 +125,7 @@ export default function SettingsPanel({
   const allTabs = [
     ...builtInTabs,
     ...(extraTabs?.map((t) => ({ id: t.id, label: t.label, icon: t.icon ?? Icons.general })) ?? []),
+    ...extContributions.map((c) => ({ id: c.id, label: c.label, icon: Icons.extension })),
   ];
 
   return (
@@ -221,6 +235,16 @@ export default function SettingsPanel({
                   <React.Fragment key={t.id}>
                     {tab === t.id && t.content}
                   </React.Fragment>
+                ))}
+                {extContributions.map((c) => (
+                  tab === c.id && (
+                    <SchemaFormRenderer
+                      key={c.id}
+                      contribution={c}
+                      settings={settings}
+                      onSave={saveSettings}
+                    />
+                  )
                 ))}
               </>
             )}
@@ -2061,9 +2085,11 @@ function SchemaSearchResults({
     <div className="space-y-6">
       {Object.entries(groups).map(([id, group]) => (
         <Section key={id} title={group.label}>
-          {group.items.map((item) => (
+          {group.items.map((item, idx) => (
             <div key={item.property.key}>
-              <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-1.5">{item.sectionTitle}</p>
+              {(idx === 0 || group.items[idx - 1].sectionTitle !== item.sectionTitle) && (
+                <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-1.5">{item.sectionTitle}</p>
+              )}
               <PropertyField property={item.property} settings={settings} onSave={onSave} />
             </div>
           ))}
