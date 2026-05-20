@@ -1,5 +1,13 @@
 import type React from 'react';
 import type { CommandContribution } from '../commands/commandRegistry';
+import type {
+  BeforeSendHook,
+  OnResponseHook,
+  OnStreamChunkHook,
+  OnToolCallHook,
+} from '../hooks/hookRegistry';
+import type { BottomPanelTab } from '../bottomPanel/bottomPanelRegistry';
+import type { SettingsContribution } from '../types';
 
 // ─── Activity Bar ─────────────────────────────────────────────────────────────
 
@@ -41,8 +49,20 @@ export interface ExtensionManifest {
   description?: string;
   author?: string;
   contributes?: {
+    /** Sidebar panels contributed to the ActivityBar. */
     activityBarItems?: ActivityBarContribution[];
-    /** Command IDs registered separately via `commandRegistry`. */
+    /** Commands contributed to the command palette + keyboard shortcuts. */
     commands?: CommandContribution[];
+    /** Tabs contributed to the bottom panel. */
+    bottomPanelTabs?: BottomPanelTab[];
+    /** A settings section contributed to the Settings panel. */
+    settingsTab?: SettingsContribution;
+    /** Hooks into the AI chat pipeline. */
+    hooks?: {
+      beforeSend?: BeforeSendHook;
+      onResponse?: OnResponseHook;
+      onStreamChunk?: OnStreamChunkHook;
+      onToolCall?: OnToolCallHook;
+    };
   };
 }
