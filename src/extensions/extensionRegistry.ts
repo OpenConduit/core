@@ -151,7 +151,7 @@ class ExtensionRegistry {
         order: 100,
         sections: [
           {
-            title: manifest.name,
+            title: 'Preferences',
             properties: contributions.settings.map((s, idx) => {
               const rawSegment = s.key.split('.').pop() ?? s.key;
               const derivedTitle = rawSegment

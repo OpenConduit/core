@@ -1893,12 +1893,12 @@ function PropertyField({
   if (renderOverride !== undefined) {
     control = renderOverride;
   } else if (property.type === 'boolean') {
-    control = <Toggle value={!!currentValue} onChange={handleChange} />;
+    control = <Toggle value={currentValue !== undefined ? !!currentValue : !!(property.default ?? false)} onChange={handleChange} />;
   } else if (property.type === 'string') {
     const sp = property as SettingsStringProperty;
     if (sp.enum) {
       control = (
-        <select value={(currentValue as string) ?? ''} onChange={(e) => handleChange(e.target.value)} className="select-field">
+        <select value={(currentValue as string) ?? (property.default as string | undefined) ?? ''} onChange={(e) => handleChange(e.target.value)} className="select-field">
           {sp.enum.map((v, i) => (
             <option key={v} value={v}>{sp.enumDescriptions?.[i] ?? v}</option>
           ))}
@@ -1907,7 +1907,7 @@ function PropertyField({
     } else if (sp.multiline) {
       control = (
         <textarea
-          value={(currentValue as string) ?? ''}
+          value={(currentValue as string) ?? (property.default as string | undefined) ?? ''}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={sp.placeholder}
           className="input-field resize-none"
@@ -1918,7 +1918,7 @@ function PropertyField({
       control = (
         <input
           type={sp.sensitive ? 'password' : 'text'}
-          value={(currentValue as string) ?? ''}
+          value={(currentValue as string) ?? (property.default as string | undefined) ?? ''}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={sp.placeholder}
           className="input-field"
@@ -1930,7 +1930,7 @@ function PropertyField({
     control = (
       <input
         type="number"
-        value={(currentValue as number) ?? ''}
+        value={(currentValue as number) ?? (property.default as number | undefined) ?? ''}
         onChange={(e) => handleChange(e.target.value === '' ? np.default : parseFloat(e.target.value))}
         min={np.minimum}
         max={np.maximum}
