@@ -296,6 +296,7 @@ interface ConversationItemProps {
   isRenaming: boolean;
   onRenameEnd: (name: string) => void;
   isDragging: boolean;
+  isBranch?: boolean;
   personaColor?: string;
   personaName?: string;
   onClick: () => void;
@@ -306,7 +307,7 @@ interface ConversationItemProps {
 }
 
 function ConversationItem({
-  title, depth, active, updatedAt, isRenaming, onRenameEnd, isDragging,
+  title, depth, active, updatedAt, isRenaming, onRenameEnd, isDragging, isBranch,
   personaColor, personaName, onClick, onContextMenu, onOpenInSplit, onDragStart, onDragEnd,
 }: ConversationItemProps) {
   const [renameValue, setRenameValue] = useState(title);
@@ -331,7 +332,13 @@ function ConversationItem({
         ${isDragging ? 'opacity-40' : ''}`}
     >
       <IndentGuides depth={depth} />
-      <ChatIcon color={active ? '#93c5fd' : (personaColor ?? '#75beff')} />
+      {isBranch ? (
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke={active ? '#6ee7b7' : '#34d399'} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 3v12m0 0a3 3 0 106 0m-6 0a3 3 0 006 0m0 0V9m0 0a3 3 0 106 0 3 3 0 00-6 0" />
+        </svg>
+      ) : (
+        <ChatIcon color={active ? '#93c5fd' : (personaColor ?? '#75beff')} />
+      )}
       {isRenaming ? (
         <input
           autoFocus
@@ -572,7 +579,39 @@ export default function Sidebar() {
   // ── Tree renderer ──────────────────────────────────────────────────────
   const renderTree = useCallback((parentFolderId: string | null, depth: number): React.ReactNode => {
     const childFolders = folders.filter((f) => f.parentId === parentFolderId).sort((a, b) => a.order - b.order);
-    const convs = conversations.filter((c) => (c.folderId ?? null) === parentFolderId).sort((a, b) => b.updatedAt - a.updatedAt);
+    // Exclude branch conversations that have their parent in this view (they render nested)
+    const convs = conversations
+      .filter((c) => (c.folderId ?? null) === parentFolderId && (!c.branchOf || !conversations.find((p) => p.id === c.branchOf)))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+
+    const renderBranches = (parentConvId: string, branchDepth: number): React.ReactNode => {
+      const branches = conversations
+        .filter((c) => c.branchOf === parentConvId)
+        .sort((a, b) => a.createdAt - b.createdAt);
+      return branches.map((branch) => (
+        <React.Fragment key={branch.id}>
+          <ConversationItem
+            id={branch.id}
+            depth={branchDepth}
+            title={branch.title}
+            active={branch.id === activeConversationId}
+            updatedAt={branch.updatedAt}
+            isRenaming={renamingConvId === branch.id}
+            onRenameEnd={(name) => handleConvRenameEnd(branch.id, name)}
+            isDragging={draggingConvId === branch.id}
+            isBranch
+            personaColor={branch.personaId ? personas.find((p) => p.id === branch.personaId)?.color : undefined}
+            personaName={branch.personaId ? personas.find((p) => p.id === branch.personaId)?.name : undefined}
+            onClick={() => { openTab?.(branch.id); setActiveConversation(branch.id); }}
+            onContextMenu={(e) => openConvCtxMenu(e, { id: branch.id, folderId: branch.folderId })}
+            onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: branch.id }); }}
+            onDragStart={(e) => handleConvDragStart(e, branch.id)}
+            onDragEnd={handleConvDragEnd}
+          />
+          {renderBranches(branch.id, branchDepth + 1)}
+        </React.Fragment>
+      ));
+    };
 
     return (
       <>
@@ -599,8 +638,8 @@ export default function Sidebar() {
           </React.Fragment>
         ))}
         {convs.map((conv) => (
+          <React.Fragment key={conv.id}>
           <ConversationItem
-            key={conv.id}
             id={conv.id}
             depth={depth}
             title={conv.title}
@@ -617,6 +656,8 @@ export default function Sidebar() {
             onDragStart={(e) => handleConvDragStart(e, conv.id)}
             onDragEnd={handleConvDragEnd}
           />
+          {renderBranches(conv.id, depth + 1)}
+          </React.Fragment>
         ))}
       </>
     );

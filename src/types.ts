@@ -144,6 +144,10 @@ export interface Conversation {
   activeMcpServerIds?: string[];
   /** Folder this conversation belongs to. null / undefined = unfiled (root). */
   folderId?: string | null;
+  /** When set, this conversation is a branch forked from another conversation. */
+  branchOf?: string;
+  /** The message index (0-based) in the parent conversation at which this branch was forked. */
+  branchAtMessageIndex?: number;
 }
 
 // ─── Token Usage ──────────────────────────────────────────────────────────

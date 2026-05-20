@@ -23,6 +23,8 @@ interface ConversationState {
    * (e.g. cloud) to seed the store from an API response. Messages default to []. */
   setConversations: (conversations: Array<Omit<Conversation, 'messages'> & { messages?: Message[] }>) => void;
 
+  branchConversation: (convId: string, messageIndex: number) => Conversation;
+
   // ── Folders ────────────────────────────────────────────────────────────────
   folders: ConversationFolder[];
   createFolder: (name: string, parentId?: string | null) => ConversationFolder;
@@ -66,6 +68,27 @@ export const useConversationStore = create<ConversationState>()(
             c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c,
           ),
         }));
+      },
+
+      branchConversation: (convId, messageIndex) => {
+        const source = _get().conversations.find((c) => c.id === convId);
+        const branch: Conversation = {
+          id: uuidv4(),
+          title: `Branch: ${source?.title ?? 'Conversation'}`,
+          messages: source ? source.messages.slice(0, messageIndex + 1) : [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          providerId: source?.providerId,
+          model: source?.model,
+          systemPrompt: source?.systemPrompt,
+          personaId: source?.personaId,
+          folderId: source?.folderId,
+          routingProfileId: source?.routingProfileId,
+          branchOf: convId,
+          branchAtMessageIndex: messageIndex,
+        };
+        set((s) => ({ conversations: [branch, ...s.conversations] }));
+        return branch;
       },
 
       deleteConversation: (id) => {
