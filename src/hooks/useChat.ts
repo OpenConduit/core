@@ -257,19 +257,6 @@ export function useChat(conversationId?: string | null) {
     ensureListeners();
   }, []);
 
-  // ── Extension message injection (#55) ──────────────────────────────────────
-  // When an extension calls api.conversations.sendMessage(), it sets
-  // injectedMessage in uiStore. Pick it up here and send it through the normal
-  // chat pipeline, then clear the queue.
-  useEffect(() => {
-    if (!injectedMessage) return;
-    const text = injectedMessage;
-    clearInjectedMessage();
-    void sendMessage(text);
-    // sendMessage is defined below via useCallback — the dependency is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [injectedMessage]);
-
   const activeConversation = conversations.find((c) => c.id === effectiveId) ?? null;
 
   const sendMessage = useCallback(
@@ -406,6 +393,18 @@ export function useChat(conversationId?: string | null) {
     },
     [effectiveId, settings, isStreaming, addMessage, updateConversation, setIsStreaming],
   );
+
+  // ── Extension message injection (#55) ──────────────────────────────────────
+  // When an extension calls api.conversations.sendMessage(), it sets
+  // injectedMessage in uiStore. Pick it up here and send it through the normal
+  // chat pipeline, then clear the queue.
+  // Placed after sendMessage declaration to avoid a forward-reference lint error.
+  useEffect(() => {
+    if (!injectedMessage) return;
+    const text = injectedMessage;
+    clearInjectedMessage();
+    void sendMessage(text);
+  }, [injectedMessage, sendMessage]);
 
   const abortStream = useCallback(() => {
     if (effectiveId) {
