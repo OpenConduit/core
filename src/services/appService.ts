@@ -75,4 +75,18 @@ export interface AppService {
       originalModel: string;
     }): Promise<RoutingDecision>;
   };
+  webtools?: {
+    /** Run a smoke-test of web_fetch or web_search with the current settings. */
+    test(type: 'fetch' | 'search'): Promise<{ ok: boolean; message: string }>;
+  };
+  extensionTools?: {
+    /**
+     * Listen for the main process asking the renderer to execute an extension
+     * tool handler. The callback receives the tool name, input, and a callId
+     * that must be passed back to `sendResult` when execution is complete.
+     */
+    onCall(cb: (data: { callId: string; toolName: string; input: Record<string, unknown> }) => void): () => void;
+    /** Send the result of an extension tool call back to the main process. */
+    sendResult(data: { callId: string; result: string; isError: boolean }): void;
+  };
 }

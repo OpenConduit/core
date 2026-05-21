@@ -7,9 +7,10 @@ import type {
   OnToolCallHook,
 } from '../hooks/hookRegistry';
 import type { BottomPanelTab } from '../bottomPanel/bottomPanelRegistry';
-import type { AppSettings, SettingsContribution, Conversation, Message, Persona, AiTask } from '../types';
+import type { AppSettings, McpTool, SettingsContribution, Conversation, Message, Persona, AiTask } from '../types';
 import type { SavedFile } from '../stores/filesStore';
 import type { MessageDecorator } from './messageDecoratorRegistry';
+import type { ToolHandler } from './toolContributionRegistry';
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
@@ -94,6 +95,23 @@ export interface ExtensionAPI {
     /** Returns the current task list. */
     getTasks(): AiTask[];
   };
+
+  /**
+   * Register AI tools that the language model can call during a conversation.
+   * The tool definition is forwarded to the AI provider alongside MCP tools.
+   * When the AI calls the tool, `handler` is invoked in the renderer with the
+   * tool's input arguments and must return a string result.
+   *
+   * Returns an unsubscribe function that removes the tool registration.
+   */
+  tools: {
+    register(
+      toolDef: Omit<McpTool, 'serverId'>,
+      handler: ToolHandler,
+    ): Unsubscribe;
+    /** Returns all tools currently registered by this extension. */
+    list(): McpTool[];
+  };
 }
 
 // ─── Activity Bar ─────────────────────────────────────────────────────────────
@@ -171,5 +189,12 @@ export interface ExtensionManifest {
       onStreamChunk?: OnStreamChunkHook;
       onToolCall?: OnToolCallHook;
     };
+    /**
+     * Static tool declarations. These are registered automatically before
+     * `activate` is called, so the AI can use them even if the extension
+     * doesn't register a handler. For dynamic tools (or tools that need
+     * runtime settings), prefer `api.tools.register()` in `activate`.
+     */
+    tools?: Array<Omit<McpTool, 'serverId'> & { handler: ToolHandler }>;
   };
 }

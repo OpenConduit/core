@@ -1,4 +1,4 @@
-import type { AppSettings, Conversation, Message, Persona, AiTask } from '../types';
+import type { AppSettings, Conversation, McpTool, Message, Persona, AiTask } from '../types';
 import type { SavedFile } from '../stores/filesStore';
 import type { ExtensionAPI, ExtensionManifest } from './types';
 import { useConversationStore } from '../stores/conversationStore';
@@ -8,6 +8,7 @@ import { useSavedFilesStore } from '../stores/filesStore';
 import { useTasksStore } from '../stores/tasksStore';
 import { useUiStore } from '../stores/uiStore';
 import { messageDecoratorRegistry } from './messageDecoratorRegistry';
+import { toolContributionRegistry } from './toolContributionRegistry';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -167,6 +168,20 @@ export function createExtensionAPI(manifest: ExtensionManifest): ExtensionAPI {
 
       getTasks(): AiTask[] {
         return useTasksStore.getState().tasks;
+      },
+    },
+
+    // ── Tools ──────────────────────────────────────────────────────────────
+
+    tools: {
+      register(toolDef: Omit<McpTool, 'serverId'>, handler) {
+        return toolContributionRegistry.register(toolDef, handler);
+      },
+
+      list(): McpTool[] {
+        return toolContributionRegistry.getTools().filter(
+          (t) => t.serverId === '__extension__',
+        );
       },
     },
   };
