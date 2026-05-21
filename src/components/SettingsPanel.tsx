@@ -89,6 +89,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
     </svg>
   ),
+  telemetry: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+    </svg>
+  ),
 } as const;
 
 // ─── SettingsPanel ────────────────────────────────────────────────────────────
@@ -124,7 +129,8 @@ export default function SettingsPanel({
     { id: 'labs',      label: 'Labs',      icon: Icons.labs },
     { id: 'updates',   label: 'Updates',   icon: Icons.updates },
     { id: 'logging',   label: 'Logging',   icon: Icons.logging },
-    { id: 'analytics', label: 'Analytics', icon: Icons.analytics },
+    { id: 'analytics', label: 'Model Analytics', icon: Icons.analytics },
+    { id: 'telemetry', label: 'Telemetry',       icon: Icons.telemetry },
     { id: 'about',     label: 'About',     icon: Icons.about },
     { id: 'json',      label: 'JSON',       icon: Icons.json },
   ].filter((t) => !hideTabs?.includes(t.id));
@@ -237,6 +243,7 @@ export default function SettingsPanel({
                 {tab === 'updates' && <UpdatesTab settings={settings} onSave={saveSettings} />}
                 {tab === 'logging' && <LoggingTab settings={settings} onSave={saveSettings} />}
                 {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
+                {tab === 'telemetry' && <TelemetryTab settings={settings} onSave={saveSettings} />}
                 {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
                 {tab === 'json' && <JsonSettingsEditor settings={settings} onSave={saveSettings} />}
                 {extraTabs?.map((t) => (
@@ -2616,6 +2623,67 @@ function UpdatesTab({
             )}
           </div>
         )}
+      </Section>
+    </div>
+  );
+}
+
+// ─── Telemetry Tab ────────────────────────────────────────────────────────────
+
+function TelemetryTab({
+  settings,
+  onSave,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+}) {
+  const telemetry = settings.telemetry ?? { usageReports: false, crashReports: false };
+  function setTelemetry(patch: Partial<NonNullable<AppSettings['telemetry']>>) {
+    onSave({ telemetry: { ...telemetry, ...patch } });
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-xl bg-slate-800/40 border border-slate-700/40 px-4 py-3">
+        <span className="text-base mt-0.5">🔒</span>
+        <p className="text-xs text-slate-400">
+          All reporting is <span className="text-slate-300 font-medium">opt-in and off by default</span>.
+          No conversation content, API keys, model names, or personal data are ever collected.
+        </p>
+      </div>
+      <Section title="Usage Reports">
+        <label className="flex items-start gap-3 cursor-pointer select-none rounded-lg hover:bg-slate-800/40 px-3 py-2.5 -mx-3 transition-colors">
+          <input
+            type="checkbox"
+            checked={telemetry.usageReports}
+            onChange={(e) => setTelemetry({ usageReports: e.target.checked })}
+            className="mt-0.5 w-4 h-4 rounded accent-blue-500 shrink-0"
+          />
+          <div>
+            <p className="text-sm text-slate-200 font-medium">Send anonymous usage reports</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              App version, platform, which provider types are configured, and which features are active.
+              No content, no keys, no model names.
+            </p>
+          </div>
+        </label>
+      </Section>
+      <Section title="Crash Reports">
+        <label className="flex items-start gap-3 cursor-pointer select-none rounded-lg hover:bg-slate-800/40 px-3 py-2.5 -mx-3 transition-colors">
+          <input
+            type="checkbox"
+            checked={telemetry.crashReports}
+            onChange={(e) => setTelemetry({ crashReports: e.target.checked })}
+            className="mt-0.5 w-4 h-4 rounded accent-blue-500 shrink-0"
+          />
+          <div>
+            <p className="text-sm text-slate-200 font-medium">Send crash reports</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Error type, sanitized stack trace (absolute file paths removed), app version, and platform.
+              Helps us fix crashes faster.
+            </p>
+          </div>
+        </label>
       </Section>
     </div>
   );
