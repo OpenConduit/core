@@ -56,6 +56,8 @@ export interface AppService {
     openExternal(url: string): Promise<void>;
     /** Quit the app and apply a downloaded update immediately. */
     restartAndInstall?(): Promise<void>;
+    /** Trigger an on-demand Squirrel download; fires onUpdateDownloaded when ready. */
+    triggerDownload?(): Promise<void>;
     /** Subscribe to be notified when an update has been downloaded. Returns an unsubscribe fn. */
     onUpdateDownloaded?(cb: () => void): () => void;
   };
