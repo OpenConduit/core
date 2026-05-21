@@ -233,7 +233,7 @@ export default function SettingsPanel({
                 {tab === 'labs' && <LabsTab settings={settings} onSave={saveSettings} />}
                 {tab === 'personas' && <PersonasPanel />}
                 {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
-                {tab === 'updates' && <SchemaFormRenderer contribution={settingsRegistry.get('openconduit.updates')} settings={settings} onSave={saveSettings} />}
+                {tab === 'updates' && <UpdatesTab settings={settings} onSave={saveSettings} />}
                 {tab === 'logging' && <LoggingTab settings={settings} onSave={saveSettings} />}
                 {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
                 {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
@@ -2416,25 +2416,29 @@ function AddModelPricingRow({ existingKeys, onAdd }: { existingKeys: string[]; o
   );
 }
 
-// ─── About Tab ────────────────────────────────────────────────────────────────
+// ─── Updates Tab ──────────────────────────────────────────────────────────────
 
-function AboutTab({
+function UpdatesTab({
   settings,
   onSave,
 }: {
   settings: AppSettings;
   onSave: (p: Partial<AppSettings>) => Promise<void>;
 }) {
+  const channel = settings.updateChannel ?? 'stable';
+  const mode = settings.updateMode ?? 'automatic';
+
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checkState, setCheckState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [checkError, setCheckError] = useState('');
-  const channel = settings.updateChannel ?? 'stable';
+  const [updateDownloaded, setUpdateDownloaded] = useState(false);
+  const [restarting, setRestarting] = useState(false);
 
-  const [feedbackType, setFeedbackType] = useState<FeedbackPayload['type']>('bug');
-  const [feedbackTitle, setFeedbackTitle] = useState('');
-  const [feedbackDesc, setFeedbackDesc] = useState('');
-  const [submitState, setSubmitState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [submitError, setSubmitError] = useState('');
+  useEffect(() => {
+    if (!service.updater.onUpdateDownloaded) return;
+    const unsub = service.updater.onUpdateDownloaded(() => setUpdateDownloaded(true));
+    return unsub;
+  }, []);
 
   async function checkUpdates() {
     setCheckState('loading');
@@ -2449,6 +2453,151 @@ function AboutTab({
       setCheckState('error');
     }
   }
+
+  async function restartAndInstall() {
+    if (!service.updater.restartAndInstall) return;
+    setRestarting(true);
+    try { await service.updater.restartAndInstall(); } catch { setRestarting(false); }
+  }
+
+  const modeOptions: { value: AppSettings['updateMode']; label: string; description: string }[] = [
+    { value: 'automatic',     label: 'Automatic',     description: 'Download in background and prompt to restart when ready.' },
+    { value: 'download-only', label: 'Download Only', description: 'Download silently — restart to apply whenever you\'re ready.' },
+    { value: 'manual',        label: 'Manual',        description: 'No automatic checks — click "Check for Updates" yourself.' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Release channel */}
+      <Section title="Release Channel">
+        <select
+          value={channel}
+          onChange={(e) => { onSave({ updateChannel: e.target.value as 'stable' | 'beta' | 'alpha' }); setUpdateInfo(null); }}
+          className="w-48 bg-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-blue-500 border border-slate-600"
+        >
+          <option value="stable">Stable</option>
+          <option value="beta">Beta</option>
+          <option value="alpha">Alpha</option>
+        </select>
+        <p className="mt-1.5 text-[11px] text-slate-600">
+          {channel === 'stable' && 'Production releases only.'}
+          {channel === 'beta' && 'Beta pre-releases — no alpha builds.'}
+          {channel === 'alpha' && 'Bleeding edge — alpha and beta pre-releases.'}
+        </p>
+      </Section>
+
+      {/* Update mode */}
+      <Section title="Update Mode">
+        <div className="space-y-2">
+          {modeOptions.map(({ value, label, description }) => (
+            <label
+              key={value}
+              className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                mode === value
+                  ? 'border-blue-500/60 bg-blue-950/30'
+                  : 'border-slate-700 bg-slate-800/40 hover:border-slate-600'
+              }`}
+            >
+              <input
+                type="radio"
+                name="updateMode"
+                value={value}
+                checked={mode === value}
+                onChange={() => onSave({ updateMode: value })}
+                className="mt-0.5 accent-blue-500 shrink-0"
+              />
+              <div>
+                <p className="text-xs font-medium text-slate-200">{label}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{description}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </Section>
+
+      {/* Restart banner (download-only, update ready) */}
+      {updateDownloaded && mode !== 'automatic' && (
+        <div className="rounded-lg border border-green-700/50 bg-green-950/30 px-4 py-3 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium text-green-300">Update downloaded and ready to install</p>
+            <p className="text-[11px] text-green-500/70 mt-0.5">The app will update the next time it launches, or restart now.</p>
+          </div>
+          <button
+            onClick={restartAndInstall}
+            disabled={restarting}
+            className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-700 hover:bg-green-600 text-white disabled:opacity-50 transition-colors"
+          >
+            {restarting ? 'Restarting…' : 'Restart & Install'}
+          </button>
+        </div>
+      )}
+
+      {/* Manual check */}
+      <Section title="Check for Updates">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={checkUpdates}
+            disabled={checkState === 'loading'}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              checkState === 'loading'
+                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-500 text-white'
+            }`}
+          >
+            {checkState === 'loading' ? 'Checking…' : 'Check for Updates'}
+          </button>
+          <span className="text-xs text-slate-600">Current: v{__APP_VERSION__}</span>
+        </div>
+
+        {checkState === 'error' && (
+          <p className="mt-2 text-xs text-red-400">{checkError}</p>
+        )}
+
+        {updateInfo && (
+          <div className={`mt-3 rounded-lg border px-3 py-2.5 text-xs ${
+            updateInfo.hasUpdate
+              ? 'bg-green-950/40 border-green-700/40 text-green-300'
+              : 'bg-slate-800/40 border-slate-700 text-slate-400'
+          }`}>
+            {updateInfo.hasUpdate ? (
+              <>
+                <p className="font-medium">🎉 Update available — v{updateInfo.latestVersion}</p>
+                {updateInfo.releaseNotes && (
+                  <p className="mt-1 text-green-400/70 line-clamp-3">{updateInfo.releaseNotes}</p>
+                )}
+                {updateInfo.downloadUrl && (
+                  <button
+                    onClick={() => service.updater.openExternal(updateInfo.downloadUrl!)}
+                    className="inline-block mt-2 underline text-green-400 hover:text-green-200 text-left"
+                  >
+                    Download v{updateInfo.latestVersion} →
+                  </button>
+                )}
+              </>
+            ) : (
+              <p>✓ You&apos;re on the latest version (v{updateInfo.currentVersion})</p>
+            )}
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+// ─── About Tab ────────────────────────────────────────────────────────────────
+
+function AboutTab({
+  settings: _settings,
+  onSave: _onSave,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+}) {
+  const [feedbackType, setFeedbackType] = useState<FeedbackPayload['type']>('bug');
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackDesc, setFeedbackDesc] = useState('');
+  const [submitState, setSubmitState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [submitError, setSubmitError] = useState('');
 
   async function submitFeedback() {
     if (!feedbackTitle.trim() || !feedbackDesc.trim()) return;
@@ -2478,73 +2627,6 @@ function AboutTab({
           <p className="text-xs text-slate-600 mt-0.5">Built with Electron + React + Tailwind</p>
         </div>
       </div>
-
-      {/* Update checker */}
-      <Section title="Updates">
-        {/* Channel selector */}
-        <div className="mb-3">
-          <label className="text-xs text-slate-400 block mb-1.5">Update channel</label>
-          <select
-            value={channel}
-            onChange={(e) => { onSave({ updateChannel: e.target.value as 'stable' | 'beta' | 'alpha' }); setUpdateInfo(null); }}
-            className="w-48 bg-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-blue-500 border border-slate-600"
-          >
-            <option value="stable">Stable</option>
-            <option value="beta">Beta</option>
-            <option value="alpha">Alpha</option>
-          </select>
-          <p className="mt-1.5 text-[11px] text-slate-600">
-            {channel === 'stable' && 'Production releases only.'}
-            {channel === 'beta' && 'Beta releases only — no alpha builds.'}
-            {channel === 'alpha' && 'Bleeding edge — alpha and beta pre-releases.'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={checkUpdates}
-            disabled={checkState === 'loading'}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              checkState === 'loading'
-                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-500 text-white'
-            }`}
-          >
-            {checkState === 'loading' ? 'Checking…' : 'Check for Updates'}
-          </button>
-        </div>
-
-        {checkState === 'error' && (
-          <p className="mt-2 text-xs text-red-400">{checkError}</p>
-        )}
-
-        {updateInfo && (
-          <div className={`mt-3 rounded-lg border px-3 py-2.5 text-xs ${
-            updateInfo.hasUpdate
-              ? 'bg-green-950/40 border-green-700/40 text-green-300'
-              : 'bg-slate-800/40 border-slate-700 text-slate-400'
-          }`}>
-            {updateInfo.hasUpdate ? (
-              <>
-                <p className="font-medium">🎉 Update available — v{updateInfo.latestVersion}</p>
-                {updateInfo.releaseNotes && (
-                  <p className="mt-1 text-green-400/70">{updateInfo.releaseNotes}</p>
-                )}
-                {updateInfo.downloadUrl && (
-                  <button
-                    onClick={() => service.updater.openExternal(updateInfo.downloadUrl!)}
-                    className="inline-block mt-2 underline text-green-400 hover:text-green-200 text-left"
-                  >
-                    Download v{updateInfo.latestVersion} →
-                  </button>
-                )}
-              </>
-            ) : (
-              <p>✓ You're on the latest version (v{updateInfo.currentVersion})</p>
-            )}
-          </div>
-        )}
-      </Section>
 
       {/* Feedback */}
       <Section title="Send Feedback">

@@ -346,6 +346,13 @@ export interface AppSettings {
   modelPricing?: ModelPricing;
   /** Which release channel to check for updates */
   updateChannel?: 'stable' | 'beta' | 'alpha';
+  /**
+   * How updates are applied.
+   * - automatic: download in background and prompt to restart (default)
+   * - download-only: download silently; user restarts manually via Settings
+   * - manual: no automatic checks; user clicks "Check for Updates" themselves
+   */
+  updateMode?: 'automatic' | 'download-only' | 'manual';
   /** Intelligent model routing configuration (global default) */
   routing?: RoutingConfig;
   /** Named routing profiles — can be assigned per-conversation via routingProfileId */
@@ -510,6 +517,10 @@ export const IPC = {
 
   // Updates & feedback
   UPDATE_CHECK: 'update:check',
+  /** Trigger quit-and-install for a downloaded update */
+  UPDATE_RESTART: 'update:restart',
+  /** Pushed from main → renderer when an update has been downloaded */
+  UPDATE_DOWNLOADED: 'update:downloaded',
   FEEDBACK_SUBMIT: 'feedback:submit',
   OPEN_EXTERNAL: 'open:external',
 

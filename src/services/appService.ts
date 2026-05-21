@@ -54,6 +54,10 @@ export interface AppService {
     checkForUpdates(): Promise<UpdateInfo>;
     submitFeedback(payload: Omit<FeedbackPayload, 'appVersion' | 'platform'>): Promise<void>;
     openExternal(url: string): Promise<void>;
+    /** Quit the app and apply a downloaded update immediately. */
+    restartAndInstall?(): Promise<void>;
+    /** Subscribe to be notified when an update has been downloaded. Returns an unsubscribe fn. */
+    onUpdateDownloaded?(cb: () => void): () => void;
   };
   config: {
     exportSettings(redact: boolean): Promise<boolean>;
