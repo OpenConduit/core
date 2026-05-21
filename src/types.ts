@@ -368,6 +368,16 @@ export interface AppSettings {
     /** Settings load/save and MCP status refresh events */
     settings: boolean;
   };
+  /**
+   * Anonymous usage reporting (opt-in, off by default).
+   * No personal data, conversation content, or API keys are ever sent.
+   */
+  telemetry?: {
+    /** Send anonymous app-level usage events (provider types, feature flags, etc.) */
+    usageReports: boolean;
+    /** Send sanitized crash/error reports (error type, stack without absolute paths) */
+    crashReports: boolean;
+  };
 }
 
 // ─── Settings Contribution Schema (#37) ───────────────────────────────────
