@@ -561,6 +561,10 @@ export const IPC = {
   // Extensions
   EXTENSIONS_GET_INSTALLED: 'extensions:get-installed',
 
+  // Crash reports
+  CRASH_HAS_STORED: 'crash:has-stored',
+  CRASH_SEND_STORED: 'crash:send-stored',
+
   // Debug logging
   LOG_WRITE: 'log:write',
   LOG_OPEN:  'log:open',

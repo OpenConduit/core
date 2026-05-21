@@ -27,4 +27,5 @@ export const service: AppService = {
   get routing() { return _instance!.routing; },
   get webtools() { return _instance!.webtools; },
   get extensionTools() { return _instance!.extensionTools; },
+  get crash() { return _instance!.crash; },
 } satisfies AppService;

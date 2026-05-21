@@ -2642,6 +2642,24 @@ function TelemetryTab({
     onSave({ telemetry: { ...telemetry, ...patch } });
   }
 
+  const [hasCrash, setHasCrash] = useState(false);
+  const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  useEffect(() => {
+    service.crash?.hasStored().then(setHasCrash).catch((_e) => { /* non-fatal */ });
+  }, []);
+
+  async function sendStoredCrash() {
+    setSendState('sending');
+    try {
+      await service.crash?.sendStored();
+      setHasCrash(false);
+      setSendState('sent');
+    } catch {
+      setSendState('error');
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3 rounded-xl bg-slate-800/40 border border-slate-700/40 px-4 py-3">
@@ -2677,13 +2695,33 @@ function TelemetryTab({
             className="mt-0.5 w-4 h-4 rounded accent-blue-500 shrink-0"
           />
           <div>
-            <p className="text-sm text-slate-200 font-medium">Send crash reports</p>
+            <p className="text-sm text-slate-200 font-medium">Send crash reports automatically</p>
             <p className="text-xs text-slate-500 mt-0.5">
               Error type, sanitized stack trace (absolute file paths removed), app version, and platform.
               Helps us fix crashes faster.
             </p>
           </div>
         </label>
+        {hasCrash && (
+          <div className="mt-3 rounded-lg border border-slate-700/60 bg-slate-800/30 px-4 py-3 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-slate-300 font-medium">Unsent crash report available</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                A crash was recorded while automatic reporting was off. You can send it now.
+              </p>
+            </div>
+            <button
+              onClick={sendStoredCrash}
+              disabled={sendState === 'sending' || sendState === 'sent'}
+              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+            >
+              {sendState === 'sending' ? 'Sending…' : sendState === 'sent' ? 'Sent ✓' : sendState === 'error' ? 'Retry' : 'Send Report'}
+            </button>
+          </div>
+        )}
+        {sendState === 'error' && (
+          <p className="text-xs text-red-400 mt-1">Failed to send. Check your connection and try again.</p>
+        )}
       </Section>
     </div>
   );
