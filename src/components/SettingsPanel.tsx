@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
-import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsButtonProperty, SettingsContribution } from '../types';
+import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsButtonProperty, SettingsContribution, ConfigBundle } from '../types';
 import { service } from '../services';
 import { settingsRegistry } from '../settings/settingsRegistry';
 import { commandRegistry } from '../commands/commandRegistry';
@@ -341,7 +341,109 @@ function GeneralTab({
           )}
         </div>
       </Section>
+      <BundleSection settings={settings} onSave={onSave} />
     </div>
+  );
+}
+
+// ─── Bundle Section ───────────────────────────────────────────────────────────
+// Package your provider + MCP server setup (no secrets) into a shareable file
+// that others can import to get everything pre-wired.
+
+function BundleSection({
+  settings,
+  onSave,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+}) {
+  const [bundleName, setBundleName] = useState('');
+  const [bundleDesc, setBundleDesc] = useState('');
+  const [importResult, setImportResult] = useState<{ added: number; skipped: number; mcpAdded: number; mcpSkipped: number } | null>(null);
+  const [importError, setImportError] = useState('');
+
+  if (!service.config.exportBundle) return null;
+
+  async function handleExport() {
+    await service.config.exportBundle!({ name: bundleName || undefined, description: bundleDesc || undefined });
+  }
+
+  async function handleImport() {
+    setImportResult(null);
+    setImportError('');
+    try {
+      const bundle: ConfigBundle | null = await service.config.importBundle!();
+      if (!bundle) return;
+
+      const existingProviderIds = new Set(settings.providers.map((p) => p.id));
+      const newProviders = bundle.providers.filter((p) => !existingProviderIds.has(p.id));
+      const skippedProviders = bundle.providers.length - newProviders.length;
+
+      const existingMcpIds = new Set(settings.mcpServers.map((s) => s.id));
+      const newMcpServers = bundle.mcpServers.filter((s) => !existingMcpIds.has(s.id));
+      const skippedMcp = bundle.mcpServers.length - newMcpServers.length;
+
+      await onSave({
+        providers: [...settings.providers, ...newProviders],
+        mcpServers: [...settings.mcpServers, ...newMcpServers],
+      });
+
+      setImportResult({ added: newProviders.length, skipped: skippedProviders, mcpAdded: newMcpServers.length, mcpSkipped: skippedMcp });
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return (
+    <Section title="Config Bundle">
+      <p className="text-xs text-slate-500 -mt-1 mb-3">
+        Package your provider and MCP server setup — without API keys or tokens — into a
+        shareable <code className="text-slate-400">.ocbundle</code> file. Recipients import it and
+        only need to add their own credentials.
+      </p>
+
+      {/* Export */}
+      <div className="space-y-2 mb-4">
+        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Export</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Bundle name (optional)"
+            value={bundleName}
+            onChange={(e) => setBundleName(e.target.value)}
+            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            placeholder="Description (optional)"
+            value={bundleDesc}
+            onChange={(e) => setBundleDesc(e.target.value)}
+            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <button onClick={handleExport} className="btn-secondary text-xs px-3 py-1.5">
+          Export Bundle
+        </button>
+      </div>
+
+      {/* Import */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Import</p>
+        <button onClick={handleImport} className="btn-secondary text-xs px-3 py-1.5">
+          Import Bundle
+        </button>
+        {importResult && (
+          <p className="text-xs text-green-400">
+            Added {importResult.added} provider{importResult.added !== 1 ? 's' : ''}
+            {importResult.skipped > 0 ? ` (${importResult.skipped} already existed)` : ''}
+            {' and '}{importResult.mcpAdded} MCP server{importResult.mcpAdded !== 1 ? 's' : ''}
+            {importResult.mcpSkipped > 0 ? ` (${importResult.mcpSkipped} already existed)` : ''}.
+            {(importResult.added > 0 || importResult.mcpAdded > 0) && ' Fill in your API keys to get started.'}
+          </p>
+        )}
+        {importError && <p className="text-xs text-red-400">{importError}</p>}
+      </div>
+    </Section>
   );
 }
 

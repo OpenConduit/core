@@ -1,6 +1,7 @@
 import type {
   AppSettings,
   ChatRequest,
+  ConfigBundle,
   FeedbackPayload,
   McpServerConfig,
   McpTool,
@@ -66,6 +67,10 @@ export interface AppService {
     importSettings(): Promise<AppSettings | null>;
     /** Opens settings.json in the system default editor (desktop only). */
     openSettingsFile(): Promise<void>;
+    /** Export providers + MCP servers (no secrets) to a shareable .ocbundle file. */
+    exportBundle?(meta: { name?: string; description?: string }): Promise<boolean>;
+    /** Open a .ocbundle file and return its parsed contents for merging. */
+    importBundle?(): Promise<ConfigBundle | null>;
   };
   routing: {
     evaluate(params: {

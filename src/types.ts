@@ -40,6 +40,22 @@ export interface McpTool {
   inputSchema: Record<string, unknown>;
 }
 
+// ─── Config Bundle ──────────────────────────────────────────────────────────
+// A shareable snapshot of provider + MCP server configuration with all
+// secrets (API keys, auth headers, env tokens) stripped out.  Recipients
+// import the bundle to get everything pre-wired and only need to add their
+// own credentials.
+
+export interface ConfigBundle {
+  version: 1;
+  name?: string;
+  description?: string;
+  /** Provider configs with apiKey omitted. */
+  providers: Omit<ProviderConfig, 'apiKey'>[];
+  /** MCP server configs with headers and env omitted. */
+  mcpServers: Omit<McpServerConfig, 'headers' | 'env'>[];
+}
+
 export interface McpToolResult {
   toolName: string;
   serverId: string;
