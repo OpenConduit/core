@@ -57,8 +57,12 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
 
       - name: Dispatch client dependency bump
-        # Requires a fine-grained PAT (CORE_DISPATCH_TOKEN) with contents:write
-        # and pull-requests:write on OpenConduit/Client stored as a repo secret.
+        # Skipped automatically when CORE_DISPATCH_TOKEN secret is not configured.
+        # Add a fine-grained PAT with contents:write + pull-requests:write on
+        # OpenConduit/Client as CORE_DISPATCH_TOKEN to enable automatic bump PRs.
+        if: env.DISPATCH_TOKEN != ''
+        env:
+          DISPATCH_TOKEN: ${{ secrets.CORE_DISPATCH_TOKEN }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.CORE_DISPATCH_TOKEN }}
