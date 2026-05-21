@@ -2459,6 +2459,7 @@ function UpdatesTab({
   const [checkError, setCheckError] = useState('');
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!service.updater.onUpdateDownloaded) return;
@@ -2541,8 +2542,8 @@ function UpdatesTab({
         </div>
       </Section>
 
-      {/* Restart banner (download-only, update ready) */}
-      {updateDownloaded && mode !== 'automatic' && (
+      {/* Restart banner — shows whenever a download has completed */}
+      {updateDownloaded && (
         <div className="rounded-lg border border-green-700/50 bg-green-950/30 px-4 py-3 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-green-300">Update downloaded and ready to install</p>
@@ -2609,14 +2610,21 @@ function UpdatesTab({
                 {updateInfo.releaseNotes && (
                   <p className="mt-1 text-green-400/70 line-clamp-3">{updateInfo.releaseNotes}</p>
                 )}
-                {updateInfo.downloadUrl && (
-                  <button
-                    onClick={() => service.updater.openExternal(updateInfo.downloadUrl!)}
-                    className="inline-block mt-2 underline text-green-400 hover:text-green-200 text-left"
-                  >
-                    Download v{updateInfo.latestVersion} →
-                  </button>
-                )}
+                <div className="mt-2">
+                  {updateDownloaded ? null : downloading ? (
+                    <span className="text-green-400/70">Downloading in background…</span>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        setDownloading(true);
+                        try { await service.updater.triggerDownload?.(); } catch { /* ignore */ }
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-700 hover:bg-green-600 text-white transition-colors"
+                    >
+                      Download &amp; Install
+                    </button>
+                  )}
+                </div>
               </>
             ) : (
               <p>✓ You&apos;re on the latest version (v{updateInfo.currentVersion})</p>
@@ -2637,7 +2645,7 @@ function TelemetryTab({
   settings: AppSettings;
   onSave: (p: Partial<AppSettings>) => Promise<void>;
 }) {
-  const telemetry = settings.telemetry ?? { usageReports: false, crashReports: false };
+  const telemetry = settings.telemetry ?? { usageReports: true, crashReports: true };
   function setTelemetry(patch: Partial<NonNullable<AppSettings['telemetry']>>) {
     onSave({ telemetry: { ...telemetry, ...patch } });
   }
@@ -2665,7 +2673,7 @@ function TelemetryTab({
       <div className="flex items-start gap-3 rounded-xl bg-slate-800/40 border border-slate-700/40 px-4 py-3">
         <span className="text-base mt-0.5">🔒</span>
         <p className="text-xs text-slate-400">
-          All reporting is <span className="text-slate-300 font-medium">opt-in and off by default</span>.
+          All reporting is <span className="text-slate-300 font-medium">anonymous and on by default</span>.
           No conversation content, API keys, model names, or personal data are ever collected.
         </p>
       </div>
