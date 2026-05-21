@@ -186,6 +186,8 @@ export function SandboxedPanel({ extensionId, entryPoint }: SandboxedPanelProps)
     );
   }
 
+  /* eslint-disable react-hooks/refs -- passing a ref object to createElement is standard React;
+     the linter incorrectly flags the ref prop as "accessing ref during render". */
   return createElement('iframe', {
     ref: iframeRef,
     src: blobUrl,
@@ -193,4 +195,5 @@ export function SandboxedPanel({ extensionId, entryPoint }: SandboxedPanelProps)
     title: `Extension: ${extensionId}`,
     style: { width: '100%', height: '100%', border: 'none', display: 'block' },
   });
+  /* eslint-enable react-hooks/refs */
 }

@@ -162,6 +162,25 @@ settingsRegistry.register({
         },
       ],
     },
+    {
+      title: 'Update Mode',
+      properties: [
+        {
+          type: 'string',
+          key: 'updateMode',
+          title: 'Install Behavior',
+          description: 'Controls how updates are downloaded and applied.',
+          default: 'automatic',
+          enum: ['automatic', 'download-only', 'manual'],
+          enumDescriptions: [
+            'Download in background and prompt to restart when ready',
+            'Download silently — restart to apply whenever you\'re ready',
+            'No automatic checks — click "Check for Updates" manually',
+          ],
+          order: 2,
+        },
+      ],
+    },
   ],
 });
 

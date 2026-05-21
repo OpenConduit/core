@@ -26,7 +26,7 @@ import './commands/coreCommandContributions'; // side-effect: registers built-in
 
 // Themes store (#25 / #22)
 export { useThemesStore, BUILT_IN_THEMES } from './stores/themesStore';
-export type { InstalledTheme, ThemeColors } from './types';
+// InstalledTheme and ThemeColors are already exported via `export * from './types'` above.
 
 // Keybindings store
 export { useKeybindingsStore, getEffectiveBinding } from './stores/keybindingsStore';

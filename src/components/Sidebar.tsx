@@ -316,7 +316,10 @@ function ConversationItem({
   useEffect(() => { setRenameValue(title); }, [title]);
 
   const date = new Date(updatedAt);
-  const dateLabel = Date.now() - updatedAt < 86_400_000
+  // Capture 'now' once at mount time via lazy state initializer to avoid
+  // calling Date.now() (an impure function) directly during render.
+  const [now] = useState(Date.now);
+  const dateLabel = now - updatedAt < 86_400_000
     ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
@@ -584,6 +587,9 @@ export default function Sidebar() {
   };
 
   // ── Tree renderer ──────────────────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/immutability -- renderTree is a self-referential
+  // useCallback; the forward-reference is safe because the callback is only invoked after
+  // the assignment completes, never during the render that defines it.
   const renderTree = useCallback((parentFolderId: string | null, depth: number): React.ReactNode => {
     const childFolders = folders.filter((f) => f.parentId === parentFolderId).sort((a, b) => a.order - b.order);
     // Exclude branch conversations that have their parent in this view (they render nested)
@@ -638,6 +644,7 @@ export default function Sidebar() {
             />
             {!folder.collapsed && (
               <>
+                {/* eslint-disable-next-line react-hooks/immutability -- safe recursive call, see renderTree comment above */}
                 {renderTree(folder.id, depth + 1)}
                 <FolderFileRows folderId={folder.id} depth={depth + 1} />
               </>
@@ -754,6 +761,7 @@ export default function Sidebar() {
             ))
           )
         ) : (
+          // eslint-disable-next-line react-hooks/immutability -- safe, see renderTree definition comment
           renderTree(null, 0)
         )}
 
