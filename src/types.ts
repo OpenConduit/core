@@ -605,6 +605,8 @@ export interface AppNotification {
 
 export interface UpdateInfo {
   hasUpdate: boolean;
+  /** True when the available version is older than current (e.g. switching from alpha → stable). */
+  isDowngrade?: boolean;
   latestVersion: string;
   currentVersion: string;
   releaseNotes?: string;

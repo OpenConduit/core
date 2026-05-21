@@ -2555,11 +2555,29 @@ function UpdatesTab({
 
         {updateInfo && (
           <div className={`mt-3 rounded-lg border px-3 py-2.5 text-xs ${
-            updateInfo.hasUpdate
+            updateInfo.hasUpdate && updateInfo.isDowngrade
+              ? 'bg-amber-950/40 border-amber-700/40 text-amber-300'
+              : updateInfo.hasUpdate
               ? 'bg-green-950/40 border-green-700/40 text-green-300'
               : 'bg-slate-800/40 border-slate-700 text-slate-400'
           }`}>
-            {updateInfo.hasUpdate ? (
+            {updateInfo.hasUpdate && updateInfo.isDowngrade ? (
+              <>
+                <p className="font-medium">⬇ Switch to stable v{updateInfo.latestVersion}</p>
+                <p className="mt-0.5 text-amber-400/70">You&apos;re running a pre-release build. Install the stable release to switch back.</p>
+                {updateInfo.releaseNotes && (
+                  <p className="mt-1 text-amber-400/70 line-clamp-3">{updateInfo.releaseNotes}</p>
+                )}
+                {updateInfo.downloadUrl && (
+                  <button
+                    onClick={() => service.updater.openExternal(updateInfo.downloadUrl!)}
+                    className="inline-block mt-2 underline text-amber-400 hover:text-amber-200 text-left"
+                  >
+                    Download stable v{updateInfo.latestVersion} →
+                  </button>
+                )}
+              </>
+            ) : updateInfo.hasUpdate ? (
               <>
                 <p className="font-medium">🎉 Update available — v{updateInfo.latestVersion}</p>
                 {updateInfo.releaseNotes && (
