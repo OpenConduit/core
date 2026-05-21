@@ -412,10 +412,26 @@ export interface SettingsBooleanProperty extends SettingsPropertyBase {
   type: 'boolean';
 }
 
+/**
+ * A non-data-binding button that executes a registered command when clicked.
+ * The `key` field is still required by the base type but is ignored for state;
+ * use a unique value like `'_btn.<id>'` to avoid collisions.
+ */
+export interface SettingsButtonProperty extends SettingsPropertyBase {
+  type: 'button';
+  /** Label text shown inside the button */
+  buttonLabel: string;
+  /** Id of a command registered in commandRegistry to invoke on click */
+  command: string;
+  /** Visual style variant */
+  variant?: 'default' | 'primary';
+}
+
 export type SettingsProperty =
   | SettingsStringProperty
   | SettingsNumberProperty
-  | SettingsBooleanProperty;
+  | SettingsBooleanProperty
+  | SettingsButtonProperty;
 
 export interface SettingsSection {
   /** Section heading rendered inside the contribution panel */
@@ -554,6 +570,12 @@ export interface ChatRequest {
   parameters: ModelParameters;
   systemPrompt?: string;
   enabledMcpServerIds: string[];
+  /**
+   * Built-in tool schemas injected by first-party extensions (e.g. web_fetch,
+   * web_search). The main process appends these to the MCP tool list when
+   * calling the AI provider, and routes calls to them locally instead of MCP.
+   */
+  builtinTools?: McpTool[];
 }
 
 export interface StreamChunk {

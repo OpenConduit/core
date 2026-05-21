@@ -9,6 +9,7 @@ import { hookRegistry } from '../hooks/hookRegistry';
 import { bottomPanelRegistry } from '../bottomPanel/bottomPanelRegistry';
 import { settingsRegistry } from '../settings/settingsRegistry';
 import { createExtensionAPI } from './extensionHost';
+import { toolContributionRegistry } from './toolContributionRegistry';
 
 /**
  * Tracks all registered extensions and their contributions.
@@ -79,6 +80,13 @@ class ExtensionRegistry {
       if (hooks.onResponse)    hookRegistry.registerOnResponse(`${prefix}.onResponse`, hooks.onResponse);
       if (hooks.onStreamChunk) hookRegistry.registerOnStreamChunk(`${prefix}.onStreamChunk`, hooks.onStreamChunk);
       if (hooks.onToolCall)    hookRegistry.registerOnToolCall(`${prefix}.onToolCall`, hooks.onToolCall);
+    }
+
+    // ── Static tool contributions ─────────────────────────────────────────────
+    if (contributions.tools) {
+      for (const { handler, ...toolDef } of contributions.tools) {
+        toolContributionRegistry.register(toolDef, handler);
+      }
     }
 
     // ── activate(api) ─────────────────────────────────────────────────────
@@ -230,3 +238,16 @@ class ExtensionRegistry {
 }
 
 export const extensionRegistry = new ExtensionRegistry();
+
+// Merge all extension-contributed tools into every ChatRequest via a single
+// global beforeSend hook. Runs after all extension-specific hooks so tools
+// registered dynamically in activate() are included.
+hookRegistry.registerBeforeSend('__core__.extensionTools', (request) => {
+  const tools = toolContributionRegistry.getTools();
+  if (tools.length === 0) return request;
+  const existing = request.builtinTools ?? [];
+  // Avoid duplicates if a tool is already present (e.g. injected by its own beforeSend hook)
+  const newTools = tools.filter((t) => !existing.some((e) => e.name === t.name));
+  if (newTools.length === 0) return request;
+  return { ...request, builtinTools: [...existing, ...newTools] };
+});

@@ -11,6 +11,7 @@ import { useTasksStore } from '../stores/tasksStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import { getContextLimit, estimateTokens } from '../utils/context';
 import { service } from '../services';
+import { toolContributionRegistry } from '../extensions/toolContributionRegistry';
 
 // ─── Task + Question parsing ──────────────────────────────────────────────────
 
@@ -235,6 +236,22 @@ function ensureListeners() {
     debugConsole.info('Tool approval requested', { messageId: req.messageId, toolName: req.toolCall.name, toolId: req.toolCall.id }, 'mcp');
     useUiStore.getState().addPendingApproval(req);
   });
+
+  // ── Extension tool execution ────────────────────────────────────────────
+  // The main process sends a call here when the AI invokes a tool whose
+  // serverId is '__extension__'. We run the registered handler in the renderer
+  // and return the result over IPC so the main process can continue the turn.
+  if (service.extensionTools) {
+    service.extensionTools.onCall(async ({ callId, toolName, input }) => {
+      try {
+        const result = await toolContributionRegistry.call(toolName, input);
+        service.extensionTools!.sendResult({ callId, result, isError: false });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        service.extensionTools!.sendResult({ callId, result: msg, isError: true });
+      }
+    });
+  }
 }
 
 export function useChat(conversationId?: string | null) {

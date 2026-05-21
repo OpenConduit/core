@@ -25,4 +25,6 @@ export const service: AppService = {
   get updater() { return _instance!.updater; },
   get config() { return _instance!.config; },
   get routing() { return _instance!.routing; },
+  get webtools() { return _instance!.webtools; },
+  get extensionTools() { return _instance!.extensionTools; },
 } satisfies AppService;

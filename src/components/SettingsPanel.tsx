@@ -8,9 +8,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
-import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsContribution } from '../types';
+import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsButtonProperty, SettingsContribution } from '../types';
 import { service } from '../services';
 import { settingsRegistry } from '../settings/settingsRegistry';
+import { commandRegistry } from '../commands/commandRegistry';
 import '../settings/coreContributions'; // ensure core sections are registered
 import { McpMarketplace, ProviderMarketplace } from './MarketplacePanel';
 import PersonasPanel from '../extensions/builtins/personas/PersonasPanel';
@@ -2003,6 +2004,24 @@ function PropertyField({
         step={np.step ?? 1}
         className="input-field w-28"
       />
+    );
+  } else if (property.type === 'button') {
+    const bp = property as SettingsButtonProperty;
+    return (
+      <div className="flex items-start justify-between gap-4">
+        <div className="shrink-0 max-w-[55%]">
+          <p className="text-sm text-slate-300">{property.title}</p>
+          {property.description && (
+            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{property.description}</p>
+          )}
+        </div>
+        <button
+          onClick={() => commandRegistry.execute(bp.command)}
+          className={bp.variant === 'primary' ? 'btn-primary text-xs px-3 py-1.5' : 'btn-secondary text-xs px-3 py-1.5'}
+        >
+          {bp.buttonLabel}
+        </button>
+      </div>
     );
   }
 
