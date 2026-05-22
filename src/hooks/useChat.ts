@@ -277,7 +277,7 @@ export function useChat(conversationId?: string | null) {
   const activeConversation = conversations.find((c) => c.id === effectiveId) ?? null;
 
   const sendMessage = useCallback(
-    async (content: string, attachments?: Attachment[], folderContext?: { rootName: string; files: FolderEntry[] }) => {
+    async (content: string, attachments?: Attachment[], folderContext?: { rootName: string; rootPath?: string; files: FolderEntry[] }) => {
       if (!effectiveId || !settings || isStreaming) return;
 
       const conv = useConversationStore

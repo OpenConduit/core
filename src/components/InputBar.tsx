@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import type { Attachment, FolderEntry, McpTool } from '../types';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import type { Attachment, FolderEntry, McpTool, ConversationFolder } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import { useConversationStore } from '../stores/conversationStore';
@@ -72,6 +72,9 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const ctxPct = contextLimit && usedTokens > 0 ? Math.min((usedTokens / contextLimit) * 100, 100) : null;
   const showCtx = usedTokens > 0;
 
+  // folderPath is "inherited" when it comes from a chat-folder's agentFolderPath, not set on this conversation directly
+  const folderIsInherited = !!folderPath && !activeConv?.folderPath;
+
   // Close MCP popover on outside click
   React.useEffect(() => {
     if (!mcpOpen) return;
@@ -91,6 +94,35 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [ctxOpen]);
+
+  // Sync folderPath state with the active conversation's persisted path when switching conversations.
+  // Falls back to the nearest ancestor ConversationFolder's agentFolderPath if none is set on the conversation.
+  useEffect(() => {
+    const { conversations, folders } = useConversationStore.getState();
+    const conv = conversationId ? conversations.find((c) => c.id === conversationId) : null;
+
+    // Resolve effective path: per-conversation → nearest folder ancestor with agentFolderPath
+    let resolved: string | null = conv?.folderPath ?? null;
+    if (!resolved && conv?.folderId) {
+      let fid: string | null = conv.folderId;
+      while (fid) {
+        const f: ConversationFolder | undefined = folders.find((x) => x.id === fid);
+        if (!f) break;
+        if (f.agentFolderPath) { resolved = f.agentFolderPath; break; }
+        fid = f.parentId;
+      }
+    }
+
+    setFolderPath(resolved);
+    setFolderFiles(null);
+    if (resolved) {
+      setFolderLoading(true);
+      (service.folder?.readFiles(resolved) ?? Promise.resolve([]))
+        .then((files) => setFolderFiles(files))
+        .catch(() => setFolderFiles([]))
+        .finally(() => setFolderLoading(false));
+    }
+  }, [conversationId, activeConv?.folderId]); // re-run when conversation switches or is moved to a different folder
 
   const handleToggleTools = async (serverId: string) => {
     const next = new Set(expandedTools);
@@ -189,6 +221,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     setFolderPath(picked);
     setFolderFiles(null);
     setFolderLoading(true);
+    if (conversationId) updateConversation(conversationId, { folderPath: picked });
     try {
       const files = await service.folder?.readFiles(picked) ?? [];
       setFolderFiles(files);
@@ -204,7 +237,9 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     ? new Set(activeConv.activeMcpServerIds)
     : null;
   const isServerActiveForConv = (id: string) =>
-    convActiveMcpIds ? convActiveMcpIds.has(id) : false;
+    convActiveMcpIds
+      ? convActiveMcpIds.has(id)
+      : mcpServers.find((s) => s.id === id)?.enabled ?? false;
   const enabledCount = mcpServers.filter((s) => isServerActiveForConv(s.id)).length;
   const canSend = (content.trim().length > 0 || attachments.length > 0) && !isStreaming && !disabled;
 
@@ -241,16 +276,21 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
             <span className="truncate max-w-[200px]" title={folderPath}>
               {folderPath.split('/').pop() ?? folderPath}
             </span>
+            {folderIsInherited && (
+              <span className="text-slate-500 text-[10px] ml-1 flex-shrink-0" title="Set by chat folder — change in folder settings">chat folder</span>
+            )}
             {folderLoading ? (
               <span className="text-slate-500 text-[10px] ml-1">reading…</span>
             ) : folderFiles !== null ? (
               <span className="text-slate-500 text-[10px] ml-1">{folderFiles.length} files</span>
             ) : null}
-            <button
-              onClick={() => { setFolderPath(null); setFolderFiles(null); }}
-              className="text-slate-500 hover:text-slate-200 ml-0.5 flex-shrink-0"
-              title="Remove folder context"
-            >×</button>
+            {!folderIsInherited && (
+              <button
+                onClick={() => { setFolderPath(null); setFolderFiles(null); if (conversationId) updateConversation(conversationId, { folderPath: undefined }); }}
+                className="text-slate-500 hover:text-slate-200 ml-0.5 flex-shrink-0"
+                title="Remove folder context"
+              >×</button>
+            )}
           </div>
         </div>
       )}

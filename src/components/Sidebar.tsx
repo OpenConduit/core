@@ -5,6 +5,7 @@ import { usePersonasStore } from '../stores/personasStore';
 import { useUiStore } from '../stores/uiStore';
 import { exportAsJson, exportAsMarkdown, downloadFile } from '../lib/export';
 import type { ConversationFolder } from '../types';
+import { service } from '../services';
 
 // ── Layout constants ───────────────────────────────────────────────────────
 const INDENT = 16;
@@ -124,31 +125,59 @@ function GlobalCtxMenu({ state, onClose }: { state: CtxMenuState; onClose: () =>
   );
 }
 
-// ── AI Instructions Modal ──────────────────────────────────────────────────
-function InstructionsModal({ folder, onSave, onClose }: {
+// ── Folder Settings Modal (AI Instructions + Agent Folder) ─────────────────
+function FolderSettingsModal({ folder, onSave, onClose }: {
   folder: ConversationFolder;
-  onSave: (prompt: string) => void;
+  onSave: (prompt: string, agentFolderPath: string | undefined) => void;
   onClose: () => void;
 }) {
   const [value, setValue] = useState(folder.systemPrompt ?? '');
+  const [agentPath, setAgentPath] = useState<string | undefined>(folder.agentFolderPath);
+
+  const handlePickFolder = async () => {
+    const picked = await service.folder?.pick();
+    if (picked) setAgentPath(picked);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div className="bg-slate-900 border border-slate-700 rounded-md shadow-2xl w-full max-w-lg p-5 mx-4" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-[13px] font-semibold text-slate-200 mb-1">AI Instructions — {folder.name}</h3>
-        <p className="text-[12px] text-slate-400 mb-3">
-          Overrides the system prompt for all conversations in this folder (and subfolders, unless they define their own).
+        <h3 className="text-[13px] font-semibold text-slate-200 mb-1">Folder Settings — {folder.name}</h3>
+
+        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mt-3 mb-1">AI Instructions</p>
+        <p className="text-[12px] text-slate-500 mb-2">
+          Overrides the system prompt for all conversations in this folder (cascades to subfolders).
         </p>
         <textarea
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          rows={8}
+          rows={6}
           className="w-full bg-slate-950 border border-slate-700 rounded text-[13px] text-slate-200 p-3 resize-y outline-none focus:border-blue-500/60 font-mono"
           placeholder="You are a helpful assistant specialized in…"
         />
-        <div className="flex justify-end gap-2 mt-3">
+
+        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mt-4 mb-1">Agent Project Folder</p>
+        <p className="text-[12px] text-slate-500 mb-2">
+          Default project root for agent mode in all conversations in this folder (cascades to subfolders).
+        </p>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-[12px] text-slate-300 truncate min-w-0">
+            {agentPath ? (
+              <span title={agentPath}>{agentPath.split('/').pop() ?? agentPath} <span className="text-slate-600 text-[11px]">{agentPath}</span></span>
+            ) : (
+              <span className="text-slate-600">No folder set</span>
+            )}
+          </div>
+          <button onClick={handlePickFolder} className="px-2.5 py-1.5 text-[12px] bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors flex-shrink-0">Browse…</button>
+          {agentPath && (
+            <button onClick={() => setAgentPath(undefined)} className="text-slate-500 hover:text-slate-200 text-[14px] flex-shrink-0" title="Clear">×</button>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4">
           <button onClick={onClose} className="px-3 py-1 text-[12px] text-slate-400 hover:text-slate-200 transition-colors">Cancel</button>
-          <button onClick={() => { onSave(value); onClose(); }} className="px-3 py-1 text-[12px] bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors">Save</button>
+          <button onClick={() => { onSave(value, agentPath); onClose(); }} className="px-3 py-1 text-[12px] bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors">Save</button>
         </div>
       </div>
     </div>
@@ -283,6 +312,9 @@ function FolderRow({ folder, depth, isRenaming, onRenameEnd, onToggle, onContext
       )}
       {folder.systemPrompt?.trim() && (
         <span title="Has AI instructions" className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0 mr-0.5" />
+      )}
+      {folder.agentFolderPath && (
+        <span title={`Agent folder: ${folder.agentFolderPath}`} className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 mr-0.5" />
       )}
     </div>
   );
@@ -773,9 +805,9 @@ export default function Sidebar() {
 
       {/* Modals & overlays */}
       {instructionsFolder && (
-        <InstructionsModal
+        <FolderSettingsModal
           folder={instructionsFolder}
-          onSave={(prompt) => updateFolder(instructionsFolder.id, { systemPrompt: prompt })}
+          onSave={(prompt, agentFolderPath) => updateFolder(instructionsFolder.id, { systemPrompt: prompt, agentFolderPath })}
           onClose={() => setInstructionsFolder(null)}
         />
       )}

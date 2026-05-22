@@ -127,6 +127,8 @@ export interface ConversationFolder {
   collapsed: boolean;
   /** AI instructions applied to all conversations in this folder (overrides conversation-level prompt). Cascades: nearest ancestor with a prompt wins. */
   systemPrompt?: string;
+  /** Absolute path of a folder to use as the agent project root for all conversations in this folder (cascades up ancestors). */
+  agentFolderPath?: string;
 }
 
 export interface FolderFile {
@@ -174,6 +176,8 @@ export interface Conversation {
   branchAtMessageIndex?: number;
   /** Preserved fork origin when a branch has been detached from its parent. */
   detachedFrom?: { convId: string; messageIndex: number };
+  /** Absolute path of a folder attached for agent mode. Persisted so it survives conversation switching. */
+  folderPath?: string;
 }
 
 // ─── Token Usage ──────────────────────────────────────────────────────────
