@@ -425,7 +425,7 @@ export default function MarketplaceSidebarPanel() {
           : reg.requiresApiKey && reg.apiKeyEnvVar
             ? { [reg.apiKeyEnvVar]: '' }
             : undefined,
-        enabled: true,
+        enabled: false,
       };
       saveSettings({ mcpServers: [...(settings.mcpServers ?? []), { id: uuidv4(), ...partial }] });
 

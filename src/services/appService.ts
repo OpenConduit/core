@@ -3,6 +3,7 @@ import type {
   ChatRequest,
   ConfigBundle,
   FeedbackPayload,
+  FolderEntry,
   McpServerConfig,
   McpTool,
   RoutingConfig,
@@ -101,5 +102,15 @@ export interface AppService {
     hasStored(): Promise<boolean>;
     /** Sends the stored crash report to telemetry and clears it. */
     sendStored(): Promise<void>;
+  };
+  folder?: {
+    /** Opens a native directory picker; returns the selected path or null if cancelled. */
+    pick(): Promise<string | null>;
+    /** Reads all text files under folderPath recursively; returns FolderEntry[]. */
+    readFiles(folderPath: string): Promise<FolderEntry[]>;
+    /** Creates or overwrites relativePath inside folderPath. */
+    writeFile(folderPath: string, relativePath: string, content: string): Promise<void>;
+    /** Deletes a file or directory (recursively) at relativePath inside folderPath. */
+    deleteEntry(folderPath: string, relativePath: string): Promise<void>;
   };
 }

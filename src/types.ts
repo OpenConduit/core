@@ -78,6 +78,14 @@ export interface Attachment {
   size: number;
 }
 
+/** A single text file from a user-picked folder, passed as context to the AI. */
+export interface FolderEntry {
+  /** Path relative to the picked folder root, e.g. "src/index.ts" */
+  relativePath: string;
+  content: string;
+  size: number;
+}
+
 export interface ToolCall {
   id: string;
   name: string;
@@ -119,6 +127,8 @@ export interface ConversationFolder {
   collapsed: boolean;
   /** AI instructions applied to all conversations in this folder (overrides conversation-level prompt). Cascades: nearest ancestor with a prompt wins. */
   systemPrompt?: string;
+  /** Absolute path of a folder to use as the agent project root for all conversations in this folder (cascades up ancestors). */
+  agentFolderPath?: string;
 }
 
 export interface FolderFile {
@@ -166,6 +176,8 @@ export interface Conversation {
   branchAtMessageIndex?: number;
   /** Preserved fork origin when a branch has been detached from its parent. */
   detachedFrom?: { convId: string; messageIndex: number };
+  /** Absolute path of a folder attached for agent mode. Persisted so it survives conversation switching. */
+  folderPath?: string;
 }
 
 // ─── Token Usage ──────────────────────────────────────────────────────────
@@ -606,6 +618,17 @@ export interface ChatRequest {
    * calling the AI provider, and routes calls to them locally instead of MCP.
    */
   builtinTools?: McpTool[];
+  /**
+   * Files from a user-picked folder injected as context for this request.
+   * The main process prepends the file contents to the last user message.
+   */
+  folderContext?: {
+    /** Display name — basename of the picked path */
+    rootName: string;
+    /** Absolute path of the picked folder (desktop only). Required for file tool calls. */
+    rootPath?: string;
+    files: FolderEntry[];
+  };
 }
 
 export interface StreamChunk {
