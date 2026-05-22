@@ -16,6 +16,11 @@ interface UiState {
   setIsStreaming: (v: boolean) => void;
   showSettings: boolean;
   setShowSettings: (v: boolean) => void;
+  /** When set, SettingsPanel will open directly to this tab. Cleared after reading. */
+  settingsInitialTab: string | null;
+  setSettingsInitialTab: (tab: string | null) => void;
+  showConversationSettings: boolean;
+  setShowConversationSettings: (v: boolean) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
   activePanel: ActivityPanel;
@@ -96,6 +101,10 @@ export const useUiStore = create<UiState>()((set, get) => ({
 
   showSettings: false,
   setShowSettings: (v) => set({ showSettings: v }),
+  settingsInitialTab: null,
+  setSettingsInitialTab: (tab) => set({ settingsInitialTab: tab }),
+  showConversationSettings: false,
+  setShowConversationSettings: (v) => set({ showConversationSettings: v }),
 
   sidebarOpen: true,
   setSidebarOpen: (v) => set({ sidebarOpen: v }),

@@ -23,6 +23,7 @@ export default function TabBar() {
     setActiveConversation,
     setShowSettings,
     setCompareMode,
+    setShowConversationSettings,
   } = useUiStore();
   const { settings, models, loadModels } = useSettingsStore();
   const { personas } = usePersonasStore();
@@ -283,6 +284,20 @@ export default function TabBar() {
           style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, zIndex: 9999 }}
           className="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-1 min-w-[200px] text-xs"
         >
+          {/* Conversation Settings */}
+          <button
+            onClick={() => {
+              setActiveConversation(contextMenu.tabId);
+              setShowConversationSettings(true);
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-3 py-1.5 text-slate-200 hover:bg-slate-700 transition-colors"
+          >
+            Conversation Settings
+          </button>
+
+          <div className="border-t border-slate-700 my-1" />
+
           {/* Rename */}
           <button
             onClick={() => {
