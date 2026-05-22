@@ -7,141 +7,136 @@ interface Props {
   onDeny?: (id: string) => void;
 }
 
-/** Summarise input args as a compact "(key: val, …)" string for the collapsed pill */
+/** Summarise input args as a compact "key: val, …" string for the collapsed view */
 function argSummary(input: Record<string, unknown>): string {
   const entries = Object.entries(input);
   if (entries.length === 0) return '()';
   const parts = entries.slice(0, 2).map(([k, v]) => {
-    const val = typeof v === 'string' ? (v.length > 30 ? v.slice(0, 30) + '…' : v) : JSON.stringify(v);
+    const val = typeof v === 'string' ? (v.length > 40 ? v.slice(0, 40) + '…' : v) : JSON.stringify(v);
     return `${k}: ${val}`;
   });
-  const suffix = entries.length > 2 ? `, +${entries.length - 2}` : '';
-  return `(${parts.join(', ')}${suffix})`;
+  const suffix = entries.length > 2 ? ` +${entries.length - 2} more` : '';
+  return parts.join(', ') + suffix;
 }
 
 export default function ToolCallCard({ toolCall, onApprove, onDeny }: Props) {
   const isPending = !!toolCall.pending;
   const isDenied = toolCall.approved === false;
-  const isError = toolCall.isError;
+  const isError = !!toolCall.isError;
 
-  // Pending calls start open so Approve/Deny are immediately visible;
-  // completed calls start collapsed. If a pending call completes, auto-collapse.
   const [open, setOpen] = useState(isPending);
   useEffect(() => { if (!isPending) setOpen(false); }, [isPending]);
 
-  // Colour scheme derived from state
-  const accent = isPending
-    ? { pill: 'border-amber-500/60 bg-amber-950/30 text-amber-300 hover:border-amber-400/80', chevron: 'text-amber-400', detail: 'border-amber-500/30' }
+  // Left-border accent by state
+  const borderAccent = isPending
+    ? 'border-l-amber-500/70'
     : isDenied
-      ? { pill: 'border-slate-600 bg-slate-800/40 text-slate-400 hover:border-slate-500', chevron: 'text-slate-500', detail: 'border-slate-700/50' }
+      ? 'border-l-slate-600'
       : isError
-        ? { pill: 'border-red-500/50 bg-red-950/20 text-red-300 hover:border-red-400/70', chevron: 'text-red-400', detail: 'border-red-500/30' }
-        : { pill: 'border-green-500/30 bg-green-950/10 text-green-300 hover:border-green-400/50', chevron: 'text-green-400', detail: 'border-green-500/20' };
+        ? 'border-l-red-500/60'
+        : 'border-l-slate-600';
+
+  const statusDot = isPending
+    ? <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+    : isDenied
+      ? <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
+      : isError
+        ? <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+        : <span className="w-1.5 h-1.5 rounded-full bg-green-400/70 shrink-0" />;
+
+  const resultText = toolCall.result === undefined
+    ? undefined
+    : typeof toolCall.result === 'string'
+      ? toolCall.result
+      : JSON.stringify(toolCall.result, null, 2);
 
   return (
-    <div className={`rounded-md border font-mono text-xs my-1.5 overflow-hidden transition-colors ${accent.pill}`}>
-      {/* ── Pill header (always visible) ── */}
+    <div className={`rounded-lg border border-slate-700/40 border-l-2 ${borderAccent} bg-slate-900/60 text-xs overflow-hidden`}>
+      {/* ── Header ── */}
       <div
-        className="flex items-center gap-1.5 px-2.5 py-1.5 cursor-pointer select-none"
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none hover:bg-slate-800/40 transition-colors"
         onClick={() => !isPending && setOpen((o) => !o)}
-        role={isPending ? undefined : 'button'}
         aria-expanded={open}
       >
-        {/* Status icon */}
-        <StatusIcon pending={isPending} denied={isDenied} error={isError} />
-
-        {/* Tool name */}
-        <span className="font-semibold">{toolCall.name}</span>
-
-        {/* Arg summary (only when collapsed) */}
-        {!open && (
-          <span className="text-slate-500 truncate max-w-[320px]">{argSummary(toolCall.input)}</span>
-        )}
+        {statusDot}
 
         {/* Server badge */}
         {toolCall.serverId && (
-          <span className="ml-auto text-slate-600 text-[10px] shrink-0">@{toolCall.serverId.slice(0, 12)}</span>
+          <span className="font-mono text-[10px] bg-slate-800 text-slate-400 rounded px-1.5 py-0.5 shrink-0 border border-slate-700/60">
+            {toolCall.serverId.length > 16 ? toolCall.serverId.slice(0, 16) + '…' : toolCall.serverId}
+          </span>
         )}
 
-        {/* Approve / Deny buttons (pending only, always in header) */}
-        {isPending && onApprove && onDeny && (
-          <div className="flex gap-1.5 ml-2 shrink-0">
-            <button
-              onClick={(e) => { e.stopPropagation(); onApprove(toolCall.id); }}
-              className="px-2 py-0.5 rounded bg-green-700 hover:bg-green-600 text-white text-xs transition-colors"
-            >
-              Allow
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDeny(toolCall.id); }}
-              className="px-2 py-0.5 rounded bg-red-800 hover:bg-red-700 text-white text-xs transition-colors"
-            >
-              Deny
-            </button>
-          </div>
+        {/* Tool name */}
+        <span className="font-mono font-medium text-slate-200 shrink-0">{toolCall.name}</span>
+
+        {/* Collapsed arg preview */}
+        {!open && (
+          <span className="font-mono text-slate-500 truncate flex-1 text-[11px]">{argSummary(toolCall.input)}</span>
         )}
 
-        {/* Chevron toggle (non-pending only) */}
-        {!isPending && (
-          <svg
-            className={`w-3 h-3 shrink-0 ml-1 transition-transform duration-150 ${accent.chevron} ${open ? 'rotate-90' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        )}
+        <div className="flex items-center gap-2 ml-auto shrink-0">
+          {/* Duration */}
+          {toolCall.durationMs !== undefined && (
+            <span className="text-[10px] text-slate-600 font-sans">
+              {toolCall.durationMs < 1000 ? `${toolCall.durationMs}ms` : `${(toolCall.durationMs / 1000).toFixed(1)}s`}
+            </span>
+          )}
+
+          {/* Pending approve/deny */}
+          {isPending && onApprove && onDeny && (
+            <div className="flex gap-1.5 font-sans">
+              <button
+                onClick={(e) => { e.stopPropagation(); onApprove(toolCall.id); }}
+                className="px-2 py-0.5 rounded bg-green-700 hover:bg-green-600 text-white transition-colors"
+              >
+                Allow
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeny(toolCall.id); }}
+                className="px-2 py-0.5 rounded bg-red-800 hover:bg-red-700 text-white transition-colors"
+              >
+                Deny
+              </button>
+            </div>
+          )}
+
+          {/* Chevron */}
+          {!isPending && (
+            <svg
+              className={`w-3 h-3 text-slate-500 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          )}
+        </div>
       </div>
 
       {/* ── Expanded detail ── */}
       {open && (
-        <div className={`border-t ${accent.detail}`}>
-          {/* Input */}
-          <div className="px-3 py-2">
-            <p className="text-slate-600 mb-1 text-[9px] uppercase tracking-widest">Input</p>
-            <pre className="text-slate-300 whitespace-pre-wrap break-all text-[11px] leading-relaxed">
+        <div className="border-t border-slate-700/40">
+          {/* Arguments */}
+          <div className="px-3 pt-2.5 pb-2">
+            <p className="text-[9px] uppercase tracking-widest text-slate-600 font-sans mb-1.5">Arguments</p>
+            <pre className="font-mono text-slate-300 whitespace-pre-wrap break-all text-[11px] leading-relaxed max-h-52 overflow-y-auto">
               {JSON.stringify(toolCall.input, null, 2)}
             </pre>
           </div>
 
           {/* Result */}
-          {!isPending && toolCall.result !== undefined && (
-            <div className={`px-3 py-2 border-t ${accent.detail}`}>
-              <p className="text-slate-600 mb-1 text-[9px] uppercase tracking-widest">Result</p>
-              <pre
-                className={`whitespace-pre-wrap break-all text-[11px] leading-relaxed ${isError ? 'text-red-300' : 'text-slate-300'}`}
-              >
-                {typeof toolCall.result === 'string'
-                  ? toolCall.result
-                  : JSON.stringify(toolCall.result, null, 2)}
+          {!isPending && resultText !== undefined && (
+            <div className="border-t border-slate-700/40 px-3 pt-2.5 pb-2">
+              <p className="text-[9px] uppercase tracking-widest text-slate-600 font-sans mb-1.5">
+                Result{isError && <span className="ml-2 text-red-400 normal-case tracking-normal">· error</span>}
+              </p>
+              <pre className={`font-mono whitespace-pre-wrap break-all text-[11px] leading-relaxed max-h-52 overflow-y-auto ${isError ? 'text-red-300' : 'text-slate-300'}`}>
+                {resultText}
               </pre>
             </div>
           )}
         </div>
       )}
     </div>
-  );
-}
-
-function StatusIcon({ pending, denied, error }: { pending?: boolean; denied?: boolean; error?: boolean }) {
-  if (pending)
-    return <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />;
-  if (denied)
-    return (
-      <svg className="w-3 h-3 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    );
-  if (error)
-    return (
-      <svg className="w-3 h-3 shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-    );
-  return (
-    <svg className="w-3 h-3 shrink-0 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-    </svg>
   );
 }
