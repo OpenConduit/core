@@ -621,6 +621,8 @@ export interface ChatRequest {
   folderContext?: {
     /** Display name — basename of the picked path */
     rootName: string;
+    /** Absolute path of the picked folder (desktop only). Required for file tool calls. */
+    rootPath?: string;
     files: FolderEntry[];
   };
 }

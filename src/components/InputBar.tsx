@@ -132,7 +132,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const handleSend = useCallback(() => {
     const trimmed = content.trim();
     if (!trimmed && attachments.length === 0) return;
-    const fc = folderPath && folderFiles ? { rootName: folderPath.split('/').pop() ?? folderPath, files: folderFiles } : undefined;
+    const fc = folderPath && folderFiles ? { rootName: folderPath.split('/').pop() ?? folderPath, rootPath: folderPath, files: folderFiles } : undefined;
     onSend(trimmed, attachments.length > 0 ? attachments : undefined, fc);
     setContent('');
     setAttachments([]);
