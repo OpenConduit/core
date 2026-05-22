@@ -108,5 +108,9 @@ export interface AppService {
     pick(): Promise<string | null>;
     /** Reads all text files under folderPath recursively; returns FolderEntry[]. */
     readFiles(folderPath: string): Promise<FolderEntry[]>;
+    /** Creates or overwrites relativePath inside folderPath. */
+    writeFile(folderPath: string, relativePath: string, content: string): Promise<void>;
+    /** Deletes a file or directory (recursively) at relativePath inside folderPath. */
+    deleteEntry(folderPath: string, relativePath: string): Promise<void>;
   };
 }
