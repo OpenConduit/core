@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApprovalRequest, Attachment, AiTask, AiQuestion, AppSettings, ConversationFolder, RoutingDecision } from '../types';
+import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApprovalRequest, Attachment, AiTask, AiQuestion, AppSettings, ConversationFolder, FolderEntry, RoutingDecision } from '../types';
 import { hookRegistry } from './hookRegistry';
 import { debugConsole } from '../utils/debugConsole';
 import { useConversationStore } from '../stores/conversationStore';
@@ -277,7 +277,7 @@ export function useChat(conversationId?: string | null) {
   const activeConversation = conversations.find((c) => c.id === effectiveId) ?? null;
 
   const sendMessage = useCallback(
-    async (content: string, attachments?: Attachment[]) => {
+    async (content: string, attachments?: Attachment[], folderContext?: { rootName: string; files: FolderEntry[] }) => {
       if (!effectiveId || !settings || isStreaming) return;
 
       const conv = useConversationStore
@@ -336,6 +336,7 @@ export function useChat(conversationId?: string | null) {
           freshConv.activeMcpServerIds ??
           persona?.defaultMcpServerIds ??
           settings.mcpServers.filter((s) => s.enabled).map((s) => s.id),
+        ...(folderContext ? { folderContext } : {}),
       };
 
       // Run beforeSend hooks

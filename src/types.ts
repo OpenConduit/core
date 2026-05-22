@@ -78,6 +78,14 @@ export interface Attachment {
   size: number;
 }
 
+/** A single text file from a user-picked folder, passed as context to the AI. */
+export interface FolderEntry {
+  /** Path relative to the picked folder root, e.g. "src/index.ts" */
+  relativePath: string;
+  content: string;
+  size: number;
+}
+
 export interface ToolCall {
   id: string;
   name: string;
@@ -606,6 +614,15 @@ export interface ChatRequest {
    * calling the AI provider, and routes calls to them locally instead of MCP.
    */
   builtinTools?: McpTool[];
+  /**
+   * Files from a user-picked folder injected as context for this request.
+   * The main process prepends the file contents to the last user message.
+   */
+  folderContext?: {
+    /** Display name — basename of the picked path */
+    rootName: string;
+    files: FolderEntry[];
+  };
 }
 
 export interface StreamChunk {

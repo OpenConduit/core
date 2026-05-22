@@ -28,4 +28,5 @@ export const service: AppService = {
   get webtools() { return _instance!.webtools; },
   get extensionTools() { return _instance!.extensionTools; },
   get crash() { return _instance!.crash; },
+  get folder() { return _instance!.folder; },
 } satisfies AppService;

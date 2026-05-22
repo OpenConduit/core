@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import type { Attachment, McpTool } from '../types';
+import type { Attachment, FolderEntry, McpTool } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import { useConversationStore } from '../stores/conversationStore';
@@ -8,7 +8,7 @@ import { getContextLimit, fmtTok } from '../utils/context';
 import { service } from '../services';
 
 interface Props {
-  onSend: (content: string, attachments?: Attachment[]) => void;
+  onSend: (content: string, attachments?: Attachment[], folderContext?: { rootName: string; files: FolderEntry[] }) => void;
   onAbort: () => void;
   onClear?: () => void;
   onCompact?: () => void;
@@ -41,6 +41,9 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const [toolsMap, setToolsMap] = useState<Record<string, McpTool[]>>({});
   const [loadingTools, setLoadingTools] = useState<string | null>(null);
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [folderPath, setFolderPath] = useState<string | null>(null);
+  const [folderFiles, setFolderFiles] = useState<FolderEntry[] | null>(null);
+  const [folderLoading, setFolderLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mcpRef = useRef<HTMLDivElement>(null);
@@ -129,11 +132,12 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const handleSend = useCallback(() => {
     const trimmed = content.trim();
     if (!trimmed && attachments.length === 0) return;
-    onSend(trimmed, attachments.length > 0 ? attachments : undefined);
+    const fc = folderPath && folderFiles ? { rootName: folderPath.split('/').pop() ?? folderPath, files: folderFiles } : undefined;
+    onSend(trimmed, attachments.length > 0 ? attachments : undefined, fc);
     setContent('');
     setAttachments([]);
     textareaRef.current?.focus();
-  }, [content, attachments, onSend]);
+  }, [content, attachments, folderPath, folderFiles, onSend]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -179,6 +183,20 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const removeAttachment = (id: string) => setAttachments((prev) => prev.filter((a) => a.id !== id));
   const cycleReasoning = () => setReasoning((r) => REASONING_CYCLE[(REASONING_CYCLE.indexOf(r) + 1) % REASONING_CYCLE.length]);
 
+  const handlePickFolder = async () => {
+    const picked = await service.folder?.pick();
+    if (!picked) return;
+    setFolderPath(picked);
+    setFolderFiles(null);
+    setFolderLoading(true);
+    try {
+      const files = await service.folder?.readFiles(picked) ?? [];
+      setFolderFiles(files);
+    } finally {
+      setFolderLoading(false);
+    }
+  };
+
   const mcpServers = settings?.mcpServers ?? [];
   // Per-conversation active servers: when activeMcpServerIds is set on the conversation,
   // use that set; otherwise fall back to globally-enabled servers.
@@ -212,6 +230,28 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
               <button onClick={() => removeAttachment(att.id)} className="text-slate-500 hover:text-slate-200 ml-0.5">×</button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Folder context badge */}
+      {folderPath && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <div className="flex items-center gap-1.5 bg-slate-700/60 border border-slate-600 rounded-lg px-2 py-1 text-xs text-slate-300 max-w-full">
+            <AgentIcon />
+            <span className="truncate max-w-[200px]" title={folderPath}>
+              {folderPath.split('/').pop() ?? folderPath}
+            </span>
+            {folderLoading ? (
+              <span className="text-slate-500 text-[10px] ml-1">reading…</span>
+            ) : folderFiles !== null ? (
+              <span className="text-slate-500 text-[10px] ml-1">{folderFiles.length} files</span>
+            ) : null}
+            <button
+              onClick={() => { setFolderPath(null); setFolderFiles(null); }}
+              className="text-slate-500 hover:text-slate-200 ml-0.5 flex-shrink-0"
+              title="Remove folder context"
+            >×</button>
+          </div>
         </div>
       )}
 
@@ -444,8 +484,14 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
           </div>
         )}
 
-        {/* Agent — coming soon */}
-        <ToolbarButton icon={<AgentIcon />} label="Agent / folder access (coming soon)" comingSoon />
+        {/* Agent / folder context */}
+        <ToolbarButton
+          icon={<AgentIcon />}
+          label={folderPath ? `Folder: ${folderPath.split('/').pop()}` : 'Add folder context'}
+          onClick={handlePickFolder}
+          disabled={isStreaming || folderLoading}
+          active={!!folderPath}
+        />
 
         <div className="flex-1" />
 
