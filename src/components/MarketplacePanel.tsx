@@ -153,7 +153,7 @@ export function McpMarketplace({ installedIds, onInstall, onBack }: McpMarketpla
                     : entry.requiresApiKey && entry.apiKeyEnvVar
                       ? { [entry.apiKeyEnvVar]: '' }
                       : undefined,
-                  enabled: true,
+                  enabled: false,
                 };
                 onInstall(config);
               }}
