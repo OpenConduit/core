@@ -105,10 +105,19 @@ export default function SettingsPanel({
   extraTabs?: ExtraTab[];
   hideTabs?: string[];
 }) {
-  const { showSettings, setShowSettings } = useUiStore();
+  const { showSettings, setShowSettings, settingsInitialTab, setSettingsInitialTab } = useUiStore();
   const { settings, saveSettings, refreshMcpStatus, mcpStatus } = useSettingsStore();
   const [tab, setTab] = useState<Tab>('general');
   const [search, setSearch] = useState('');
+
+  // If something opened settings and requested a specific tab (e.g. MCP gear icon),
+  // jump to that tab and clear the request so it doesn't repeat on re-open.
+  useEffect(() => {
+    if (showSettings && settingsInitialTab) {
+      setTab(settingsInitialTab as Tab);
+      setSettingsInitialTab(null);
+    }
+  }, [showSettings, settingsInitialTab, setSettingsInitialTab]);
   const [extContributions, setExtContributions] = useState<SettingsContribution[]>(() =>
     settingsRegistry.getAll().filter((c) => !c.id.startsWith('openconduit.'))
   );
@@ -744,32 +753,6 @@ function McpTab({
   const [editing, setEditing] = useState<McpServerConfig | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [view, setView] = useState<'list' | 'marketplace'>('list');
-  const [connecting, setConnecting] = useState<string | null>(null);
-  const [toolsMap, setToolsMap] = useState<Record<string, McpTool[]>>({});
-  const [loadingTools, setLoadingTools] = useState<string | null>(null);
-  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
-
-  const handleToggleTools = async (serverId: string) => {
-    const next = new Set(expandedTools);
-    if (next.has(serverId)) {
-      next.delete(serverId);
-      setExpandedTools(next);
-      return;
-    }
-    next.add(serverId);
-    setExpandedTools(next);
-    if (!toolsMap[serverId]) {
-      setLoadingTools(serverId);
-      try {
-        const tools = await service.mcp.listTools([serverId]);
-        setToolsMap((m) => ({ ...m, [serverId]: tools }));
-      } catch {
-        setToolsMap((m) => ({ ...m, [serverId]: [] }));
-      } finally {
-        setLoadingTools(null);
-      }
-    }
-  };
 
   const handleSaveServer = (server: McpServerConfig) => {
     const mcpServers = isNew
@@ -783,28 +766,6 @@ function McpTab({
     if (!confirm('Delete this MCP server?')) return;
     service.mcp.disconnect(id).catch(() => { /* intentional */ });
     onSave({ mcpServers: settings.mcpServers.filter((s) => s.id !== id) });
-  };
-
-  const handleToggleConnect = async (server: McpServerConfig) => {
-    setConnecting(server.id);
-    try {
-      if (mcpStatus[server.id]) {
-        await service.mcp.disconnect(server.id);
-      } else {
-        await service.mcp.connect(server);
-      }
-      await onRefreshStatus();
-    } catch (err) {
-      alert(`Failed: ${err}`);
-    } finally {
-      setConnecting(null);
-    }
-  };
-
-  const handleToggleEnabled = (id: string, enabled: boolean) => {
-    onSave({
-      mcpServers: settings.mcpServers.map((s) => (s.id === id ? { ...s, enabled } : s)),
-    });
   };
 
   if (editing) {
@@ -857,7 +818,7 @@ function McpTab({
                 id: uuidv4(),
                 name: '',
                 transport: 'http-sse',
-                enabled: true,
+                enabled: false,
               });
             }}
             className="btn-primary text-xs px-3 py-1.5"
@@ -870,102 +831,42 @@ function McpTab({
       {settings.mcpServers.map((s) => (
         <div
           key={s.id}
-          className="bg-slate-800 rounded-xl p-4 border border-slate-700 space-y-3"
+          className="flex items-center gap-3 bg-slate-800 rounded-xl px-4 py-3 border border-slate-700 hover:border-slate-600 transition-colors group"
         >
-          <div className="flex items-center gap-3">
-            {/* Connection status dot */}
-            <span
-              className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                mcpStatus[s.id] ? 'bg-green-400' : 'bg-slate-600'
-              }`}
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-200">{s.name}</p>
-              <p className="text-xs text-slate-500">
-                {s.transport === 'http-sse' ? s.url : `${s.command} ${(s.args ?? []).join(' ')}`}
-              </p>
-            </div>
+          {/* Connection status dot */}
+          <span
+            title={mcpStatus[s.id] ? 'Connected' : 'Not connected'}
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+              mcpStatus[s.id] ? 'bg-green-400' : 'bg-slate-600'
+            }`}
+          />
 
-            {/* Enabled toggle */}
-            <Toggle
-              value={s.enabled}
-              onChange={(v) => handleToggleEnabled(s.id, v)}
-              size="sm"
-            />
-
-            {/* Connect / Disconnect */}
-            <button
-              onClick={() => handleToggleConnect(s)}
-              disabled={connecting === s.id}
-              className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
-                mcpStatus[s.id]
-                  ? 'bg-red-700/50 text-red-300 hover:bg-red-700'
-                  : 'bg-green-700/50 text-green-300 hover:bg-green-700'
-              } disabled:opacity-50`}
-            >
-              {connecting === s.id ? '…' : mcpStatus[s.id] ? 'Disconnect' : 'Connect'}
-            </button>
-
-            <button
-              onClick={() => {
-                setIsNew(false);
-                setEditing({ ...s });
-              }}
-              className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded hover:bg-slate-700 transition-colors"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => handleDelete(s.id)}
-              className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-slate-700 transition-colors"
-            >
-              Delete
-            </button>
+          {/* Name + subtitle */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-slate-200">{s.name}</p>
+            <p className="text-xs text-slate-500 truncate font-mono">
+              {s.transport === 'stdio'
+                ? [s.command, ...(s.args ?? [])].filter(Boolean).join(' ')
+                : (s.url ?? '')}
+            </p>
+            <p className="text-[10px] text-slate-600 mt-0.5">
+              {s.transport} · {s.id.slice(0, 8)}
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-slate-600 font-mono flex-1">
-              {s.transport} · id: {s.id.slice(0, 8)}
-            </span>
-            {mcpStatus[s.id] && (
-              <button
-                onClick={() => handleToggleTools(s.id)}
-                className="text-[10px] text-slate-400 hover:text-slate-200 px-2 py-0.5 rounded hover:bg-slate-700 transition-colors flex items-center gap-1"
-              >
-                {loadingTools === s.id ? (
-                  <span>loading…</span>
-                ) : (
-                  <>
-                    <span>{expandedTools.has(s.id) ? '▾' : '▸'}</span>
-                    <span>
-                      {toolsMap[s.id] != null
-                        ? `${toolsMap[s.id].length} tool${toolsMap[s.id].length !== 1 ? 's' : ''}`
-                        : 'Tools'}
-                    </span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-
-          {expandedTools.has(s.id) && toolsMap[s.id] && (
-            <div className="border-t border-slate-700 pt-2 space-y-1">
-              {toolsMap[s.id].length === 0 ? (
-                <p className="text-xs text-slate-500 italic">No tools exposed by this server.</p>
-              ) : (
-                toolsMap[s.id].map((t) => (
-                  <div key={t.name} className="flex gap-2 items-start">
-                    <code className="text-[10px] bg-slate-700 text-cyan-300 px-1.5 py-0.5 rounded font-mono flex-shrink-0 leading-4">
-                      {t.name}
-                    </code>
-                    {t.description && (
-                      <span className="text-[10px] text-slate-400 leading-4">{t.description}</span>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+          {/* Actions */}
+          <button
+            onClick={() => { setIsNew(false); setEditing({ ...s }); }}
+            className="text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg hover:bg-slate-700 transition-colors opacity-0 group-hover:opacity-100"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => handleDelete(s.id)}
+            className="text-xs text-red-500 hover:text-red-400 px-2.5 py-1 rounded-lg hover:bg-slate-700 transition-colors opacity-0 group-hover:opacity-100"
+          >
+            Delete
+          </button>
         </div>
       ))}
 
@@ -994,6 +895,14 @@ function McpServerForm({
   const [headerRows, setHeaderRows] = useState<[string, string][]>(
     Object.entries(draft.headers ?? {})
   );
+  // Combined command line for stdio: "npx -y @scope/package" splits into command + args on save
+  const [commandLine, setCommandLine] = useState(
+    [server.command, ...(server.args ?? [])].filter(Boolean).join(' ')
+  );
+  // Verify (View Tools) state
+  const [verifying, setVerifying] = useState(false);
+  const [verifiedTools, setVerifiedTools] = useState<McpTool[] | null>(null);
+  const [verifyError, setVerifyError] = useState('');
 
   const set = <K extends keyof McpServerConfig>(key: K, value: McpServerConfig[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -1008,22 +917,48 @@ function McpServerForm({
   const removeHeaderRow = (i: number) =>
     setHeaderRows((r) => r.filter((_, idx) => idx !== i));
 
-  const handleSave = () => {
-    const headers = Object.fromEntries(
-      headerRows.filter(([k]) => k.trim())
-    );
-    onSave({ ...draft, headers: Object.keys(headers).length ? headers : undefined });
+  const buildFinalDraft = (): McpServerConfig => {
+    const headers = Object.fromEntries(headerRows.filter(([k]) => k.trim()));
+    if (draft.transport === 'stdio') {
+      const parts = commandLine.trim().split(/\s+/).filter(Boolean);
+      return {
+        ...draft,
+        command: parts[0] ?? '',
+        args: parts.slice(1),
+        headers: undefined,
+      };
+    }
+    return { ...draft, headers: Object.keys(headers).length ? headers : undefined };
+  };
+
+  const handleSave = () => onSave(buildFinalDraft());
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    setVerifyError('');
+    setVerifiedTools(null);
+    try {
+      const config = buildFinalDraft();
+      await service.mcp.connect(config);
+      const tools = await service.mcp.listTools([config.id]);
+      setVerifiedTools(tools);
+    } catch (e) {
+      setVerifyError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setVerifying(false);
+    }
   };
 
   return (
     <div className="space-y-4">
+      {/* Header: back + title */}
       <div className="flex items-center gap-2">
         <button onClick={onCancel} className="text-slate-400 hover:text-slate-200 transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h3 className="text-sm font-semibold text-slate-200">
+        <h3 className="text-sm font-semibold text-slate-200 flex-1">
           {server.name ? `Edit ${server.name}` : 'New MCP Server'}
         </h3>
       </div>
@@ -1032,12 +967,16 @@ function McpServerForm({
       <Field label="Type">
         <select
           value={draft.transport}
-          onChange={(e) => set('transport', e.target.value as McpTransport)}
+          onChange={(e) => {
+            set('transport', e.target.value as McpTransport);
+            setVerifiedTools(null);
+            setVerifyError('');
+          }}
           className="select-field"
         >
           <option value="http-streamable">HTTP Server — Streamable HTTP (modern)</option>
           <option value="http-sse">HTTP Server — SSE (legacy)</option>
-          <option value="stdio">stdio process</option>
+          <option value="stdio">Command-line (stdio)</option>
         </select>
       </Field>
 
@@ -1094,65 +1033,31 @@ function McpServerForm({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-medium text-slate-400">HTTP headers</label>
-              <button
-                type="button"
-                onClick={addHeaderRow}
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-              >
+              <button type="button" onClick={addHeaderRow} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
                 + Add header
               </button>
             </div>
             <div className="space-y-2">
               {headerRows.map(([k, v], i) => (
                 <div key={i} className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={k}
-                    onChange={(e) => setHeaderRow(i, e.target.value, v)}
-                    placeholder="Header name"
-                    className="input-field flex-1 text-xs font-mono"
-                  />
-                  <input
-                    type="text"
-                    value={v}
-                    onChange={(e) => setHeaderRow(i, k, e.target.value)}
-                    placeholder="Value"
-                    className="input-field flex-1 text-xs font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeHeaderRow(i)}
-                    className="text-slate-500 hover:text-red-400 transition-colors text-sm leading-none px-1"
-                  >
-                    ✕
-                  </button>
+                  <input type="text" value={k} onChange={(e) => setHeaderRow(i, e.target.value, v)} placeholder="Header name" className="input-field flex-1 text-xs font-mono" />
+                  <input type="text" value={v} onChange={(e) => setHeaderRow(i, k, e.target.value)} placeholder="Value" className="input-field flex-1 text-xs font-mono" />
+                  <button type="button" onClick={() => removeHeaderRow(i)} className="text-slate-500 hover:text-red-400 transition-colors text-sm leading-none px-1">✕</button>
                 </div>
               ))}
-              {headerRows.length === 0 && (
-                <p className="text-xs text-slate-600 italic">No headers added</p>
-              )}
+              {headerRows.length === 0 && <p className="text-xs text-slate-600 italic">No headers added</p>}
             </div>
           </div>
         </>
       ) : (
         <>
+          {/* Combined command field — splits on save */}
           <Field label="Command">
             <input
               type="text"
-              value={draft.command ?? ''}
-              onChange={(e) => set('command', e.target.value)}
-              placeholder="node /path/to/server.js"
-              className="input-field font-mono text-xs"
-            />
-          </Field>
-          <Field label="Args (space-separated)">
-            <input
-              type="text"
-              value={(draft.args ?? []).join(' ')}
-              onChange={(e) =>
-                set('args', e.target.value.split(' ').filter(Boolean))
-              }
-              placeholder="--port 3000"
+              value={commandLine}
+              onChange={(e) => setCommandLine(e.target.value)}
+              placeholder="npx -y @modelcontextprotocol/server-memory"
               className="input-field font-mono text-xs"
             />
           </Field>
@@ -1167,71 +1072,99 @@ function McpServerForm({
             <span className="text-sm text-slate-300">Run tools automatically</span>
           </label>
 
-          <Field label="Environment variables">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-slate-500">Key / value pairs</span>
+          {/* Environment variables */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-slate-400">Environment variables</label>
+              <button
+                type="button"
+                onClick={() => set('env', { ...(draft.env ?? {}), '': '' })}
+                className="text-xs text-blue-400 hover:text-blue-300"
+              >
+                + Add
+              </button>
+            </div>
+            {Object.entries(draft.env ?? {}).map(([k, v], i) => (
+              <div key={i} className="flex gap-2 items-center mb-2">
+                <input
+                  type="text"
+                  defaultValue={k}
+                  onBlur={(e) => {
+                    const env = Object.fromEntries(
+                      Object.entries(draft.env ?? {}).map(([ek, ev], idx) =>
+                        idx === i ? [e.target.value, ev] : [ek, ev]
+                      )
+                    );
+                    set('env', env);
+                  }}
+                  placeholder="KEY"
+                  className="input-field flex-1 text-xs font-mono"
+                />
+                <input
+                  type="text"
+                  value={v}
+                  onChange={(e) => set('env', { ...draft.env, [k]: e.target.value })}
+                  placeholder="value"
+                  className="input-field flex-1 text-xs font-mono"
+                />
                 <button
                   type="button"
                   onClick={() => {
-                    const env = { ...(draft.env ?? {}), '': '' };
+                    const env = Object.fromEntries(
+                      Object.entries(draft.env ?? {}).filter((_, idx) => idx !== i)
+                    );
                     set('env', env);
                   }}
-                  className="text-xs text-blue-400 hover:text-blue-300"
+                  className="text-slate-500 hover:text-red-400 transition-colors text-sm px-1"
                 >
-                  + Add
+                  ✕
                 </button>
               </div>
-              {Object.entries(draft.env ?? {}).map(([k, v], i) => (
-                <div key={i} className="flex gap-2 items-center mb-2">
-                  <input
-                    type="text"
-                    defaultValue={k}
-                    onBlur={(e) => {
-                      const env = Object.fromEntries(
-                        Object.entries(draft.env ?? {}).map(([ek, ev], idx) =>
-                          idx === i ? [e.target.value, ev] : [ek, ev]
-                        )
-                      );
-                      set('env', env);
-                    }}
-                    placeholder="KEY"
-                    className="input-field flex-1 text-xs font-mono"
-                  />
-                  <input
-                    type="text"
-                    value={v}
-                    onChange={(e) => set('env', { ...draft.env, [k]: e.target.value })}
-                    placeholder="value"
-                    className="input-field flex-1 text-xs font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const env = Object.fromEntries(
-                        Object.entries(draft.env ?? {}).filter((_, idx) => idx !== i)
-                      );
-                      set('env', env);
-                    }}
-                    className="text-slate-500 hover:text-red-400 transition-colors text-sm px-1"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-              {Object.keys(draft.env ?? {}).length === 0 && (
-                <p className="text-xs text-slate-600 italic">No variables added</p>
-              )}
-            </div>
-          </Field>
+            ))}
+            {Object.keys(draft.env ?? {}).length === 0 && (
+              <p className="text-xs text-slate-600 italic">No variables added</p>
+            )}
+          </div>
         </>
       )}
 
-      <Field label="Enabled by default">
-        <Toggle value={draft.enabled} onChange={(v) => set('enabled', v)} />
-      </Field>
+      {/* Verify (View Tools) */}
+      <div className="pt-1">
+        <button
+          type="button"
+          onClick={handleVerify}
+          disabled={verifying || !draft.name.trim()}
+          className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {verifying ? 'Connecting…' : 'Verify (View Tools)'}
+        </button>
+        {verifyError && (
+          <p className="text-xs text-red-400 mt-2">{verifyError}</p>
+        )}
+        {verifiedTools && (
+          <div className="mt-3 space-y-2">
+            {verifiedTools.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">Connected — no tools exposed by this server.</p>
+            ) : (
+              <>
+                <p className="text-xs text-slate-400">{verifiedTools.length} tool{verifiedTools.length !== 1 ? 's' : ''} available</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {verifiedTools.map((t) => (
+                    <div key={t.name} className="rounded-lg bg-slate-800 border border-slate-700 px-3 py-2">
+                      <code className="text-xs text-cyan-300 font-mono block">{t.name}</code>
+                      {t.description && (
+                        <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-2">{t.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
-      <div className="flex gap-2 pt-2">
+      <div className="flex gap-2 pt-2 border-t border-slate-700">
         <button
           onClick={handleSave}
           disabled={!draft.name.trim()}
@@ -2839,6 +2772,21 @@ function TelemetryTab({
 
 // ─── About Tab ────────────────────────────────────────────────────────────────
 
+// localStorage keys used by Zustand persist stores.
+// electron-store settings (API keys, providers, MCP) live in the main process
+// and are NOT affected by clearing these.
+const ZUSTAND_STORE_KEYS = [
+  'openconduit-conversations',
+  'openconduit-files',
+  'openconduit-analytics',
+  'openconduit-personas',
+  'oc-registry',
+  'oc-prompt-templates',
+  'oc-routing-profiles',
+  'oc-keybindings',
+  'oc-themes',
+] as const;
+
 function AboutTab({
   settings: _settings,
   onSave: _onSave,
@@ -2851,6 +2799,28 @@ function AboutTab({
   const [feedbackDesc, setFeedbackDesc] = useState('');
   const [submitState, setSubmitState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [submitError, setSubmitError] = useState('');
+
+  const [resetState, setResetState] = useState<'idle' | 'confirm' | 'working' | 'done'>('idle');
+  const [resetError, setResetError] = useState('');
+
+  async function resetAppData() {
+    setResetState('working');
+    setResetError('');
+    try {
+      // Export a settings backup (providers, API keys, MCP) before wiping.
+      await service.config.exportSettings(false);
+      // Clear all Zustand-persisted localStorage keys.
+      for (const key of ZUSTAND_STORE_KEYS) {
+        localStorage.removeItem(key);
+      }
+      setResetState('done');
+      // Give the user a moment to see the success state, then reload.
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : String(e));
+      setResetState('idle');
+    }
+  }
 
   async function submitFeedback() {
     if (!feedbackTitle.trim() || !feedbackDesc.trim()) return;
@@ -2958,6 +2928,52 @@ function AboutTab({
               {submitState === 'loading' ? 'Opening…' : 'Open GitHub Issue →'}
             </button>
           </div>
+        )}
+      </Section>
+
+      {/* Reset App Data */}
+      <Section title="Reset App Data">
+        <p className="text-xs text-slate-500 -mt-1 mb-3">
+          Clears conversations, themes, personas, and cached UI state. Your settings — API keys,
+          providers, MCP servers — are stored separately and are not affected.
+          A settings backup will be saved to your Downloads folder first.
+        </p>
+
+        {resetState === 'done' ? (
+          <div className="rounded-lg bg-green-950/40 border border-green-700/40 px-3 py-3 text-sm text-green-300 flex items-center gap-2">
+            <span>✓</span>
+            <span>Backup saved. Reloading…</span>
+          </div>
+        ) : resetState === 'confirm' || resetState === 'working' ? (
+          <div className="rounded-lg bg-red-950/40 border border-red-700/40 px-4 py-3 space-y-3">
+            <p className="text-xs text-red-300 font-medium">
+              This will permanently delete all conversations and UI data. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={resetAppData}
+                disabled={resetState === 'working'}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resetState === 'working' ? 'Saving backup…' : 'Yes, backup & reset'}
+              </button>
+              <button
+                onClick={() => { setResetState('idle'); setResetError(''); }}
+                disabled={resetState === 'working'}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+            {resetError && <p className="text-xs text-red-400">{resetError}</p>}
+          </div>
+        ) : (
+          <button
+            onClick={() => setResetState('confirm')}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 border border-red-800/50 text-red-400 hover:bg-red-950/30 hover:border-red-700 transition-colors"
+          >
+            Backup &amp; Reset…
+          </button>
         )}
       </Section>
     </div>

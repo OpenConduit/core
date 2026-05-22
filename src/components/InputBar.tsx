@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
-import type { Attachment } from '../types';
+import type { Attachment, McpTool } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import { useConversationStore } from '../stores/conversationStore';
+import { useUiStore } from '../stores/uiStore';
 import { getContextLimit, fmtTok } from '../utils/context';
 import { service } from '../services';
 
@@ -37,12 +38,16 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const [mcpOpen, setMcpOpen] = useState(false);
   const [ctxOpen, setCtxOpen] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [toolsMap, setToolsMap] = useState<Record<string, McpTool[]>>({});
+  const [loadingTools, setLoadingTools] = useState<string | null>(null);
+  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mcpRef = useRef<HTMLDivElement>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
 
-  const { settings, mcpStatus, saveSettings, refreshMcpStatus } = useSettingsStore();
+  const { settings, mcpStatus, refreshMcpStatus } = useSettingsStore();
+  const { setShowSettings, setSettingsInitialTab } = useUiStore();
   const updateConversation = useConversationStore((s) => s.updateConversation);
 
   // ── Context window usage ──────────────────────────────────────────────────
@@ -83,6 +88,43 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [ctxOpen]);
+
+  const handleToggleTools = async (serverId: string) => {
+    const next = new Set(expandedTools);
+    if (next.has(serverId)) {
+      next.delete(serverId);
+      setExpandedTools(next);
+      return;
+    }
+    next.add(serverId);
+    setExpandedTools(next);
+    if (!toolsMap[serverId]) {
+      setLoadingTools(serverId);
+      try {
+        const tools = await service.mcp.listTools([serverId]);
+        setToolsMap((m) => ({ ...m, [serverId]: tools }));
+      } catch {
+        setToolsMap((m) => ({ ...m, [serverId]: [] }));
+      } finally {
+        setLoadingTools(null);
+      }
+    }
+  };
+
+  /** Re-connect all servers that are currently active for this conversation. */
+  const handleRefreshEnabled = async () => {
+    const activeIds = mcpServers
+      .filter((s) => isServerActiveForConv(s.id))
+      .map((s) => s.id);
+    // Invalidate cached tools for all refreshed servers
+    setToolsMap((m) => {
+      const next = { ...m };
+      for (const id of activeIds) delete next[id];
+      return next;
+    });
+    setExpandedTools(new Set());
+    await refreshMcpStatus();
+  };
 
   const handleSend = useCallback(() => {
     const trimmed = content.trim();
@@ -144,7 +186,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     ? new Set(activeConv.activeMcpServerIds)
     : null;
   const isServerActiveForConv = (id: string) =>
-    convActiveMcpIds ? convActiveMcpIds.has(id) : (mcpServers.find((s) => s.id === id)?.enabled ?? false);
+    convActiveMcpIds ? convActiveMcpIds.has(id) : false;
   const enabledCount = mcpServers.filter((s) => isServerActiveForConv(s.id)).length;
   const canSend = (content.trim().length > 0 || attachments.length > 0) && !isStreaming && !disabled;
 
@@ -243,75 +285,160 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
               <span className="font-medium">{enabledCount}/{mcpServers.length}</span>
             </button>
             {mcpOpen && (
-              <div className="absolute bottom-full mb-2 left-0 w-72 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl z-50 py-1.5">
+              <div className="absolute bottom-full mb-2 left-0 w-80 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl z-50 py-1.5">
+                {/* Header */}
                 <div className="flex items-center justify-between px-3 pt-1 pb-1.5">
                   <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">MCP Servers</p>
-                  {convActiveMcpIds && (
+                  {convActiveMcpIds && convActiveMcpIds.size > 0 && (
                     <button
                       className="text-[10px] text-amber-400 hover:text-amber-300 transition-colors"
-                      title="Clear per-conversation overrides and use global settings"
+                      title="Turn off all MCP servers for this chat"
                       onClick={() => conversationId && updateConversation(conversationId, { activeMcpServerIds: undefined })}
                     >
-                      reset to global
+                      turn all off
                     </button>
                   )}
                 </div>
+
+                {/* Server rows */}
                 {mcpServers.map((s) => {
                   const connected = !!mcpStatus[s.id];
+                  const isConnecting = connecting === s.id;
+                  const active = isServerActiveForConv(s.id);
+                  const tools = toolsMap[s.id];
+                  const toolCount = tools?.length ?? null;
+                  const expanded = expandedTools.has(s.id);
+
                   return (
-                    <div key={s.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700/60 transition-colors">
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${connected ? 'bg-green-400' : 'bg-slate-600'}`} />
-                      <span className="text-xs text-slate-200 flex-1 truncate">{s.name}</span>
-                      <button
-                        disabled={connecting === s.id}
-                        onClick={async () => {
-                          setConnecting(s.id);
-                          try {
-                            if (connected) await service.mcp.disconnect(s.id);
-                            else await service.mcp.connect(s);
-                            await refreshMcpStatus();
-                          } catch (err) { alert(`MCP: ${err}`); }
-                          finally { setConnecting(null); }
-                        }}
-                        className={`text-[10px] px-1.5 py-0.5 rounded transition-colors disabled:opacity-40 ${connected ? 'text-red-400 hover:bg-red-900/30' : 'text-green-400 hover:bg-green-900/30'}`}
-                      >
-                        {connecting === s.id ? '…' : connected ? 'Disc.' : 'Conn.'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          const active = isServerActiveForConv(s.id);
-                          if (conversationId && activeConv) {
-                            // Build updated per-conversation list
-                            const globalEnabled = mcpServers.filter((sv) => sv.enabled).map((sv) => sv.id);
-                            const current = convActiveMcpIds ? [...convActiveMcpIds] : globalEnabled;
+                    <div key={s.id}>
+                      <div className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700/40 transition-colors">
+                        {/* Connection status dot */}
+                        <span
+                          title={isConnecting ? 'Connecting…' : connected ? 'Connected' : 'Not connected'}
+                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                            isConnecting ? 'bg-amber-400 animate-pulse' : connected ? 'bg-green-400' : 'bg-slate-600'
+                          }`}
+                        />
+
+                        {/* Server name */}
+                        <span className="text-xs text-slate-200 flex-1 truncate">{s.name}</span>
+
+                        {/* Settings gear — opens MCP tab in settings */}
+                        <button
+                          title="Open in settings"
+                          onClick={() => {
+                            setMcpOpen(false);
+                            setSettingsInitialTab('mcp');
+                            setShowSettings(true);
+                          }}
+                          className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 rounded"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </button>
+
+                        {/* Tools expand — shown when active (connecting or connected) */}
+                        {active && (
+                          <button
+                            onClick={() => handleToggleTools(s.id)}
+                            title="Show tools"
+                            disabled={isConnecting}
+                            className="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded hover:bg-slate-700 transition-colors flex items-center gap-1 flex-shrink-0 disabled:opacity-40"
+                          >
+                            {isConnecting || loadingTools === s.id ? (
+                              <span className="text-slate-500">…</span>
+                            ) : (
+                              <>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                                </svg>
+                                {toolCount !== null ? (
+                                  <span className="text-slate-300 font-medium">{toolCount}</span>
+                                ) : (
+                                  <span className="text-slate-600">tools</span>
+                                )}
+                                <span className="text-slate-600">{expanded ? '▴' : '▾'}</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {/* On / Off toggle — per-conversation only */}
+                        <button
+                          onClick={async () => {
+                            if (!conversationId) return;
+                            const current = convActiveMcpIds ? [...convActiveMcpIds] : [];
                             const next = active
                               ? current.filter((id) => id !== s.id)
                               : [...current, s.id];
-                            // If next matches global enabled exactly, clear the override
-                            const nextSet = new Set(next);
-                            const matchesGlobal =
-                              next.length === globalEnabled.length &&
-                              globalEnabled.every((id) => nextSet.has(id));
                             updateConversation(conversationId, {
-                              activeMcpServerIds: matchesGlobal ? undefined : next,
+                              activeMcpServerIds: next.length > 0 ? next : undefined,
                             });
-                          } else {
-                            // No active conversation — fall back to toggling global setting
-                            saveSettings({ mcpServers: settings!.mcpServers.map((sv) => sv.id === s.id ? { ...sv, enabled: !sv.enabled } : sv) });
-                          }
-                        }}
-                        className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
-                          isServerActiveForConv(s.id)
-                            ? 'border-blue-500 text-blue-300 bg-blue-900/30'
-                            : 'border-slate-600 text-slate-500 hover:border-slate-400 hover:text-slate-300'
-                        }`}
-                        title={isServerActiveForConv(s.id) ? 'Exclude from this chat' : 'Include in this chat'}
-                      >
-                        {isServerActiveForConv(s.id) ? 'On' : 'Off'}
-                      </button>
+                            // When turning On: connect + pre-fetch tools
+                            if (!active && !connected) {
+                              setConnecting(s.id);
+                              try {
+                                await service.mcp.connect(s);
+                                await refreshMcpStatus();
+                                const fetched = await service.mcp.listTools([s.id]);
+                                setToolsMap((m) => ({ ...m, [s.id]: fetched }));
+                              } catch {
+                                // connection failed — dot stays grey
+                              } finally {
+                                setConnecting(null);
+                              }
+                            }
+                          }}
+                          disabled={!conversationId}
+                          className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors flex-shrink-0 ${
+                            active
+                              ? 'border-blue-500 text-blue-300 bg-blue-900/30'
+                              : 'border-slate-600 text-slate-500 hover:border-slate-400 hover:text-slate-300'
+                          } disabled:opacity-40 disabled:cursor-not-allowed`}
+                          title={active ? 'Exclude from this chat' : 'Include in this chat'}
+                        >
+                          {active ? 'On' : 'Off'}
+                        </button>
+                      </div>
+
+                      {/* Expanded tools list */}
+                      {expanded && tools && (
+                        <div className="px-4 pb-2 space-y-1 border-t border-slate-700/50 pt-1.5 mt-0.5">
+                          {tools.length === 0 ? (
+                            <p className="text-[10px] text-slate-500 italic">No tools exposed.</p>
+                          ) : (
+                            tools.map((t) => (
+                              <div key={t.name} className="flex gap-2 items-start">
+                                <code className="text-[10px] bg-slate-700 text-cyan-300 px-1.5 py-0.5 rounded font-mono flex-shrink-0 leading-4">
+                                  {t.name}
+                                </code>
+                                {t.description && (
+                                  <span className="text-[10px] text-slate-400 leading-4 line-clamp-2">{t.description}</span>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
+
+                {/* Footer: refresh enabled only */}
+                <div className="border-t border-slate-700/50 mt-1 px-3 pt-2 pb-1">
+                  <button
+                    onClick={handleRefreshEnabled}
+                    className="text-[10px] text-slate-400 hover:text-slate-200 flex items-center gap-1 transition-colors"
+                    title="Reconnect all active servers and refresh tool lists"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh active servers
+                  </button>
+                </div>
               </div>
             )}
           </div>
