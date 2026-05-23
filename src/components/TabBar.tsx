@@ -22,7 +22,7 @@ export default function TabBar() {
     activeConversationId,
     setActiveConversation,
     setShowSettings,
-    setCompareMode,
+    setActiveMainViewId,
     setShowConversationSettings,
   } = useUiStore();
   const { settings, models, loadModels } = useSettingsStore();
@@ -247,7 +247,7 @@ export default function TabBar() {
 
               {/* Compare models */}
               <button
-                onClick={() => setCompareMode(true)}
+                onClick={() => setActiveMainViewId('openconduit.compare.view')}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors"
                 title="Compare models"
               >

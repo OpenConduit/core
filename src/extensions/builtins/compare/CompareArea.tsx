@@ -249,7 +249,7 @@ function ColumnView({ col, canRemove, onUpdate, onRemove, onContinue }: ColumnVi
 // ─── Main CompareArea component ───────────────────────────────────────────────
 
 export default function CompareArea() {
-  const { setCompareMode } = useUiStore();
+  const { setActiveMainViewId } = useUiStore();
   const {
     columns,
     anyStreaming,
@@ -296,7 +296,7 @@ export default function CompareArea() {
 
         <button
           style={noDragStyle}
-          onClick={() => setCompareMode(false)}
+          onClick={() => setActiveMainViewId(null)}
           className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
         >
           ← Back to chat

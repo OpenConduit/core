@@ -34,7 +34,18 @@ interface UiState {
   setShowParameters: (v: boolean) => void;
   isCompacting: boolean;
   setIsCompacting: (v: boolean) => void;
+  /**
+   * The id of the currently active main-view contribution, or `null` when the
+   * default ChatArea is shown.  Use `setActiveMainViewId` to change it.
+   *
+   * `isCompareMode` and `setCompareMode` are kept as backwards-compat aliases
+   * (they map to `'openconduit.compare.view'`).
+   */
+  activeMainViewId: string | null;
+  setActiveMainViewId: (id: string | null) => void;
+  /** @deprecated Use `activeMainViewId` / `setActiveMainViewId` instead. */
   isCompareMode: boolean;
+  /** @deprecated Use `setActiveMainViewId` instead. */
   setCompareMode: (v: boolean) => void;
   showFilesPanel: boolean;
   setShowFilesPanel: (v: boolean) => void;
@@ -73,15 +84,15 @@ interface UiState {
   toggleSecondarySidebar: () => void;
   secondarySidebarWidth: number;
   setSecondarySidebarWidth: (w: number) => void;
-  secondarySidebarPanel: 'context' | 'outline' | 'related';
-  setSecondarySidebarPanel: (panel: 'context' | 'outline' | 'related') => void;
+  secondarySidebarPanel: string;
+  setSecondarySidebarPanel: (panel: string) => void;
 
   // ── Split pane (#29) ─────────────────────────────────────────────────────
   splitPaneOpen: boolean;
   splitPaneWidth: number;
   setSplitPaneWidth: (w: number) => void;
-  splitPaneContent: { type: 'code' | 'file' | 'preview' | 'conversation'; language?: string; payload: string } | null;
-  openSplitPane: (content: { type: 'code' | 'file' | 'preview' | 'conversation'; language?: string; payload: string }) => void;
+  splitPaneContent: { type: string; language?: string; payload: string } | null;
+  openSplitPane: (content: { type: string; language?: string; payload: string }) => void;
   closeSplitPane: () => void;
   rightPaneTabs: string[];
   closeRightPaneTab: (id: string) => void;
@@ -129,8 +140,11 @@ export const useUiStore = create<UiState>()((set, get) => ({
   isCompacting: false,
   setIsCompacting: (v) => set({ isCompacting: v }),
 
+  activeMainViewId: null,
+  setActiveMainViewId: (id) => set({ activeMainViewId: id, isCompareMode: id === 'openconduit.compare.view' }),
+
   isCompareMode: false,
-  setCompareMode: (v) => set({ isCompareMode: v }),
+  setCompareMode: (v) => set({ isCompareMode: v, activeMainViewId: v ? 'openconduit.compare.view' : null }),
 
   showFilesPanel: false,
   setShowFilesPanel: (v) => set({ showFilesPanel: v }),
@@ -188,7 +202,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
     localStorage.setItem('oc-secondary-sidebar-width', String(w));
     set({ secondarySidebarWidth: w });
   },
-  secondarySidebarPanel: (localStorage.getItem('oc-secondary-sidebar-panel') as 'context' | 'outline' | 'related') ?? 'context',
+  secondarySidebarPanel: localStorage.getItem('oc-secondary-sidebar-panel') ?? 'context',
   setSecondarySidebarPanel: (panel) => {
     localStorage.setItem('oc-secondary-sidebar-panel', panel);
     set({ secondarySidebarPanel: panel });

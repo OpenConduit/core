@@ -1,6 +1,12 @@
 import { createElement } from 'react';
 import type React from 'react';
-import type { ActivityBarContribution, ExtensionManifest } from './types';
+import type {
+  ActivityBarContribution,
+  ExtensionManifest,
+  MainViewContribution,
+  SplitPaneViewContribution,
+  SecondarySidebarPanelContribution,
+} from './types';
 import type { SettingsProperty } from '../types';
 import type { SandboxContributions, SerializableSandboxManifest } from './sandbox/protocol';
 import { SandboxedPanel } from './sandbox/SandboxedPanel';
@@ -33,6 +39,9 @@ class ExtensionRegistry {
   private readonly manifests = new Map<string, ExtensionManifest>();
   private readonly activityBarItems: ActivityBarContribution[] = [];
   private readonly listeners = new Set<() => void>();
+  private readonly mainViewMap = new Map<string, MainViewContribution>();
+  private readonly splitPaneViewMap = new Map<string, SplitPaneViewContribution>();
+  private readonly secondarySidebarPanelList: SecondarySidebarPanelContribution[] = [];
 
   /**
    * Register an extension and its contributions.
@@ -94,6 +103,33 @@ class ExtensionRegistry {
     if (contributions.tools) {
       for (const { handler, ...toolDef } of contributions.tools) {
         toolContributionRegistry.register(toolDef, handler);
+      }
+    }
+
+    // ── Main view contributions ───────────────────────────────────────────────
+    if (contributions.mainViews) {
+      for (const view of contributions.mainViews) {
+        if (!this.mainViewMap.has(view.id)) {
+          this.mainViewMap.set(view.id, view);
+        }
+      }
+    }
+
+    // ── Split pane view contributions ─────────────────────────────────────────
+    if (contributions.splitPaneViews) {
+      for (const view of contributions.splitPaneViews) {
+        if (!this.splitPaneViewMap.has(view.id)) {
+          this.splitPaneViewMap.set(view.id, view);
+        }
+      }
+    }
+
+    // ── Secondary sidebar panel contributions ─────────────────────────────────
+    if (contributions.secondarySidebarPanels) {
+      for (const panel of contributions.secondarySidebarPanels) {
+        if (!this.secondarySidebarPanelList.some((p) => p.id === panel.id)) {
+          this.secondarySidebarPanelList.push(panel);
+        }
       }
     }
 
@@ -242,6 +278,48 @@ class ExtensionRegistry {
   /** Returns all registered manifests (read-only snapshot). */
   getAllManifests(): ExtensionManifest[] {
     return [...this.manifests.values()];
+  }
+
+  // ── Main view getters ─────────────────────────────────────────────────────
+
+  /**
+   * Looks up the main-view component registered under the given `id`.
+   * Returns `undefined` when no extension has registered that id.
+   */
+  getMainView(id: string): React.ComponentType | undefined {
+    return this.mainViewMap.get(id)?.component;
+  }
+
+  /** Returns all registered main-view contributions. */
+  getAllMainViews(): MainViewContribution[] {
+    return [...this.mainViewMap.values()];
+  }
+
+  // ── Split pane view getters ───────────────────────────────────────────────
+
+  /**
+   * Looks up the split-pane view registered under the given `id`.
+   * Returns `undefined` for built-in types (`'conversation'`, `'code'`, etc.).
+   */
+  getSplitPaneView(id: string): SplitPaneViewContribution | undefined {
+    return this.splitPaneViewMap.get(id);
+  }
+
+  /** Returns all registered split-pane view contributions. */
+  getAllSplitPaneViews(): SplitPaneViewContribution[] {
+    return [...this.splitPaneViewMap.values()];
+  }
+
+  // ── Secondary sidebar panel getters ───────────────────────────────────────
+
+  /**
+   * Returns all extension-contributed secondary sidebar panels sorted by
+   * `order` ascending (default 50), then by registration order.
+   */
+  getSecondarySidebarPanels(): SecondarySidebarPanelContribution[] {
+    return [...this.secondarySidebarPanelList].sort(
+      (a, b) => (a.order ?? 50) - (b.order ?? 50)
+    );
   }
 }
 

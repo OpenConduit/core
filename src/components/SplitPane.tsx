@@ -6,6 +6,14 @@ import { useConversationStore } from '../stores/conversationStore';
 import { PaneContext } from '../contexts/PaneContext';
 import ChatArea from './ChatArea';
 import ModelPickerButton from './ModelPickerButton';
+import { extensionRegistry } from '../extensions/extensionRegistry';
+
+// ── Stable slot component for extension-contributed split pane views ──────────
+function ExtSplitPaneView({ type, payload, onClose }: { type: string; payload: string; onClose: () => void }) {
+  const contribution = extensionRegistry.getSplitPaneView(type);
+  if (!contribution) return null;
+  return React.createElement(contribution.component, { payload, onClose });
+}
 
 const PREVIEWABLE = new Set(['html', 'svg']);
 
@@ -205,6 +213,17 @@ export default function SplitPane() {
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             <ChatArea conversationId={activeId} />
           </div>
+        </div>
+      </PaneContext.Provider>
+    );
+  }
+
+  // Extension-contributed split pane view
+  if (extensionRegistry.getSplitPaneView(splitPaneContent.type)) {
+    return (
+      <PaneContext.Provider value="right">
+        <div className="flex flex-col min-w-0 min-h-0 border-l border-slate-700 bg-slate-900 overflow-hidden h-full">
+          <ExtSplitPaneView type={splitPaneContent.type} payload={splitPaneContent.payload} onClose={closeSplitPane} />
         </div>
       </PaneContext.Provider>
     );

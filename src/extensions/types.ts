@@ -115,6 +115,58 @@ export interface ExtensionAPI {
   };
 }
 
+// ─── Main View ────────────────────────────────────────────────────────────────
+
+/**
+ * A main view contribution replaces the default `ChatArea` in the primary
+ * (left) content pane when it is the active main view.
+ *
+ * Activate it by setting `uiStore.activeMainViewId` to this view's `id`.
+ * The compare mode and similar exclusive views are implemented as main views.
+ */
+export interface MainViewContribution {
+  /** Stable view identifier — must be unique across all extensions. */
+  id: string;
+  /** Component rendered in the left content pane when this view is active. */
+  component: React.ComponentType;
+}
+
+// ─── Split Pane View ──────────────────────────────────────────────────────────
+
+/**
+ * A split pane view contribution registers a component that can appear in
+ * the right-hand split pane when `splitPaneContent.type === id`.
+ *
+ * Open it via `uiStore.openSplitPane({ type: id, payload: '...' })`.
+ * The `payload` string is passed as a prop so the component can parametrize.
+ */
+export interface SplitPaneViewContribution {
+  /** Stable view identifier — must be unique across all extensions. */
+  id: string;
+  /** Component rendered in the split pane. Receives `payload` and `onClose` as props. */
+  component: React.ComponentType<{ payload: string; onClose: () => void }>;
+}
+
+// ─── Secondary Sidebar Panel ──────────────────────────────────────────────────
+
+/**
+ * A secondary sidebar panel contribution adds a tab to the far-right panel.
+ *
+ * The built-in tabs (Context, Outline, Related) are always rendered first.
+ * Extension-contributed panels are appended in `order` ascending, then by
+ * registration order.
+ */
+export interface SecondarySidebarPanelContribution {
+  /** Stable panel identifier — must be unique across all extensions. */
+  id: string;
+  /** Label shown on the tab strip. */
+  label: string;
+  /** Component rendered when this tab is selected. */
+  component: React.ComponentType;
+  /** Render order within the extension section (lower = earlier). Default 50. */
+  order?: number;
+}
+
 // ─── Activity Bar ─────────────────────────────────────────────────────────────
 
 /**
@@ -199,5 +251,19 @@ export interface ExtensionManifest {
      * runtime settings), prefer `api.tools.register()` in `activate`.
      */
     tools?: Array<Omit<McpTool, 'serverId'> & { handler: ToolHandler }>;
+    /**
+     * Views that replace `ChatArea` in the primary content pane.
+     * Activate by setting `uiStore.activeMainViewId` to the contribution's `id`.
+     */
+    mainViews?: MainViewContribution[];
+    /**
+     * Views contributed to the right-hand split pane.
+     * Open via `uiStore.openSplitPane({ type: id, payload: '...' })`.
+     */
+    splitPaneViews?: SplitPaneViewContribution[];
+    /**
+     * Extra tabs added to the secondary sidebar (far right panel).
+     */
+    secondarySidebarPanels?: SecondarySidebarPanelContribution[];
   };
 }
