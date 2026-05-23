@@ -91,6 +91,28 @@ export interface AppService {
     /** Run a smoke-test of web_fetch or web_search with the current settings. */
     test(type: 'fetch' | 'search'): Promise<{ ok: boolean; message: string }>;
   };
+  copilot?: {
+    /** Start GitHub device-flow OAuth; returns codes + verification URL to show the user. */
+    startAuth(): Promise<{
+      device_code: string;
+      user_code: string;
+      verification_uri: string;
+      expires_in: number;
+      interval: number;
+    }>;
+    /** Poll for OAuth completion. Call every `interval` seconds until status !== 'pending'. */
+    pollAuth(deviceCode: string): Promise<{
+      status: 'pending' | 'complete' | 'expired' | 'error';
+      token?: string;
+      error?: string;
+    }>;
+    /** Fetch Copilot premium-request quota for the authenticated GitHub token. */
+    getUsage(githubToken: string): Promise<{
+      premiumRequestsUsed: number;
+      premiumRequestsIncluded: number;
+      premiumRequestsPurchased: number;
+    } | null>;
+  };
   extensionTools?: {
     /**
      * Listen for the main process asking the renderer to execute an extension

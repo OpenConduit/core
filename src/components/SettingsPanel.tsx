@@ -664,6 +664,256 @@ function ProvidersTab({
   );
 }
 
+// ── GitHub Copilot OAuth (device flow) + PAT ─────────────────────────────────
+
+type CopilotAuthState =
+  | { phase: 'idle' }
+  | { phase: 'pat' }
+  | { phase: 'connecting'; deviceCode: string; userCode: string; verificationUri: string; interval: number }
+  | { phase: 'connected' }
+  | { phase: 'error'; message: string };
+
+function maskToken(token: string): string {
+  if (token.length <= 8) return '••••••••';
+  return token.slice(0, 4) + '••••••••' + token.slice(-4);
+}
+
+type CopilotUsageData = {
+  premiumRequestsUsed: number;
+  premiumRequestsIncluded: number;
+  premiumRequestsPurchased: number;
+};
+type UsageState = { kind: 'loading' } | { kind: 'data'; d: CopilotUsageData } | { kind: 'unavailable' };
+
+function CopilotAuthSection({
+  githubToken,
+  onToken,
+}: {
+  githubToken: string;
+  onToken: (token: string) => void;
+}) {
+  const [state, setState] = useState<CopilotAuthState>(
+    githubToken ? { phase: 'connected' } : { phase: 'idle' },
+  );
+  const [revealed, setRevealed] = useState(false);
+  const [patValue, setPatValue] = useState('');
+  const [usage, setUsage] = useState<UsageState>({ kind: 'loading' });
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch usage whenever the connected state is shown
+  useEffect(() => {
+    if (state.phase !== 'connected' || !githubToken) return;
+    setUsage({ kind: 'loading' });
+    service.copilot?.getUsage(githubToken)
+      .then((d) => setUsage(d ? { kind: 'data', d } : { kind: 'unavailable' }))
+      .catch(() => setUsage({ kind: 'unavailable' }));
+  }, [state.phase, githubToken]);
+
+  // Clean up polling on unmount
+  useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
+
+  async function startAuth() {
+    setState({ phase: 'idle' });
+    try {
+      const flow = await service.copilot?.startAuth();
+      if (!flow) { setState({ phase: 'error', message: 'Copilot auth not available' }); return; }
+      setState({ phase: 'connecting', deviceCode: flow.device_code, userCode: flow.user_code, verificationUri: flow.verification_uri, interval: flow.interval });
+      poll(flow.device_code, flow.interval * 1000, flow.expires_in * 1000);
+    } catch (err) {
+      setState({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  function poll(deviceCode: string, intervalMs: number, remainingMs: number) {
+    pollRef.current = setTimeout(async () => {
+      if (remainingMs <= 0) { setState({ phase: 'error', message: 'Code expired. Please try again.' }); return; }
+      try {
+        const result = await service.copilot?.pollAuth(deviceCode);
+        if (!result || result.status === 'error') {
+          setState({ phase: 'error', message: result?.error ?? 'Auth failed' });
+        } else if (result.status === 'complete' && result.token) {
+          onToken(result.token);
+          setState({ phase: 'connected' });
+        } else if (result.status === 'expired') {
+          setState({ phase: 'error', message: 'Code expired. Please try again.' });
+        } else {
+          poll(deviceCode, intervalMs, remainingMs - intervalMs);
+        }
+      } catch (err) {
+        setState({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
+      }
+    }, intervalMs);
+  }
+
+  if (state.phase === 'connected') {
+    const d = usage.kind === 'data' ? usage.d : null;
+    const total = d ? d.premiumRequestsIncluded + d.premiumRequestsPurchased : 0;
+    const pct = total > 0 ? Math.min(100, (d!.premiumRequestsUsed / total) * 100) : 0;
+    const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-blue-500';
+
+    return (
+      <div className="rounded-lg bg-green-950/40 border border-green-800/50 px-3 py-2.5 space-y-2.5">
+        {/* Header row */}
+        <div className="flex items-center gap-3">
+          <span className="text-green-400 text-sm">✓ Connected to GitHub</span>
+          <button
+            onClick={() => { onToken(''); setRevealed(false); setState({ phase: 'idle' }); }}
+            className="ml-auto text-xs text-slate-400 hover:text-red-400 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+
+        {/* Token row */}
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs text-slate-400 select-all flex-1 truncate">
+            {revealed ? githubToken : maskToken(githubToken)}
+          </span>
+          <button
+            onClick={() => setRevealed((r) => !r)}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors shrink-0"
+          >
+            {revealed ? 'Hide' : 'Show'}
+          </button>
+          <button
+            onClick={() => navigator.clipboard.writeText(githubToken)}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors shrink-0"
+          >
+            Copy
+          </button>
+        </div>
+
+        {/* Usage */}
+        {usage.kind === 'loading' && (
+          <p className="text-[11px] text-slate-500">Loading usage…</p>
+        )}
+        {usage.kind === 'data' && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-slate-300">Premium requests</span>
+              <span className="text-[11px] text-slate-400 tabular-nums">
+                {d!.premiumRequestsUsed.toLocaleString()} / {total.toLocaleString()}
+                <span className="ml-1.5 text-slate-500">{pct.toFixed(1)}%</span>
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-700 overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+            </div>
+            {d!.premiumRequestsPurchased > 0 && (
+              <p className="text-[10px] text-slate-500">Includes {d!.premiumRequestsPurchased.toLocaleString()} purchased</p>
+            )}
+          </div>
+        )}
+        {usage.kind === 'unavailable' && (
+          <button
+            onClick={() => service.updater?.openExternal('https://github.com/settings/copilot')}
+            className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            View usage on GitHub →
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (state.phase === 'pat') {
+    return (
+      <div className="rounded-lg bg-slate-800/60 border border-slate-700 px-3 py-3 space-y-2.5">
+        <p className="text-xs text-slate-400">
+          Paste a GitHub personal access token (classic or fine-grained) with Copilot access.
+        </p>
+        <input
+          type="password"
+          value={patValue}
+          onChange={(e) => setPatValue(e.target.value)}
+          placeholder="ghp_… or github_pat_…"
+          className="w-full rounded bg-slate-900 border border-slate-600 px-2.5 py-1.5 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500"
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <button
+            disabled={!patValue.trim()}
+            onClick={() => { if (patValue.trim()) { onToken(patValue.trim()); setState({ phase: 'connected' }); setPatValue(''); } }}
+            className="text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded transition-colors"
+          >
+            Save token
+          </button>
+          <button
+            onClick={() => { setPatValue(''); setState({ phase: 'idle' }); }}
+            className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.phase === 'connecting') {
+    return (
+      <div className="rounded-lg bg-slate-800/60 border border-slate-700 px-3 py-3 space-y-2.5">
+        <p className="text-xs text-slate-300">
+          Visit <a href="#" onClick={(e) => { e.preventDefault(); service.updater?.openExternal(state.verificationUri); }} className="text-blue-400 underline">{state.verificationUri}</a> and enter the code:
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-lg font-bold tracking-widest text-white bg-slate-700 px-3 py-1 rounded">
+            {state.userCode}
+          </span>
+          <button
+            onClick={() => navigator.clipboard.writeText(state.userCode)}
+            className="text-xs text-slate-400 hover:text-slate-200"
+            title="Copy code"
+          >
+            Copy
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+          Waiting for authorization…
+        </p>
+        <button onClick={() => { if (pollRef.current) clearTimeout(pollRef.current); setState({ phase: 'idle' }); }} className="text-xs text-slate-500 hover:text-slate-300">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  if (state.phase === 'error') {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs text-red-400">{state.message}</p>
+        <div className="flex gap-2">
+          <button onClick={startAuth} className="btn-secondary text-xs px-3 py-1.5">
+            Try Again
+          </button>
+          <button onClick={() => setState({ phase: 'pat' })} className="text-xs text-slate-400 hover:text-slate-200 transition-colors px-3 py-1.5">
+            Use a token instead
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // idle
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={startAuth}
+        className="flex items-center gap-2 w-full justify-center rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 text-sm text-slate-200 px-4 py-2.5 transition-colors"
+      >
+        <span>🐙</span>
+        Connect with GitHub
+      </button>
+      <button
+        onClick={() => setState({ phase: 'pat' })}
+        className="w-full text-center text-xs text-slate-500 hover:text-slate-300 transition-colors py-0.5"
+      >
+        Use a personal access token instead
+      </button>
+    </div>
+  );
+}
+
 function ProviderForm({
   provider,
   onSave,
@@ -718,46 +968,85 @@ function ProviderForm({
             <option value="lmstudio">LM Studio</option>
             <option value="ollama">Ollama</option>
             <option value="gemini">Google Gemini</option>
+            <option value="bedrock">Amazon Bedrock</option>
+            <option value="copilot">GitHub Copilot</option>
           </select>
         </Field>
 
-        {draft.type !== 'lmstudio' && draft.type !== 'ollama' && (
-          <Field label="API Key">
+        {/* API Key / Access Key ID — hidden for Copilot (uses OAuth) and for local providers */}
+        {draft.type !== 'lmstudio' && draft.type !== 'ollama' && draft.type !== 'copilot' && (
+          <Field label={draft.type === 'bedrock' ? 'Access Key ID' : 'API Key'}>
             <input
               type="password"
               value={draft.apiKey ?? ''}
               onChange={(e) => set('apiKey', e.target.value)}
-              placeholder={draft.type === 'gemini' ? 'AIza...' : 'sk-...'}
+              placeholder={
+                draft.type === 'gemini' ? 'AIza...' :
+                draft.type === 'bedrock' ? 'AKIA...' :
+                'sk-...'
+              }
               className="input-field"
               autoComplete="off"
             />
           </Field>
         )}
 
-        <Field label="Base URL">
-          <input
-            type="url"
-            value={draft.baseUrl ?? ''}
-            onChange={(e) => set('baseUrl', e.target.value)}
-            placeholder={
-              draft.type === 'lmstudio'
-                ? 'http://localhost:1234/v1'
-                : draft.type === 'ollama'
-                  ? 'http://localhost:11434/v1'
-                : draft.type === 'anthropic'
-                  ? 'https://…services.ai.azure.com/anthropic'
-                  : draft.type === 'gemini'
-                    ? 'https://generativelanguage.googleapis.com (optional)'
-                    : 'https://api.openai.com/v1'
-            }
-            className="input-field"
+        {/* Bedrock: Secret Access Key */}
+        {draft.type === 'bedrock' && (
+          <Field label="Secret Access Key">
+            <input
+              type="password"
+              value={(draft as ProviderConfig & { apiSecret?: string }).apiSecret ?? ''}
+              onChange={(e) => setDraft((d) => ({ ...d, apiSecret: e.target.value }))}
+              placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+              className="input-field"
+              autoComplete="off"
+            />
+          </Field>
+        )}
+
+        {/* Copilot: OAuth connect button */}
+        {draft.type === 'copilot' && (
+          <CopilotAuthSection
+            githubToken={draft.apiKey ?? ''}
+            onToken={(token) => set('apiKey', token)}
           />
-          {draft.type === 'anthropic' && draft.baseUrl?.includes('azure.com') && (
-            <p className="text-xs text-amber-400 mt-1">
-              Azure detected — do <strong>not</strong> include <code>/v1/messages</code> in the URL.
-            </p>
-          )}
-        </Field>
+        )}
+
+        {/* Base URL / AWS Region — hidden for Copilot (endpoint is fixed) */}
+        {draft.type !== 'copilot' && (
+          <Field label={draft.type === 'bedrock' ? 'AWS Region' : 'Base URL'}>
+            <input
+              type={draft.type === 'bedrock' ? 'text' : 'url'}
+              value={draft.baseUrl ?? ''}
+              onChange={(e) => set('baseUrl', e.target.value)}
+              placeholder={
+                draft.type === 'lmstudio'
+                  ? 'http://localhost:1234/v1'
+                  : draft.type === 'ollama'
+                    ? 'http://localhost:11434/v1'
+                  : draft.type === 'anthropic'
+                    ? 'https://…services.ai.azure.com/anthropic'
+                    : draft.type === 'gemini'
+                      ? 'https://generativelanguage.googleapis.com (optional)'
+                      : draft.type === 'bedrock'
+                        ? 'us-east-1'
+                        : 'https://api.openai.com/v1'
+              }
+              className="input-field"
+            />
+            {draft.type === 'anthropic' && draft.baseUrl?.includes('azure.com') && (
+              <p className="text-xs text-amber-400 mt-1">
+                Azure detected — do <strong>not</strong> include <code>/v1/messages</code> in the URL.
+              </p>
+            )}
+            {draft.type === 'bedrock' && (
+              <p className="text-xs text-slate-400 mt-1">
+                e.g. <code className="font-mono">us-east-1</code>, <code className="font-mono">eu-west-1</code>. Request model access in the AWS console first.
+              </p>
+            )}
+          </Field>
+        )}
 
         {draft.type === 'anthropic' && (
           <Field label="API Version">
@@ -2388,10 +2677,12 @@ function ProviderBadge({ type }: { type: ProviderType }) {
     lmstudio: 'bg-purple-800 text-purple-200',
     ollama: 'bg-teal-800 text-teal-200',
     gemini: 'bg-blue-800 text-blue-200',
+    bedrock: 'bg-yellow-800 text-yellow-200',
+    copilot: 'bg-slate-700 text-slate-200',
   };
   return (
     <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${colors[type]}`}>
-      {type === 'lmstudio' ? 'LMS' : type === 'anthropic' ? 'ANT' : type === 'ollama' ? 'OLL' : type === 'gemini' ? 'GEM' : 'OAI'}
+      {type === 'lmstudio' ? 'LMS' : type === 'anthropic' ? 'ANT' : type === 'ollama' ? 'OLL' : type === 'gemini' ? 'GEM' : type === 'bedrock' ? 'AWS' : type === 'copilot' ? 'GH' : 'OAI'}
     </span>
   );
 }

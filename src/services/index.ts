@@ -26,6 +26,7 @@ export const service: AppService = {
   get config() { return _instance!.config; },
   get routing() { return _instance!.routing; },
   get webtools() { return _instance!.webtools; },
+  get copilot() { return _instance!.copilot; },
   get extensionTools() { return _instance!.extensionTools; },
   get crash() { return _instance!.crash; },
   get folder() { return _instance!.folder; },
