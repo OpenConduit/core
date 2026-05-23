@@ -15,6 +15,7 @@ import { commandRegistry } from '../commands/commandRegistry';
 import '../settings/coreContributions'; // ensure core sections are registered
 import { McpMarketplace, ProviderMarketplace } from './MarketplacePanel';
 import PersonasPanel from '../extensions/builtins/personas/PersonasPanel';
+import PromptsPanel from '../extensions/builtins/prompts/PromptsPanel';
 
 type Tab = 'general' | 'providers' | 'mcp' | 'features' | 'labs' | 'analytics' | 'about' | string;
 
@@ -94,6 +95,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
     </svg>
   ),
+  prompts: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+    </svg>
+  ),
 } as const;
 
 // ─── SettingsPanel ────────────────────────────────────────────────────────────
@@ -134,6 +140,7 @@ export default function SettingsPanel({
     { id: 'providers', label: 'Providers', icon: Icons.providers },
     { id: 'mcp',       label: 'MCP',       icon: Icons.mcp },
     { id: 'personas',  label: 'Personas',  icon: Icons.personas },
+    { id: 'prompts',   label: 'Prompts',   icon: Icons.prompts },
     { id: 'features',  label: 'Features',  icon: Icons.features },
     { id: 'labs',      label: 'Labs',      icon: Icons.labs },
     { id: 'updates',   label: 'Updates',   icon: Icons.updates },
@@ -248,6 +255,7 @@ export default function SettingsPanel({
                 )}
                 {tab === 'labs' && <LabsTab settings={settings} onSave={saveSettings} />}
                 {tab === 'personas' && <PersonasPanel />}
+                {tab === 'prompts' && <PromptsPanel />}
                 {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
                 {tab === 'updates' && <UpdatesTab settings={settings} onSave={saveSettings} />}
                 {tab === 'logging' && <LoggingTab settings={settings} onSave={saveSettings} />}

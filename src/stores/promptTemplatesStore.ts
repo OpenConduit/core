@@ -31,6 +31,7 @@ export interface InstalledPromptTemplate {
 interface PromptTemplatesState {
   templates: InstalledPromptTemplate[];
   addTemplate: (t: Omit<InstalledPromptTemplate, 'id'>) => InstalledPromptTemplate;
+  updateTemplate: (id: string, partial: Partial<Omit<InstalledPromptTemplate, 'id'>>) => void;
   removeTemplate: (id: string) => void;
   isInstalled: (registryId: string) => boolean;
 }
@@ -45,6 +46,11 @@ export const usePromptTemplatesStore = create<PromptTemplatesState>()(
         set((s) => ({ templates: [...s.templates, t] }));
         return t;
       },
+
+      updateTemplate: (id, partial) =>
+        set((s) => ({
+          templates: s.templates.map((t) => (t.id === id ? { ...t, ...partial } : t)),
+        })),
 
       removeTemplate: (id) =>
         set((s) => ({ templates: s.templates.filter((t) => t.id !== id) })),

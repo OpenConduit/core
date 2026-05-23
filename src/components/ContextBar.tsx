@@ -1,40 +1,8 @@
 import React from 'react';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import { useConversationStore } from '../stores/conversationStore';
-
-// ─── Known model context windows (tokens) ────────────────────────────────────
-// Extend this map as needed; keys are matched by substring (lowercase)
-const CONTEXT_LIMITS: [string, number][] = [
-  // Anthropic
-  ['claude', 200_000],
-  // OpenAI
-  ['gpt-4o', 128_000],
-  ['gpt-4-turbo', 128_000],
-  ['gpt-4', 8_192],
-  ['gpt-3.5', 16_385],
-  ['o1', 200_000],
-  ['o3', 200_000],
-  // Meta / LM Studio common
-  ['llama-3', 131_072],
-  ['llama-2', 4_096],
-  ['mistral', 32_768],
-  ['mixtral', 32_768],
-  ['gemma', 8_192],
-  ['phi-3', 128_000],
-  ['phi-4', 16_384],
-];
-
-function getContextLimit(model: string): number | null {
-  const lower = model.toLowerCase();
-  for (const [key, limit] of CONTEXT_LIMITS) {
-    if (lower.includes(key)) return limit;
-  }
-  return null;
-}
-
-function fmt(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n);
-}
+import { useSettingsStore } from '../stores/settingsStore';
+import { getContextLimit, fmtTok } from '../utils/context';
 
 interface Props {
   conversationId: string;
@@ -43,17 +11,23 @@ interface Props {
 export default function ContextBar({ conversationId }: Props) {
   const records = useAnalyticsStore((s) => s.records);
   const conversations = useConversationStore((s) => s.conversations);
+  const { settings } = useSettingsStore();
 
   const conv = conversations.find((c) => c.id === conversationId);
   const model = conv?.model ?? '';
-  const limit = getContextLimit(model);
+  const providerId = conv?.providerId ?? '';
+  // Provider-configured context window takes priority over built-in table
+  const providerCtx = settings?.providers?.find((p) => p.id === providerId)?.modelContextWindows?.[model] ?? null;
+  const limit = providerCtx ?? getContextLimit(model);
 
-  // Sum all usage records for this conversation
+  // Use the most recent record's inputTokens as the context fill estimate.
+  // Each record's inputTokens already includes the full conversation history sent
+  // to the model, so summing across all turns would wildly overstate usage.
   const convRecords = records.filter((r) => r.conversationId === conversationId);
-  const usedTokens = convRecords.reduce(
-    (sum, r) => sum + r.usage.inputTokens + r.usage.outputTokens,
-    0,
-  );
+  const lastRecord = convRecords[convRecords.length - 1] ?? null;
+  const usedTokens = lastRecord
+    ? lastRecord.usage.inputTokens + lastRecord.usage.outputTokens
+    : 0;
 
   // If no usage data yet and no known limit, render nothing
   if (usedTokens === 0 && limit === null) return null;
@@ -70,8 +44,8 @@ export default function ContextBar({ conversationId }: Props) {
 
   const label =
     limit != null
-      ? `${fmt(usedTokens)} / ${fmt(limit)} tokens (${pct!.toFixed(0)}%)`
-      : `${fmt(usedTokens)} tokens used`;
+      ? `${fmtTok(usedTokens)} / ${fmtTok(limit)} tokens (${pct!.toFixed(0)}%)`
+      : `${fmtTok(usedTokens)} tokens used`;
 
   return (
     <div className="px-4 pb-2 flex items-center gap-2.5">

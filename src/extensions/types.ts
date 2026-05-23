@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { CommandContribution } from '../commands/commandRegistry';
+import type { SlashCommand } from '../commands/slashCommandRegistry';
 import type {
   BeforeSendHook,
   OnResponseHook,
@@ -178,6 +179,8 @@ export interface ExtensionManifest {
     activityBarItems?: ActivityBarContribution[];
     /** Commands contributed to the command palette + keyboard shortcuts. */
     commands?: CommandContribution[];
+    /** Slash commands contributed to the chat input autocomplete. */
+    slashCommands?: SlashCommand[];
     /** Tabs contributed to the bottom panel. */
     bottomPanelTabs?: BottomPanelTab[];
     /** A settings section contributed to the Settings panel. */

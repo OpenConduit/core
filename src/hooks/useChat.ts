@@ -136,12 +136,15 @@ function ensureListeners() {
       compactingRequests.delete(end.messageId);
       finalizeMessage(end.conversationId, end.messageId, []);
       const conv = useConversationStore.getState().conversations.find((c) => c.id === end.conversationId);
-      const summaryContent = conv?.messages.find((m) => m.id === end.messageId)?.content ?? '';
+      const summaryMsg = conv?.messages.find((m) => m.id === end.messageId);
+      const summaryContent = summaryMsg?.content ?? '';
       replaceMessages(end.conversationId, [{
         id: uuidv4(),
         role: 'assistant',
         content: `📋 **Conversation Summary**\n\n${summaryContent}`,
         timestamp: Date.now(),
+        model: summaryMsg?.model,
+        providerId: summaryMsg?.providerId,
       }]);
       useUiStore.getState().setIsCompacting(false);
       useUiStore.getState().setIsStreaming(false);
@@ -469,7 +472,7 @@ export function useChat(conversationId?: string | null) {
       ],
       providerId,
       model,
-      parameters: { temperature: 0.3, topP: 1, maxTokens: 2000 },
+      parameters: { temperature: 0.3, topP: 1, maxTokens: Math.min(8000, Math.max(2000, safeMessages.length * 150)) },
       systemPrompt: 'You are summarizing a conversation to preserve context. Be concise but complete.',
       enabledMcpServerIds: [],
     };
@@ -504,20 +507,31 @@ export function useChat(conversationId?: string | null) {
     const providerCtx = settings?.providers?.find((p) => p.id === providerId)?.modelContextWindows?.[model] ?? null;
     const contextLimit = providerCtx ?? getContextLimit(model);
 
-    let messages = [...conv.messages];
+    // Work only with user/assistant messages — strip tool_results, thinking, etc.
+    let messages = conv.messages.filter((m) => m.role === 'user' || m.role === 'assistant');
+    // Ensure history starts on a user message so we never send orphaned assistant turns
+    while (messages.length > 0 && messages[0].role !== 'user') messages = messages.slice(1);
+    if (messages.length <= 2) return;
 
     if (contextLimit) {
       const target = contextLimit * 0.5;
       const totalEst = messages.reduce((s, m) => s + estimateTokens(m.content), 0);
       if (totalEst <= target) return; // nothing to do
-      // Drop oldest pairs until under target, always keep ≥2 messages
+      // Drop to the next user-message boundary each iteration, keeping ≥2 messages
       while (messages.reduce((s, m) => s + estimateTokens(m.content), 0) > target && messages.length > 2) {
-        messages = messages.slice(2);
+        const nextUserIdx = messages.findIndex((m, i) => i > 0 && m.role === 'user');
+        if (nextUserIdx <= 0) break; // only one turn remaining
+        messages = messages.slice(nextUserIdx);
       }
     } else {
-      // No known limit: drop oldest 4 messages, keep at least 2
-      const toDrop = Math.min(4, messages.length - 2);
-      messages = messages.slice(toDrop);
+      // No known limit: drop up to 4 messages worth, stopping at user-message boundaries
+      let dropped = 0;
+      while (dropped < 4 && messages.length > 2) {
+        const nextUserIdx = messages.findIndex((m, i) => i > 0 && m.role === 'user');
+        if (nextUserIdx <= 0) break;
+        dropped += nextUserIdx;
+        messages = messages.slice(nextUserIdx);
+      }
     }
 
     replaceMessages(effectiveId, messages);
