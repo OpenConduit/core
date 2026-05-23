@@ -179,6 +179,12 @@ export interface Conversation {
   detachedFrom?: { convId: string; messageIndex: number };
   /** Absolute path of a folder attached for agent mode. Persisted so it survives conversation switching. */
   folderPath?: string;
+  /**
+   * When set, the default single-model send pipeline is replaced by the
+   * conversation mode registered under this id.
+   * See `ConversationModeContribution` in `extensions/types.ts`.
+   */
+  conversationModeId?: string;
 }
 
 // ─── Token Usage ──────────────────────────────────────────────────────────

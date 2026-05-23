@@ -8,7 +8,7 @@ import type {
   OnToolCallHook,
 } from '../hooks/hookRegistry';
 import type { BottomPanelTab } from '../bottomPanel/bottomPanelRegistry';
-import type { AppSettings, McpTool, SettingsContribution, Conversation, Message, Persona, AiTask } from '../types';
+import type { AppSettings, ChatRequest, McpTool, SettingsContribution, Conversation, Message, Persona, AiTask } from '../types';
 import type { SavedFile } from '../stores/filesStore';
 import type { MessageDecorator } from './messageDecoratorRegistry';
 import type { ToolHandler } from './toolContributionRegistry';
@@ -167,6 +167,98 @@ export interface SecondarySidebarPanelContribution {
   order?: number;
 }
 
+// ─── Status Bar Items ─────────────────────────────────────────────────────────
+
+/**
+ * A status bar item contribution renders a React component in the bottom
+ * status bar. Items with `align: 'left'` appear on the left side; all others
+ * appear on the right side before the built-in controls.
+ */
+export interface StatusBarItemContribution {
+  /** Stable item identifier — must be unique across all extensions. */
+  id: string;
+  /** Component rendered inside the status bar. */
+  render: React.ComponentType;
+  /** Which side of the status bar to place the item. Default `'right'`. */
+  align?: 'left' | 'right';
+  /** Render order within its side (lower = earlier). Default 50. */
+  order?: number;
+}
+
+// ─── Store Slices ─────────────────────────────────────────────────────────────
+
+/**
+ * A store slice contribution registers a Zustand store instance with the
+ * extension registry. Other extensions (and core) can look up contributed
+ * stores by `id` via `extensionRegistry.getStore(id)`.
+ *
+ * First-party extensions use this to declare co-located stores so the
+ * extension platform can enumerate them (e.g. for devtools, hot-reload).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface StoreSliceContribution<S = any> {
+  /** Stable store identifier — must be unique across all extensions. */
+  id: string;
+  /** The Zustand store instance. Callers cast to their specific store type. */
+  store: S;
+}
+
+// ─── Message Badges ───────────────────────────────────────────────────────────
+
+/**
+ * A message badge contribution registers a per-message annotation rendered in
+ * the `MessageBubble` metadata row. Extensions return a `count` (shown as a
+ * pill) and `content` (shown in a hover popover).
+ *
+ * Return `null` to render nothing for a given message.
+ */
+export interface MessageBadgeContribution {
+  /** Stable badge identifier — must be unique across all extensions. */
+  id: string;
+  /** Called once per message on render. Return `null` to show nothing. */
+  render: (message: Message) => { count: number; content: React.ReactNode } | null;
+}
+
+// ─── Conversation Modes ───────────────────────────────────────────────────────
+
+/**
+ * Context passed to a conversation mode's `onSend` handler.
+ * Contains the fully-built, post-hook chat request and supporting metadata.
+ */
+export interface SendContext {
+  /** The conversation that triggered the send. */
+  conversationId: string;
+  /** The fully-built `ChatRequest` (after all `beforeSend` hooks have run). */
+  request: ChatRequest;
+  /** The raw user message text before any processing. */
+  userMessage: string;
+}
+
+/**
+ * A conversation mode contribution replaces the default single-model send
+ * pipeline with a custom implementation. The mode's `onSend` receives the
+ * built request and is fully responsible for adding assistant message(s) to
+ * the conversation store and driving streaming via `service.chat.send()`.
+ *
+ * Activate a mode by setting `conversation.conversationModeId` to this
+ * contribution's `id`.
+ */
+export interface ConversationModeContribution {
+  /** Stable mode identifier — must be unique across all extensions. */
+  id: string;
+  /** Human-readable label shown in the new-conversation flow. */
+  label: string;
+  /** Optional icon component. */
+  icon?: React.ComponentType;
+  /**
+   * Called instead of the default `service.chat.send()` when this mode is
+   * active. The implementation is responsible for the full send lifecycle:
+   * creating placeholder messages, calling the AI provider(s), and updating
+   * the conversation store.
+   */
+  onSend: (ctx: SendContext) => Promise<void>;
+}
+
 // ─── Activity Bar ─────────────────────────────────────────────────────────────
 
 /**
@@ -265,5 +357,24 @@ export interface ExtensionManifest {
      * Extra tabs added to the secondary sidebar (far right panel).
      */
     secondarySidebarPanels?: SecondarySidebarPanelContribution[];
+    /**
+     * Items contributed to the bottom status bar.
+     * Use `align: 'left'` to place items on the left side.
+     */
+    statusBarItems?: StatusBarItemContribution[];
+    /**
+     * Zustand store slices contributed by this extension.
+     * Registered stores are accessible via `extensionRegistry.getStore(id)`.
+     */
+    stores?: StoreSliceContribution[];
+    /**
+     * Per-message annotation badges rendered in the `MessageBubble` metadata row.
+     */
+    messageBadges?: MessageBadgeContribution[];
+    /**
+     * Pluggable send pipeline modes. The active mode is selected by setting
+     * `conversation.conversationModeId` to the contribution's `id`.
+     */
+    conversationModes?: ConversationModeContribution[];
   };
 }

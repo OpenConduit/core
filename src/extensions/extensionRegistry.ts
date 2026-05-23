@@ -6,6 +6,10 @@ import type {
   MainViewContribution,
   SplitPaneViewContribution,
   SecondarySidebarPanelContribution,
+  StatusBarItemContribution,
+  StoreSliceContribution,
+  MessageBadgeContribution,
+  ConversationModeContribution,
 } from './types';
 import type { SettingsProperty } from '../types';
 import type { SandboxContributions, SerializableSandboxManifest } from './sandbox/protocol';
@@ -42,6 +46,10 @@ class ExtensionRegistry {
   private readonly mainViewMap = new Map<string, MainViewContribution>();
   private readonly splitPaneViewMap = new Map<string, SplitPaneViewContribution>();
   private readonly secondarySidebarPanelList: SecondarySidebarPanelContribution[] = [];
+  private readonly statusBarItemsList: StatusBarItemContribution[] = [];
+  private readonly storeSlices = new Map<string, StoreSliceContribution>();
+  private readonly messageBadgesList: MessageBadgeContribution[] = [];
+  private readonly conversationModeMap = new Map<string, ConversationModeContribution>();
 
   /**
    * Register an extension and its contributions.
@@ -129,6 +137,42 @@ class ExtensionRegistry {
       for (const panel of contributions.secondarySidebarPanels) {
         if (!this.secondarySidebarPanelList.some((p) => p.id === panel.id)) {
           this.secondarySidebarPanelList.push(panel);
+        }
+      }
+    }
+
+    // ── Status bar items ──────────────────────────────────────────────────────
+    if (contributions.statusBarItems) {
+      for (const item of contributions.statusBarItems) {
+        if (!this.statusBarItemsList.some((i) => i.id === item.id)) {
+          this.statusBarItemsList.push(item);
+        }
+      }
+    }
+
+    // ── Store slices ──────────────────────────────────────────────────────────
+    if (contributions.stores) {
+      for (const slice of contributions.stores) {
+        if (!this.storeSlices.has(slice.id)) {
+          this.storeSlices.set(slice.id, slice);
+        }
+      }
+    }
+
+    // ── Message badges ────────────────────────────────────────────────────────
+    if (contributions.messageBadges) {
+      for (const badge of contributions.messageBadges) {
+        if (!this.messageBadgesList.some((b) => b.id === badge.id)) {
+          this.messageBadgesList.push(badge);
+        }
+      }
+    }
+
+    // ── Conversation modes ────────────────────────────────────────────────────
+    if (contributions.conversationModes) {
+      for (const mode of contributions.conversationModes) {
+        if (!this.conversationModeMap.has(mode.id)) {
+          this.conversationModeMap.set(mode.id, mode);
         }
       }
     }
@@ -320,6 +364,56 @@ class ExtensionRegistry {
     return [...this.secondarySidebarPanelList].sort(
       (a, b) => (a.order ?? 50) - (b.order ?? 50)
     );
+  }
+
+  // ── Status bar item getters ───────────────────────────────────────────────
+
+  /**
+   * Returns status bar items for the given side (or all items if `align` is
+   * omitted), sorted by `order` ascending (default 50).
+   */
+  getStatusBarItems(align?: 'left' | 'right'): StatusBarItemContribution[] {
+    const items = align
+      ? this.statusBarItemsList.filter((i) => (i.align ?? 'right') === align)
+      : [...this.statusBarItemsList];
+    return items.sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+  }
+
+  // ── Store slice getters ───────────────────────────────────────────────────
+
+  /**
+   * Returns the Zustand store registered under `id`, or `undefined` if not
+   * found. Cast the return value to the expected store type at the call site.
+   */
+  getStore(id: string): unknown {
+    return this.storeSlices.get(id)?.store;
+  }
+
+  /** Returns all registered store slice contributions. */
+  getAllStoreSlices(): StoreSliceContribution[] {
+    return [...this.storeSlices.values()];
+  }
+
+  // ── Message badge getters ─────────────────────────────────────────────────
+
+  /** Returns all registered message badge contributions. */
+  getMessageBadges(): MessageBadgeContribution[] {
+    return [...this.messageBadgesList];
+  }
+
+  // ── Conversation mode getters ─────────────────────────────────────────────
+
+  /**
+   * Returns the conversation mode registered under `id`, or `undefined` if
+   * no extension has registered that id.
+   */
+  getConversationMode(id: string): ConversationModeContribution | undefined {
+    return this.conversationModeMap.get(id);
+  }
+
+  /** Returns all registered conversation mode contributions. */
+  getAllConversationModes(): ConversationModeContribution[] {
+    return [...this.conversationModeMap.values()];
   }
 }
 

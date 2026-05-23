@@ -23,7 +23,15 @@ export type { SlashCommand, SlashCommandContext } from './commands/slashCommandR
 
 // Extension platform (#38)
 export { extensionRegistry } from './extensions/extensionRegistry';
-export type { ExtensionManifest, ActivityBarContribution } from './extensions/types';
+export type {
+  ExtensionManifest,
+  ActivityBarContribution,
+  StatusBarItemContribution,
+  StoreSliceContribution,
+  MessageBadgeContribution,
+  SendContext,
+  ConversationModeContribution,
+} from './extensions/types';
 import './commands/coreCommandContributions'; // side-effect: registers built-in commands
 import './commands/coreSlashContributions';  // side-effect: registers built-in slash commands
 
