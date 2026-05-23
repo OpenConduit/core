@@ -6,6 +6,7 @@ import './builtins/files';
 import './builtins/mcp';
 import './builtins/web-fetch';
 import './builtins/web-search';
+import './builtins/pipelines';
 
 export { extensionRegistry } from './extensionRegistry';
 export { useActivityBarItems } from './useActivityBarItems';
