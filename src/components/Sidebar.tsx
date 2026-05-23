@@ -482,6 +482,7 @@ export default function Sidebar() {
     if (!conv) return;
     if (format === 'json') downloadFile(exportAsJson(conv), `${conv.title}.json`, 'application/json');
     else downloadFile(exportAsMarkdown(conv), `${conv.title}.md`, 'text/markdown');
+    useUiStore.getState().addNotification({ title: 'Exported', message: 'Conversation saved to file', variant: 'success', source: 'app' });
   };
 
   const handleDeleteConversation = (id: string) => {

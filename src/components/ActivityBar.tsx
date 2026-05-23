@@ -295,7 +295,15 @@ export default function ActivityBar() {
               onClick={async () => {
                 closeMenu();
                 try {
-                  await service.updater.checkForUpdates();
+                  const info = await service.updater.checkForUpdates();
+                  if (info.hasUpdate) {
+                    useUiStore.getState().addNotification({
+                      title: 'Update available',
+                      message: `v${info.latestVersion} is ready`,
+                      variant: 'info',
+                      source: 'app',
+                    });
+                  }
                 } catch {
                   // updater not available in this environment
                 }
