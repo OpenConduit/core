@@ -12,6 +12,7 @@ import { useAnalyticsStore } from '../stores/analyticsStore';
 import { getContextLimit, estimateTokens } from '../utils/context';
 import { service } from '../services';
 import { toolContributionRegistry } from '../extensions/toolContributionRegistry';
+import { extensionRegistry } from '../extensions/extensionRegistry';
 
 // ─── Task + Question parsing ──────────────────────────────────────────────────
 
@@ -391,6 +392,18 @@ export function useChat(conversationId?: string | null) {
         } catch (e) {
           debugConsole.warn('Routing failed, using original model', { error: String(e) }, 'routing');
           // Routing failure is non-fatal — proceed with original model
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────
+
+      // ── Conversation mode override ───────────────────────────────────────
+      // If a conversation mode is active, hand off the entire send lifecycle
+      // to the registered mode handler and return early.
+      if (conv.conversationModeId) {
+        const mode = extensionRegistry.getConversationMode(conv.conversationModeId);
+        if (mode) {
+          await mode.onSend({ conversationId: effectiveId, request, userMessage: content });
+          return;
         }
       }
       // ────────────────────────────────────────────────────────────────────

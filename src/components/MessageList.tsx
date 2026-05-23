@@ -3,6 +3,8 @@ import type { Message } from '../types';
 import MessageBubble from './MessageBubble';
 import { messageDecoratorRegistry } from '../extensions/messageDecoratorRegistry';
 import type { MessageDecorator } from '../extensions/messageDecoratorRegistry';
+import { extensionRegistry } from '../extensions/extensionRegistry';
+import type { MessageBadgeContribution } from '../extensions/types';
 
 interface Props {
   messages: Message[];
@@ -17,10 +19,19 @@ export default function MessageList({ messages, conversationId, onApprove, onDen
   const [decorators, setDecorators] = useState<MessageDecorator[]>(() =>
     messageDecoratorRegistry.getAll(),
   );
+  const [badges, setBadges] = useState<MessageBadgeContribution[]>(
+    () => extensionRegistry.getMessageBadges(),
+  );
 
   useEffect(() => {
     return messageDecoratorRegistry.subscribe(() => {
       setDecorators(messageDecoratorRegistry.getAll());
+    });
+  }, []);
+
+  useEffect(() => {
+    return extensionRegistry.subscribe(() => {
+      setBadges(extensionRegistry.getMessageBadges());
     });
   }, []);
 
@@ -60,6 +71,7 @@ export default function MessageList({ messages, conversationId, onApprove, onDen
             onDeny={onDeny}
             onSendAnswers={onSendAnswers}
             decorators={decorators}
+            badges={badges}
           />
         ))}
       <div ref={bottomRef} />

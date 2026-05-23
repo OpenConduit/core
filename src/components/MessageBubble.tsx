@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message, AiQuestion } from '../types';
 import type { MessageDecorator } from '../extensions/messageDecoratorRegistry';
+import type { MessageBadgeContribution } from '../extensions/types';
 import ToolCallCard from './ToolCallCard';
 import QuestionsCard from './QuestionsCard';
 import ArtifactBlock from './ArtifactBlock';
@@ -19,6 +20,8 @@ interface Props {
   onSendAnswers?: (questions: AiQuestion[], answers: Record<string, string>) => void;
   /** Extension-contributed decorators rendered below each message bubble. */
   decorators?: MessageDecorator[];
+  /** Extension-contributed badges rendered in the message metadata row. */
+  badges?: MessageBadgeContribution[];
 }
 
 function formatDuration(ms: number): string {
@@ -26,7 +29,7 @@ function formatDuration(ms: number): string {
   return `${ms}ms`;
 }
 
-const MessageBubble = memo(function MessageBubble({ message, messageIndex, conversationId, onApprove, onDeny, onSendAnswers, decorators }: Props) {
+const MessageBubble = memo(function MessageBubble({ message, messageIndex, conversationId, onApprove, onDeny, onSendAnswers, decorators, badges }: Props) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
   const [copied, setCopied] = useState(false);
@@ -349,6 +352,28 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
             {decorators.map((d, i) => {
               const node = d(message);
               return node ? <React.Fragment key={i}>{node}</React.Fragment> : null;
+            })}
+          </div>
+        )}
+
+        {/* Extension-contributed message badges */}
+        {badges && badges.length > 0 && (
+          <div className="flex items-center gap-1 mt-1 flex-wrap">
+            {badges.map((badge) => {
+              const result = badge.render(message);
+              if (!result) return null;
+              return (
+                <span
+                  key={badge.id}
+                  title={typeof result.count === 'number' ? String(result.count) : undefined}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 text-[10px]"
+                >
+                  {result.content}
+                  {result.count > 0 && (
+                    <span className="text-slate-400">{result.count}</span>
+                  )}
+                </span>
+              );
             })}
           </div>
         )}

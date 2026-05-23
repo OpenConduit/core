@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useConversationStore } from '../stores/conversationStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import type { ProviderType } from '../types';
 import NotificationBell from './NotificationBell';
+import { extensionRegistry } from '../extensions/extensionRegistry';
+import type { StatusBarItemContribution } from '../extensions/types';
 
 // Provider colour dots (matches brand palette)
 const PROVIDER_COLORS: Partial<Record<ProviderType, string>> & Record<string, string> = {
@@ -35,6 +37,20 @@ export default function StatusBar() {
   const records = useAnalyticsStore((s) => s.records);
 
   const conv = conversations.find((c) => c.id === activeConversationId);
+
+  // Extension-contributed status bar items
+  const [leftItems, setLeftItems] = useState<StatusBarItemContribution[]>(
+    () => extensionRegistry.getStatusBarItems('left'),
+  );
+  const [rightItems, setRightItems] = useState<StatusBarItemContribution[]>(
+    () => extensionRegistry.getStatusBarItems('right'),
+  );
+  useEffect(() => {
+    return extensionRegistry.subscribe(() => {
+      setLeftItems(extensionRegistry.getStatusBarItems('left'));
+      setRightItems(extensionRegistry.getStatusBarItems('right'));
+    });
+  }, []);
 
   // Sum token usage across all messages in the active conversation
   const tokens = useMemo(() => {
@@ -97,6 +113,11 @@ export default function StatusBar() {
         </div>
       )}
 
+      {/* Extension-contributed left items */}
+      {leftItems.map((item) => (
+        <item.render key={item.id} />
+      ))}
+
       <div className="flex-1" />
 
       {/* Routing badge */}
@@ -123,6 +144,11 @@ export default function StatusBar() {
       {conv && costUsd !== null && (
         <span className="tabular-nums text-slate-400">{fmtCost(costUsd)}</span>
       )}
+
+      {/* Extension-contributed right items */}
+      {rightItems.map((item) => (
+        <item.render key={item.id} />
+      ))}
 
       {/* Notification bell */}
       <NotificationBell />
