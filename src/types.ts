@@ -556,6 +556,12 @@ export const IPC = {
 
   // Chat
   CHAT_SEND: 'chat:send',
+  /**
+   * Headless completion — returns the full response text without creating
+   * conversation messages. Useful for pipeline steps, background processing,
+   * and any extension that needs an LLM call outside the conversation store.
+   */
+  CHAT_COMPLETE: 'chat:complete',
   CHAT_STREAM_CHUNK: 'chat:stream:chunk',
   CHAT_STREAM_THINKING: 'chat:stream:thinking', // incremental thinking delta
   CHAT_STREAM_END: 'chat:stream:end',
@@ -611,6 +617,20 @@ export const IPC = {
 export type ReasoningLevel = 'off' | 'low' | 'medium' | 'high';
 
 // ─── Chat Request / Response ────────────────────────────────────────────────
+
+/**
+ * Lightweight, headless LLM completion request.
+ * Does **not** create conversation messages — just returns the response text.
+ * Use via `service.chat.complete()` (maps to the `chat:complete` IPC channel).
+ */
+export interface SimpleCompletionRequest {
+  providerId: string;
+  model: string;
+  /** Message thread to send. The last message should have role `'user'`. */
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  systemPrompt?: string;
+  parameters?: Partial<ModelParameters>;
+}
 
 export interface ChatRequest {
   /** Optionally pre-supply the messageId so the renderer can add the

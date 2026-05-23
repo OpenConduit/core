@@ -8,6 +8,7 @@ import type {
   McpTool,
   RoutingConfig,
   RoutingDecision,
+  SimpleCompletionRequest,
   StreamChunk,
   StreamEnd,
   StreamError,
@@ -28,6 +29,12 @@ type UnsubFn = () => void;
 export interface AppService {
   chat: {
     send(request: ChatRequest): Promise<{ messageId: string }>;
+    /**
+     * Headless LLM call. Returns the full response text without creating
+     * conversation messages or triggering any streaming IPC events.
+     * Use this for pipeline steps and background processing.
+     */
+    complete(request: SimpleCompletionRequest): Promise<{ text: string }>;
     abort(conversationId: string): void;
     onChunk(cb: (data: StreamChunk) => void): UnsubFn;
     onEnd(cb: (data: StreamEnd) => void): UnsubFn;
