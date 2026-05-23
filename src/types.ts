@@ -1,12 +1,13 @@
 // ─── Provider Types ────────────────────────────────────────────────────────
 
-export type ProviderType = 'anthropic' | 'openai' | 'lmstudio' | 'ollama' | 'gemini';
+export type ProviderType = 'anthropic' | 'openai' | 'lmstudio' | 'ollama' | 'gemini' | 'bedrock' | 'copilot';
 
 export interface ProviderConfig {
   id: string;
   name: string;
   type: ProviderType;
   apiKey?: string;
+  apiSecret?: string; // second credential (e.g. AWS Secret Access Key for Bedrock)
   baseUrl?: string;
   apiVersion?: string; // e.g. '2025-04-15' for Azure AI Foundry
   defaultModel?: string;
@@ -50,8 +51,8 @@ export interface ConfigBundle {
   version: 1;
   name?: string;
   description?: string;
-  /** Provider configs with apiKey omitted. */
-  providers: Omit<ProviderConfig, 'apiKey'>[];
+  /** Provider configs with apiKey and apiSecret omitted. */
+  providers: Omit<ProviderConfig, 'apiKey' | 'apiSecret'>[];
   /** MCP server configs with headers and env omitted. */
   mcpServers: Omit<McpServerConfig, 'headers' | 'env'>[];
 }

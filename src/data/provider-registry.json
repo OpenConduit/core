@@ -198,5 +198,32 @@
     "requiresApiKey": false,
     "badge": "API Key",
     "notes": "Enter your server's base URL (e.g. http://localhost:8080/v1). Leave the API key blank if not required."
+  },
+  {
+    "id": "amazon-bedrock",
+    "name": "Amazon Bedrock",
+    "description": "Fully managed service from AWS giving access to Claude, Llama, Mistral, Titan and many more. Enterprise-grade with VPC support.",
+    "category": "enterprise",
+    "icon": "☁️",
+    "type": "bedrock",
+    "baseUrl": "us-east-1",
+    "defaultModel": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "requiresApiKey": true,
+    "apiKeyUrl": "https://console.aws.amazon.com/bedrock/home",
+    "badge": "Enterprise",
+    "modelCount": "20+ models",
+    "notes": "Base URL = AWS region (e.g. us-east-1). API Key = IAM Access Key ID. API Secret = IAM Secret Access Key. Request model access in the AWS console first."
+  },
+  {
+    "id": "github-copilot",
+    "name": "GitHub Copilot",
+    "description": "Access OpenAI o1, GPT-4o, Claude Sonnet, and Gemini Flash through your existing GitHub Copilot subscription.",
+    "category": "cloud-proprietary",
+    "icon": "🐙",
+    "type": "copilot",
+    "requiresApiKey": false,
+    "apiKeyUrl": "https://github.com/settings/copilot",
+    "badge": "Subscription",
+    "notes": "Requires an active GitHub Copilot subscription. Click 'Connect with GitHub' to authenticate via OAuth."
   }
 ]
