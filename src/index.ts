@@ -75,9 +75,9 @@ export { default as NotificationBell } from './components/NotificationBell';
 export { useConversationStore } from './stores/conversationStore';
 export { useSettingsStore } from './stores/settingsStore';
 export { useAnalyticsStore } from './stores/analyticsStore';
-export { useTasksStore } from './stores/tasksStore';
+export { useTasksStore } from './extensions/builtins/tasks/tasksStore';
 export { useUiStore } from './stores/uiStore';
-export { usePersonasStore } from './stores/personasStore';
+export { usePersonasStore } from './extensions/builtins/personas/personasStore';
 
 // Hooks
 export { useChat } from './hooks/useChat';
