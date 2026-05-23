@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSavedFilesStore, type SavedFile } from '../../../stores/filesStore';
+import { useSavedFilesStore, type SavedFile } from './filesStore';
 
 // ─── Preview helpers ──────────────────────────────────────────────────────────
 
