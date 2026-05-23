@@ -34,7 +34,7 @@ interface RoutingProfilesState {
   addProfile: (p: Omit<InstalledRoutingProfile, 'id'>) => InstalledRoutingProfile;
   removeProfile: (id: string) => void;
   setActiveProfile: (id: string | null) => void;
-  isInstalled: (registryId: string) => boolean;
+  isInstalled: (profileName: string) => boolean;
 }
 
 export const useRoutingProfilesStore = create<RoutingProfilesState>()(
@@ -44,6 +44,15 @@ export const useRoutingProfilesStore = create<RoutingProfilesState>()(
       activeProfileId: null as string | null,
 
       addProfile: (partial) => {
+        // Deduplicate: registry profiles are keyed by name — upsert instead of append.
+        if (partial.fromRegistry) {
+          const existing = get().profiles.find((p) => p.fromRegistry && p.name === partial.name);
+          if (existing) {
+            const updated: InstalledRoutingProfile = { ...existing, ...partial };
+            set((s) => ({ profiles: s.profiles.map((p) => (p.id === existing.id ? updated : p)) }));
+            return updated;
+          }
+        }
         const p: InstalledRoutingProfile = { id: uuidv4(), ...partial };
         set((s) => ({ profiles: [...s.profiles, p] }));
         return p;
@@ -57,8 +66,8 @@ export const useRoutingProfilesStore = create<RoutingProfilesState>()(
 
       setActiveProfile: (id) => set({ activeProfileId: id }),
 
-      isInstalled: (registryId) =>
-        get().profiles.some((p) => p.fromRegistry && p.name === registryId),
+      isInstalled: (profileName) =>
+        get().profiles.some((p) => p.fromRegistry && p.name === profileName),
     }),
     { name: 'oc-routing-profiles', partialize: (s) => ({ profiles: s.profiles, activeProfileId: s.activeProfileId }) },
   ),
