@@ -15,6 +15,7 @@ import { commandRegistry } from '../commands/commandRegistry';
 import '../settings/coreContributions'; // ensure core sections are registered
 import { McpMarketplace, ProviderMarketplace } from './MarketplacePanel';
 import PersonasPanel from '../extensions/builtins/personas/PersonasPanel';
+import PromptsPanel from '../extensions/builtins/prompts/PromptsPanel';
 
 type Tab = 'general' | 'providers' | 'mcp' | 'features' | 'labs' | 'analytics' | 'about' | string;
 
@@ -94,6 +95,16 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
     </svg>
   ),
+  prompts: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+    </svg>
+  ),
+  ai: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" />
+    </svg>
+  ),
 } as const;
 
 // ─── SettingsPanel ────────────────────────────────────────────────────────────
@@ -109,12 +120,19 @@ export default function SettingsPanel({
   const { settings, saveSettings, refreshMcpStatus, mcpStatus } = useSettingsStore();
   const [tab, setTab] = useState<Tab>('general');
   const [search, setSearch] = useState('');
+  const [aiSection, setAiSection] = useState<'providers' | 'mcp' | 'personas' | 'prompts' | 'analytics'>('providers');
+  const [featuresSection, setFeaturesSection] = useState<'features' | 'labs'>('features');
 
   // If something opened settings and requested a specific tab (e.g. MCP gear icon),
   // jump to that tab and clear the request so it doesn't repeat on re-open.
   useEffect(() => {
     if (showSettings && settingsInitialTab) {
-      setTab(settingsInitialTab as Tab);
+      if (settingsInitialTab.startsWith('ai:')) {
+        setTab('ai');
+        setAiSection(settingsInitialTab.slice(3) as 'providers' | 'mcp' | 'personas' | 'prompts');
+      } else {
+        setTab(settingsInitialTab as Tab);
+      }
       setSettingsInitialTab(null);
     }
   }, [showSettings, settingsInitialTab, setSettingsInitialTab]);
@@ -131,14 +149,10 @@ export default function SettingsPanel({
 
   const builtInTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'general',   label: 'General',   icon: Icons.general },
-    { id: 'providers', label: 'Providers', icon: Icons.providers },
-    { id: 'mcp',       label: 'MCP',       icon: Icons.mcp },
-    { id: 'personas',  label: 'Personas',  icon: Icons.personas },
+    { id: 'ai',        label: 'AI',         icon: Icons.ai },
     { id: 'features',  label: 'Features',  icon: Icons.features },
-    { id: 'labs',      label: 'Labs',      icon: Icons.labs },
     { id: 'updates',   label: 'Updates',   icon: Icons.updates },
     { id: 'logging',   label: 'Logging',   icon: Icons.logging },
-    { id: 'analytics', label: 'Model Analytics', icon: Icons.analytics },
     { id: 'telemetry', label: 'Telemetry',       icon: Icons.telemetry },
     { id: 'about',     label: 'About',     icon: Icons.about },
     { id: 'json',      label: 'JSON',       icon: Icons.json },
@@ -147,7 +161,7 @@ export default function SettingsPanel({
   const allTabs = [
     ...builtInTabs,
     ...(extraTabs?.map((t) => ({ id: t.id, label: t.label, icon: t.icon ?? Icons.general })) ?? []),
-    ...extContributions.map((c) => ({ id: c.id, label: c.label, icon: Icons.extension })),
+    ...(extContributions.length > 0 ? [{ id: 'extensions', label: 'Extensions', icon: Icons.extension }] : []),
   ];
 
   return (
@@ -237,21 +251,26 @@ export default function SettingsPanel({
             ) : (
               <>
                 {tab === 'general' && <GeneralTab settings={settings} onSave={saveSettings} />}
-                {tab === 'providers' && <ProvidersTab settings={settings} onSave={saveSettings} />}
-                {tab === 'mcp' && (
-                  <McpTab
+                {tab === 'ai' && (
+                  <AiTab
                     settings={settings}
                     onSave={saveSettings}
                     mcpStatus={mcpStatus}
                     onRefreshStatus={refreshMcpStatus}
+                    section={aiSection}
+                    onSection={setAiSection}
                   />
                 )}
-                {tab === 'labs' && <LabsTab settings={settings} onSave={saveSettings} />}
-                {tab === 'personas' && <PersonasPanel />}
-                {tab === 'features' && <FeaturesTab settings={settings} onSave={saveSettings} />}
+                {tab === 'features' && (
+                  <FeaturesLabTab
+                    settings={settings}
+                    onSave={saveSettings}
+                    section={featuresSection}
+                    onSection={setFeaturesSection}
+                  />
+                )}
                 {tab === 'updates' && <UpdatesTab settings={settings} onSave={saveSettings} />}
                 {tab === 'logging' && <LoggingTab settings={settings} onSave={saveSettings} />}
-                {tab === 'analytics' && <AnalyticsTab settings={settings} onSave={saveSettings} />}
                 {tab === 'telemetry' && <TelemetryTab settings={settings} onSave={saveSettings} />}
                 {tab === 'about' && <AboutTab settings={settings} onSave={saveSettings} />}
                 {tab === 'json' && <JsonSettingsEditor settings={settings} onSave={saveSettings} />}
@@ -260,22 +279,91 @@ export default function SettingsPanel({
                     {tab === t.id && t.content}
                   </React.Fragment>
                 ))}
-                {extContributions.map((c) => (
-                  tab === c.id && (
-                    <SchemaFormRenderer
-                      key={c.id}
-                      contribution={c}
-                      settings={settings}
-                      onSave={saveSettings}
-                    />
-                  )
-                ))}
+                {tab === 'extensions' && (
+                  <div className="space-y-8">
+                    {extContributions.length === 0 ? (
+                      <EmptyState icon="🧩" title="No extensions" subtitle="Install extensions to see their settings here" />
+                    ) : (
+                      extContributions.map((c, i) => (
+                        <div key={c.id}>
+                          {i > 0 && <div className="border-t border-slate-700/40 mb-8" />}
+                          <p className="text-xs font-semibold text-slate-300 mb-4">{c.label}</p>
+                          <SchemaFormRenderer
+                            contribution={c}
+                            settings={settings}
+                            onSave={saveSettings}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
 
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── AI Tab ───────────────────────────────────────────────────────────────────
+
+type AiSection = 'providers' | 'mcp' | 'personas' | 'prompts' | 'analytics';
+
+function AiTab({
+  settings,
+  onSave,
+  mcpStatus,
+  onRefreshStatus,
+  section,
+  onSection,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+  mcpStatus: Record<string, boolean>;
+  onRefreshStatus: () => Promise<void>;
+  section: AiSection;
+  onSection: (s: AiSection) => void;
+}) {
+  const sections: { id: AiSection; label: string }[] = [
+    { id: 'providers', label: 'Providers' },
+    { id: 'mcp',       label: 'MCP' },
+    { id: 'personas',  label: 'Personas' },
+    { id: 'prompts',   label: 'Prompts' },
+    { id: 'analytics', label: 'Analytics' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 pb-3 border-b border-slate-700/60">
+        {sections.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onSection(s.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              section === s.id
+                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {section === 'providers' && <ProvidersTab settings={settings} onSave={onSave} />}
+      {section === 'mcp' && (
+        <McpTab
+          settings={settings}
+          onSave={onSave}
+          mcpStatus={mcpStatus}
+          onRefreshStatus={onRefreshStatus}
+        />
+      )}
+      {section === 'personas' && <PersonasPanel />}
+      {section === 'prompts' && <PromptsPanel />}
+      {section === 'analytics' && <AnalyticsTab settings={settings} onSave={onSave} />}
     </div>
   );
 }
@@ -1316,6 +1404,44 @@ function ModelsField({
 }
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
+
+// ─── Features Tab ─────────────────────────────────────────────────────────────
+
+// ─── Features + Labs Tab ─────────────────────────────────────────────────────
+
+function FeaturesLabTab({
+  settings,
+  onSave,
+  section,
+  onSection,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+  section: 'features' | 'labs';
+  onSection: (s: 'features' | 'labs') => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 pb-3 border-b border-slate-700/60">
+        {([{ id: 'features', label: 'Features' }, { id: 'labs', label: 'Labs' }] as const).map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onSection(s.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              section === s.id
+                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {section === 'features' && <FeaturesTab settings={settings} onSave={onSave} />}
+      {section === 'labs' && <LabsTab settings={settings} onSave={onSave} />}
+    </div>
+  );
+}
 
 // ─── Features Tab ─────────────────────────────────────────────────────────────
 
@@ -2495,10 +2621,24 @@ function UpdatesTab({
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+
+  useEffect(() => {
+    if (service.updater.onUpdateDownloading) {
+      const unsub = service.updater.onUpdateDownloading(() => { setDownloading(true); setDownloadError(''); });
+      return unsub;
+    }
+  }, []);
 
   useEffect(() => {
     if (!service.updater.onUpdateDownloaded) return;
-    const unsub = service.updater.onUpdateDownloaded(() => setUpdateDownloaded(true));
+    const unsub = service.updater.onUpdateDownloaded(() => { setUpdateDownloaded(true); setDownloading(false); });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!service.updater.onUpdateError) return;
+    const unsub = service.updater.onUpdateError((msg) => { setDownloadError(msg); setDownloading(false); });
     return unsub;
   }, []);
 
@@ -2647,7 +2787,26 @@ function UpdatesTab({
                 )}
                 <div className="mt-2">
                   {updateDownloaded ? null : downloading ? (
-                    <span className="text-green-400/70">Downloading in background…</span>
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-green-400/80">Downloading update…</p>
+                      <div className="h-1.5 w-full rounded-full bg-slate-700 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-green-600 via-green-400 to-green-600 animate-pulse" style={{ width: '100%' }} />
+                      </div>
+                    </div>
+                  ) : downloadError ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-red-400">Download failed: {downloadError}</p>
+                      <button
+                        onClick={async () => {
+                          setDownloading(true);
+                          setDownloadError('');
+                          try { await service.updater.triggerDownload?.(); } catch { /* ignore */ }
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-700 hover:bg-green-600 text-white transition-colors"
+                      >
+                        Retry Download
+                      </button>
+                    </div>
                   ) : (
                     <button
                       onClick={async () => {

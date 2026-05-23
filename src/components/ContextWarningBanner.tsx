@@ -21,9 +21,14 @@ export default function ContextWarningBanner({ conversationId }: Props) {
   const providerCtx = settings?.providers?.find((p) => p.id === providerId)?.modelContextWindows?.[model] ?? null;
   const contextLimit = providerCtx ?? getContextLimit(model);
 
-  const usedTokens = analyticsRecords
-    .filter((r) => r.conversationId === conversationId)
-    .reduce((s, r) => s + r.usage.inputTokens + r.usage.outputTokens, 0);
+  // Use the most recent record's inputTokens as the context fill estimate.
+  // Each record's inputTokens already includes the full conversation history, so
+  // summing all turns would wildly overstate usage.
+  const convRecords = analyticsRecords.filter((r) => r.conversationId === conversationId);
+  const lastRecord = convRecords[convRecords.length - 1] ?? null;
+  const usedTokens = lastRecord
+    ? lastRecord.usage.inputTokens + lastRecord.usage.outputTokens
+    : 0;
 
   const ctxPct = contextLimit && usedTokens > 0
     ? Math.min((usedTokens / contextLimit) * 100, 100)
@@ -48,7 +53,7 @@ export default function ContextWarningBanner({ conversationId }: Props) {
         <span className="opacity-70">
           ({fmtTok(usedTokens)}{contextLimit ? `/${fmtTok(contextLimit)}` : ''} · {ctxPct.toFixed(0)}%)
         </span>
-        {isCompacting ? ' — Summarizing…' : ' — click the context bar below to manage'}
+        {isCompacting ? ' — Summarizing…' : ' — click the token counter in the toolbar to manage'}
       </span>
     </div>
   );

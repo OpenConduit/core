@@ -38,7 +38,7 @@ export default function App() {
   const {
     activeConversationId, setActiveConversation, setShowSettings,
     isCompareMode, sidebarOpen, activePanel, setCommandPaletteOpen,
-    secondarySidebarOpen, secondarySidebarWidth, setSecondarySidebarWidth,
+    secondarySidebarOpen, secondarySidebarWidth, setSecondarySidebarWidth: _setSecondarySidebarWidth,
     splitPaneOpen, splitPaneWidth, setSplitPaneWidth,
     leftPaneContent, closeLeftPane,
   } = useUiStore();

@@ -5,6 +5,7 @@ import type { SettingsProperty } from '../types';
 import type { SandboxContributions, SerializableSandboxManifest } from './sandbox/protocol';
 import { SandboxedPanel } from './sandbox/SandboxedPanel';
 import { commandRegistry } from '../commands/commandRegistry';
+import { slashCommandRegistry } from '../commands/slashCommandRegistry';
 import { hookRegistry } from '../hooks/hookRegistry';
 import { bottomPanelRegistry } from '../bottomPanel/bottomPanelRegistry';
 import { settingsRegistry } from '../settings/settingsRegistry';
@@ -57,6 +58,13 @@ class ExtensionRegistry {
     if (contributions.commands) {
       for (const cmd of contributions.commands) {
         commandRegistry.register(cmd);
+      }
+    }
+
+    // ── Slash commands ────────────────────────────────────────────────────────
+    if (contributions.slashCommands) {
+      for (const cmd of contributions.slashCommands) {
+        slashCommandRegistry.register(cmd);
       }
     }
 

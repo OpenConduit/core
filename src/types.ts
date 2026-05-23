@@ -598,6 +598,11 @@ export const IPC = {
   LOG_OPEN:  'log:open',
 } as const;
 
+// ─── Reasoning ──────────────────────────────────────────────────────────────
+
+/** Extended-thinking depth requested by the user for this message. */
+export type ReasoningLevel = 'off' | 'low' | 'medium' | 'high';
+
 // ─── Chat Request / Response ────────────────────────────────────────────────
 
 export interface ChatRequest {
@@ -629,6 +634,9 @@ export interface ChatRequest {
     rootPath?: string;
     files: FolderEntry[];
   };
+  /** Extended-thinking depth. Providers that support it (Anthropic, OpenAI o-series, Gemini 2.5)
+   *  enable their native thinking/reasoning mode. Others silently ignore it. */
+  reasoning?: ReasoningLevel;
 }
 
 export interface StreamChunk {

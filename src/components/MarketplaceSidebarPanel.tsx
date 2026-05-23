@@ -3,8 +3,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { uuidv4 } from './MarketplacePanel';
 import { MCP_REGISTRY } from '../data/mcpRegistry';
 import { PROVIDER_REGISTRY } from '../data/providerRegistry';
-import type { ProviderConfig, McpServerConfig, McpTransport } from '../types';
-import type { InstalledTheme, ThemeColors } from '../types';
+import type { ProviderConfig, McpServerConfig, McpTransport, InstalledTheme, ThemeColors } from '../types';
 import { useThemesStore } from '../stores/themesStore';
 import { usePersonasStore } from '../stores/personasStore';
 import { usePromptTemplatesStore } from '../stores/promptTemplatesStore';
@@ -92,7 +91,7 @@ const TYPE_PILLS: { id: TypeFilter; label: string }[] = [
 ];
 
 /** Registry type → TypeFilter mapping */
-const REGISTRY_TYPE_MAP: Record<RegistryType, TypeFilter> = {
+const _REGISTRY_TYPE_MAP: Record<RegistryType, TypeFilter> = {
   themes:    'theme',
   personas:  'persona',
   prompts:   'prompt',

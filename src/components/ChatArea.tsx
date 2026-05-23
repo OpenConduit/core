@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import WelcomeScreen from './WelcomeScreen';
 import MessageList from './MessageList';
 import InputBar from './InputBar';
@@ -9,7 +9,6 @@ import { useChat } from '../hooks/useChat';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useConversationStore } from '../stores/conversationStore';
 import { useUiStore } from '../stores/uiStore';
-import { useEffect } from 'react';
 
 interface Props {
   conversationId: string | null;

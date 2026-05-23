@@ -18,11 +18,14 @@ export type { DebugLevel, DebugEntry, LogCategory } from './stores/debugConsoleS
 // Command registry (#38)
 export { commandRegistry } from './commands/commandRegistry';
 export type { CommandContribution } from './commands/commandRegistry';
+export { slashCommandRegistry } from './commands/slashCommandRegistry';
+export type { SlashCommand, SlashCommandContext } from './commands/slashCommandRegistry';
 
 // Extension platform (#38)
 export { extensionRegistry } from './extensions/extensionRegistry';
 export type { ExtensionManifest, ActivityBarContribution } from './extensions/types';
 import './commands/coreCommandContributions'; // side-effect: registers built-in commands
+import './commands/coreSlashContributions';  // side-effect: registers built-in slash commands
 
 // Themes store (#25 / #22)
 export { useThemesStore, BUILT_IN_THEMES } from './stores/themesStore';
@@ -60,6 +63,8 @@ export { default as ContextWarningBanner } from './components/ContextWarningBann
 export { default as SystemPromptEditor } from './components/SystemPromptEditor';
 export { default as TasksPanel } from './extensions/builtins/tasks/TasksPanel';
 export { default as PersonasPanel } from './extensions/builtins/personas/PersonasPanel';
+export { default as PromptsPanel } from './extensions/builtins/prompts/PromptsPanel';
+export { default as PromptLibraryPanel } from './components/PromptLibraryPanel';
 export { default as StatusBar } from './components/StatusBar';
 export { default as CommandPalette } from './components/CommandPalette';
 export { default as KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';

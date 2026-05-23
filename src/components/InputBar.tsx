@@ -1,14 +1,17 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import type { Attachment, FolderEntry, McpTool, ConversationFolder } from '../types';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import type { Attachment, FolderEntry, McpTool, ConversationFolder, ReasoningLevel } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import { useConversationStore } from '../stores/conversationStore';
 import { useUiStore } from '../stores/uiStore';
-import { getContextLimit, fmtTok } from '../utils/context';
+import { getContextLimit, fmtTok, computeTrimCount } from '../utils/context';
 import { service } from '../services';
+import PromptLibraryPanel from './PromptLibraryPanel';
+import { slashCommandRegistry } from '../commands/slashCommandRegistry';
+import type { SlashCommand, SlashCommandContext } from '../commands/slashCommandRegistry';
 
 interface Props {
-  onSend: (content: string, attachments?: Attachment[], folderContext?: { rootName: string; files: FolderEntry[] }) => void;
+  onSend: (content: string, attachments?: Attachment[], folderContext?: { rootName: string; files: FolderEntry[] }, reasoning?: ReasoningLevel) => void;
   onAbort: () => void;
   onClear?: () => void;
   onCompact?: () => void;
@@ -21,7 +24,6 @@ interface Props {
 
 const ACCEPTED_TYPES = 'image/*,text/*,.pdf,.csv,.json,.md,.ts,.tsx,.js,.jsx,.py';
 
-type ReasoningLevel = 'off' | 'low' | 'medium' | 'high';
 const REASONING_CYCLE: ReasoningLevel[] = ['off', 'low', 'medium', 'high'];
 const REASONING_LABEL: Record<ReasoningLevel, string> = { off: 'off', low: 'L', medium: 'M', high: 'H' };
 const REASONING_COLOR: Record<ReasoningLevel, string> = {
@@ -37,6 +39,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const [reasoning, setReasoning] = useState<ReasoningLevel>('off');
   const [mcpOpen, setMcpOpen] = useState(false);
   const [ctxOpen, setCtxOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [toolsMap, setToolsMap] = useState<Record<string, McpTool[]>>({});
   const [loadingTools, setLoadingTools] = useState<string | null>(null);
@@ -44,12 +47,17 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [folderFiles, setFolderFiles] = useState<FolderEntry[] | null>(null);
   const [folderLoading, setFolderLoading] = useState(false);
+  const [trimConfirm, setTrimConfirm] = useState(false);
+  const [slashMatches, setSlashMatches] = useState<SlashCommand[]>([]);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashPrefix, setSlashPrefix] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mcpRef = useRef<HTMLDivElement>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
+  const cmdRef = useRef<HTMLDivElement>(null);
 
-  const { settings, mcpStatus, refreshMcpStatus } = useSettingsStore();
+  const { settings, mcpStatus, refreshMcpStatus, saveSettings } = useSettingsStore();
   const { setShowSettings, setSettingsInitialTab } = useUiStore();
   const updateConversation = useConversationStore((s) => s.updateConversation);
 
@@ -64,13 +72,24 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     ? settings?.providers?.find((p) => p.id === convProviderId)?.modelContextWindows?.[convModel] ?? null
     : null;
   const contextLimit = providerContextWindow ?? getContextLimit(convModel);
-  const usedTokens = conversationId
-    ? analyticsRecords
-        .filter((r) => r.conversationId === conversationId)
-        .reduce((s, r) => s + r.usage.inputTokens + r.usage.outputTokens, 0)
+  // Use the most recent record's inputTokens as the context fill estimate.
+  // Each record's inputTokens already includes the full conversation history sent
+  // to the model, so summing all turns would wildly overstate usage.
+  const convAnalyticsRecords = conversationId
+    ? analyticsRecords.filter((r) => r.conversationId === conversationId)
+    : [];
+  const lastAnalyticsRecord = convAnalyticsRecords[convAnalyticsRecords.length - 1] ?? null;
+  const usedTokens = lastAnalyticsRecord
+    ? lastAnalyticsRecord.usage.inputTokens + lastAnalyticsRecord.usage.outputTokens
     : 0;
   const ctxPct = contextLimit && usedTokens > 0 ? Math.min((usedTokens / contextLimit) * 100, 100) : null;
   const showCtx = usedTokens > 0;
+
+  // How many messages would be removed by "Trim oldest" — used for the confirm preview.
+  const trimCount = useMemo(
+    () => computeTrimCount(activeConv?.messages ?? [], contextLimit),
+    [activeConv?.messages, contextLimit],
+  );
 
   // folderPath is "inherited" when it comes from a chat-folder's agentFolderPath, not set on this conversation directly
   const folderIsInherited = !!folderPath && !activeConv?.folderPath;
@@ -85,15 +104,25 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     return () => document.removeEventListener('mousedown', handler);
   }, [mcpOpen]);
 
-  // Close context popover on outside click
+  // Close context popover on outside click; also reset trim confirm state on close
   React.useEffect(() => {
-    if (!ctxOpen) return;
+    if (!ctxOpen) { setTrimConfirm(false); return; }
     const handler = (e: MouseEvent) => {
       if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setCtxOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [ctxOpen]);
+
+  // Close command/prompt panel on outside click
+  React.useEffect(() => {
+    if (!cmdOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (cmdRef.current && !cmdRef.current.contains(e.target as Node)) setCmdOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [cmdOpen]);
 
   // Sync folderPath state with the active conversation's persisted path when switching conversations.
   // Falls back to the nearest ancestor ConversationFolder's agentFolderPath if none is set on the conversation.
@@ -165,13 +194,81 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     const trimmed = content.trim();
     if (!trimmed && attachments.length === 0) return;
     const fc = folderPath && folderFiles ? { rootName: folderPath.split('/').pop() ?? folderPath, rootPath: folderPath, files: folderFiles } : undefined;
-    onSend(trimmed, attachments.length > 0 ? attachments : undefined, fc);
+    onSend(trimmed, attachments.length > 0 ? attachments : undefined, fc, reasoning !== 'off' ? reasoning : undefined);
     setContent('');
     setAttachments([]);
     textareaRef.current?.focus();
-  }, [content, attachments, folderPath, folderFiles, onSend]);
+  }, [content, attachments, folderPath, folderFiles, onSend, reasoning]);
+
+  const handlePickFolder = useCallback(async () => {
+    const picked = await service.folder?.pick();
+    if (!picked) return;
+    setFolderPath(picked);
+    setFolderFiles(null);
+    setFolderLoading(true);
+    if (conversationId) updateConversation(conversationId, { folderPath: picked });
+    try {
+      const files = await service.folder?.readFiles(picked) ?? [];
+      setFolderFiles(files);
+    } finally {
+      setFolderLoading(false);
+    }
+  }, [conversationId, updateConversation]);
+
+  const executeSlashCommand = useCallback(async (cmd: SlashCommand) => {
+    // Remove the /trigger text from the textarea content
+    const withoutSlash = content.replace(/(?:^|\n)(\s*\/\w*)$/, (_, s) =>
+      s.replace(/\/\w*$/, '').trimEnd(),
+    );
+    const ctx: SlashCommandContext = {
+      conversationId: conversationId ?? null,
+      setContent: (text) => {
+        setContent(text);
+        requestAnimationFrame(() => {
+          if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height =
+              Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+          }
+        });
+      },
+      chat: { clear: onClear, compact: onCompact, trim: onTrim, pickFolder: handlePickFolder },
+    };
+    setSlashMatches([]);
+    const result = await cmd.execute(slashPrefix, ctx);
+    if (typeof result === 'string') {
+      setContent(withoutSlash + result);
+    } else {
+      setContent(withoutSlash.trim());
+    }
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, conversationId, handlePickFolder, onClear, onCompact, onTrim, slashPrefix]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Slash command dropdown navigation
+    if (slashMatches.length > 0) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashIndex((i) => (i - 1 + slashMatches.length) % slashMatches.length);
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashIndex((i) => (i + 1) % slashMatches.length);
+        return;
+      }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+        e.preventDefault();
+        void executeSlashCommand(slashMatches[slashIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSlashMatches([]);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (!isStreaming) handleSend();
@@ -179,10 +276,22 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+    const val = e.target.value;
+    setContent(val);
     const el = e.target;
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    // Detect /trigger at start of the input (leading whitespace ok), or after newline
+    const slashMatch = val.match(/(?:^|\n)\s*(\/(\w*))$/);
+    if (slashMatch) {
+      const prefix = slashMatch[2];
+      const matches = slashCommandRegistry.getMatching(prefix);
+      setSlashMatches(matches);
+      setSlashIndex(0);
+      setSlashPrefix(prefix);
+    } else {
+      setSlashMatches([]);
+    }
   };
 
   const handleFiles = (files: FileList | null) => {
@@ -214,21 +323,6 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const handlePaste = (e: React.ClipboardEvent) => { if (e.clipboardData.files.length > 0) handleFiles(e.clipboardData.files); };
   const removeAttachment = (id: string) => setAttachments((prev) => prev.filter((a) => a.id !== id));
   const cycleReasoning = () => setReasoning((r) => REASONING_CYCLE[(REASONING_CYCLE.indexOf(r) + 1) % REASONING_CYCLE.length]);
-
-  const handlePickFolder = async () => {
-    const picked = await service.folder?.pick();
-    if (!picked) return;
-    setFolderPath(picked);
-    setFolderFiles(null);
-    setFolderLoading(true);
-    if (conversationId) updateConversation(conversationId, { folderPath: picked });
-    try {
-      const files = await service.folder?.readFiles(picked) ?? [];
-      setFolderFiles(files);
-    } finally {
-      setFolderLoading(false);
-    }
-  };
 
   const mcpServers = settings?.mcpServers ?? [];
   // Per-conversation active servers: when activeMcpServerIds is set on the conversation,
@@ -295,6 +389,29 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
         </div>
       )}
 
+      {/* Slash command autocomplete */}
+      {slashMatches.length > 0 && (
+        <div className="mb-1.5 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl overflow-hidden z-50">
+          <p className="px-3 pt-2 pb-1 text-[10px] text-slate-500 uppercase tracking-wider font-medium">Commands</p>
+          {slashMatches.map((cmd, idx) => (
+            <button
+              key={cmd.trigger}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); void executeSlashCommand(cmd); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                idx === slashIndex ? 'bg-slate-700' : 'hover:bg-slate-700/50'
+              }`}
+            >
+              {cmd.icon && (
+                <span className="w-4 h-4 flex-shrink-0 text-slate-400">{cmd.icon}</span>
+              )}
+              <code className="text-sm text-blue-300 font-mono flex-shrink-0">/{cmd.trigger}</code>
+              <span className="text-xs text-slate-400 truncate">{cmd.description}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Input box */}
       <div className="flex items-end gap-2 bg-slate-800 border border-slate-600 focus-within:border-blue-500 rounded-2xl px-3 py-2 transition-colors">
         <textarea
@@ -333,25 +450,60 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
         />
         <input ref={fileInputRef} type="file" accept={ACCEPTED_TYPES} multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
 
-        {/* Command center — coming soon */}
-        <ToolbarButton icon={<CommandIcon />} label="Prompt library (coming soon)" comingSoon />
+        {/* Command center / prompt library */}
+        <div className="relative" ref={cmdRef}>
+          <ToolbarButton
+            icon={<CommandIcon />}
+            label="Prompt library"
+            onClick={() => setCmdOpen((o) => !o)}
+            active={cmdOpen}
+          />
+          {cmdOpen && (
+            <div className="absolute bottom-full mb-2 left-0">
+              <PromptLibraryPanel
+                onInsert={(text) => {
+                  setContent((prev) => (prev.trim() ? prev + '\n\n' + text : text));
+                  textareaRef.current?.focus();
+                }}
+                onClose={() => setCmdOpen(false)}
+                onManage={() => {
+                  setSettingsInitialTab('ai:prompts');
+                  setShowSettings(true);
+                }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Reasoning */}
         <ToolbarButton
           icon={<ReasoningIcon level={reasoning} />}
-          label={reasoning === 'off' ? 'Reasoning: off (coming soon)' : `Reasoning: ${reasoning} (coming soon)`}
-          comingSoon
+          label={reasoning === 'off' ? 'Reasoning: off' : `Reasoning: ${reasoning}`}
           onClick={cycleReasoning}
           active={reasoning !== 'off'}
           activeClass={REASONING_COLOR[reasoning]}
         />
 
-        {/* Web search — coming soon */}
-        <ToolbarButton icon={<WebIcon />} label="Web search (coming soon)" comingSoon />
+        {/* Web search toggle */}
+        <ToolbarButton
+          icon={<WebIcon />}
+          label={`Web search: ${(settings as any)?.webSearch?.enabled ? 'on' : 'off'}`}
+          active={!!(settings as any)?.webSearch?.enabled}
+          onClick={() => {
+            const current = (settings as any)?.webSearch ?? {};
+            saveSettings({ webSearch: { ...current, enabled: !current.enabled } } as any);
+          }}
+        />
 
         {/* MCP servers */}
-        {mcpServers.length > 0 && (
-          <div className="relative" ref={mcpRef}>
+        {mcpServers.length === 0 ? (
+          <ToolbarButton
+            icon={<McpIcon />}
+            label="Add MCP servers"
+            onClick={() => { setSettingsInitialTab('ai:mcp'); setShowSettings(true); }}
+          />
+        ) : (
+          <div className="relative group/mcp" ref={mcpRef}>
             <button
               onClick={() => { setMcpOpen((o) => !o); if (!mcpOpen) refreshMcpStatus(); }}
               className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs transition-colors ${
@@ -359,11 +511,15 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
                   ? 'text-blue-400 hover:bg-slate-700'
                   : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700'
               }`}
-              title="MCP servers"
             >
               <McpIcon />
               <span className="font-medium">{enabledCount}/{mcpServers.length}</span>
             </button>
+            {!mcpOpen && (
+              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-700 border border-slate-600 text-slate-200 text-[11px] rounded-md whitespace-nowrap opacity-0 group-hover/mcp:opacity-100 transition-opacity z-50 shadow-lg">
+                MCP servers
+              </div>
+            )}
             {mcpOpen && (
               <div className="absolute bottom-full mb-2 left-0 w-80 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl z-50 py-1.5">
                 {/* Header */}
@@ -408,7 +564,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
                           title="Open in settings"
                           onClick={() => {
                             setMcpOpen(false);
-                            setSettingsInitialTab('mcp');
+                            setSettingsInitialTab('ai:mcp');
                             setShowSettings(true);
                           }}
                           className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 rounded"
@@ -533,6 +689,20 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
           active={!!folderPath}
         />
 
+        {/* Clear chat */}
+        {onClear && (
+          <ToolbarButton
+            icon={<ClearIcon />}
+            label="Clear chat"
+            onClick={() => { if (confirm('Clear all messages in this conversation?')) onClear(); }}
+            disabled={isStreaming}
+            hoverClass="hover:text-red-400"
+          />
+        )}
+
+        {/* More */}
+        <ToolbarButton icon={<MoreIcon />} label="More options (coming soon)" comingSoon />
+
         <div className="flex-1" />
 
         {/* Context usage — clickable to open manage popover */}
@@ -590,35 +760,49 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
                       <span className="font-medium">📋 Summarize</span>
                       <p className="text-slate-500 mt-0.5">AI summarizes the chat, then replaces all messages with the summary</p>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => { setCtxOpen(false); onTrim?.(); }}
-                      disabled={isStreaming}
-                      className="w-full text-left px-3 py-2 rounded-lg text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 disabled:opacity-40 transition-colors"
-                    >
-                      <span className="font-medium">✂️ Trim oldest</span>
-                      <p className="text-slate-500 mt-0.5">Removes the oldest messages to free up context space</p>
-                    </button>
+                    {trimConfirm ? (
+                      <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2.5 space-y-2">
+                        <p className="text-xs text-amber-300">
+                          Remove <span className="font-semibold">{trimCount}</span> message{trimCount !== 1 ? 's' : ''} from the oldest turns?
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setTrimConfirm(false); setCtxOpen(false); onTrim?.(); }}
+                            className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-amber-600 hover:bg-amber-500 text-white transition-colors"
+                          >
+                            Remove
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTrimConfirm(false)}
+                            className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { if (trimCount > 0) setTrimConfirm(true); }}
+                        disabled={isStreaming || trimCount === 0}
+                        className="w-full text-left px-3 py-2 rounded-lg text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 disabled:opacity-40 transition-colors"
+                      >
+                        <span className="font-medium">✂️ Trim oldest</span>
+                        <p className="text-slate-500 mt-0.5">
+                          {trimCount > 0
+                            ? `Will remove ${trimCount} message${trimCount !== 1 ? 's' : ''} from oldest turns`
+                            : 'Nothing to trim — context usage is low'}
+                        </p>
+                      </button>
+                    )}
                   </>
                 )}
               </div>
             )}
           </div>
         )}
-
-        {/* Clear chat */}
-        {onClear && (
-          <ToolbarButton
-            icon={<ClearIcon />}
-            label="Clear chat"
-            onClick={() => { if (confirm('Clear all messages in this conversation?')) onClear(); }}
-            disabled={isStreaming}
-            hoverClass="hover:text-red-400"
-          />
-        )}
-
-        {/* More */}
-        <ToolbarButton icon={<MoreIcon />} label="More options (coming soon)" comingSoon />
       </div>
     </div>
   );
@@ -646,18 +830,22 @@ function ToolbarButton({
   hoverClass?: string;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled || comingSoon}
-      title={label}
-      className={`p-1.5 rounded-lg transition-colors text-sm
-        ${comingSoon ? 'opacity-40 cursor-not-allowed text-slate-500' : ''}
-        ${!comingSoon && !disabled ? `${hoverClass ?? 'hover:text-slate-200'} hover:bg-slate-700` : ''}
-        ${active ? activeClass ?? 'text-blue-400' : comingSoon ? '' : 'text-slate-500'}
-        disabled:opacity-40`}
-    >
-      {icon}
-    </button>
+    <div className="relative group/tb">
+      <button
+        onClick={onClick}
+        disabled={disabled || comingSoon}
+        className={`p-1.5 rounded-lg transition-colors text-sm
+          ${comingSoon ? 'opacity-40 cursor-not-allowed text-slate-500' : ''}
+          ${!comingSoon && !disabled ? `${hoverClass ?? 'hover:text-slate-200'} hover:bg-slate-700` : ''}
+          ${active ? activeClass ?? 'text-blue-400' : comingSoon ? '' : 'text-slate-500'}
+          disabled:opacity-40`}
+      >
+        {icon}
+      </button>
+      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-700 border border-slate-600 text-slate-200 text-[11px] rounded-md whitespace-nowrap opacity-0 group-hover/tb:opacity-100 transition-opacity z-50 shadow-lg">
+        {label}
+      </div>
+    </div>
   );
 }
 
