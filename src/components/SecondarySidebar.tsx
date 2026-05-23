@@ -2,6 +2,14 @@ import React, { useRef } from 'react';
 import { useUiStore } from '../stores/uiStore';
 import { useConversationStore } from '../stores/conversationStore';
 import { useSavedFilesStore, type SavedFile } from '../stores/filesStore';
+import { extensionRegistry } from '../extensions/extensionRegistry';
+
+// ── Stable slot for extension-contributed secondary sidebar panels ─────────────
+function ExtSecondarySidebarPanel({ panelId }: { panelId: string }) {
+  const panel = extensionRegistry.getSecondarySidebarPanels().find((p) => p.id === panelId);
+  if (!panel) return null;
+  return React.createElement(panel.component);
+}
 
 const SECONDARY_SIDEBAR_MIN = 200;
 const SECONDARY_SIDEBAR_MAX = 640;
@@ -11,8 +19,6 @@ const TABS = [
   { id: 'outline', label: 'Outline' },
   { id: 'related', label: 'Related' },
 ] as const;
-
-type Tab = (typeof TABS)[number]['id'];
 
 export default function SecondarySidebar() {
   const {
@@ -102,7 +108,7 @@ export default function SecondarySidebar() {
         {TABS.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setSecondarySidebarPanel(tab.id as Tab)}
+            onClick={() => setSecondarySidebarPanel(tab.id)}
             className={`text-[11px] px-2.5 py-1 rounded transition-colors ${
               secondarySidebarPanel === tab.id
                 ? 'bg-slate-700 text-slate-100'
@@ -110,6 +116,19 @@ export default function SecondarySidebar() {
             }`}
           >
             {tab.label}
+          </button>
+        ))}
+        {extensionRegistry.getSecondarySidebarPanels().map((panel) => (
+          <button
+            key={panel.id}
+            onClick={() => setSecondarySidebarPanel(panel.id)}
+            className={`text-[11px] px-2.5 py-1 rounded transition-colors ${
+              secondarySidebarPanel === panel.id
+                ? 'bg-slate-700 text-slate-100'
+                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+            }`}
+          >
+            {panel.label}
           </button>
         ))}
       </div>
@@ -125,6 +144,13 @@ export default function SecondarySidebar() {
         {secondarySidebarPanel === 'related' && (
           <RelatedTab />
         )}
+        {(() => {
+          const extPanel = extensionRegistry.getSecondarySidebarPanels().find(
+            (p) => p.id === secondarySidebarPanel
+          );
+          if (!extPanel) return null;
+          return <ExtSecondarySidebarPanel panelId={secondarySidebarPanel} />;
+        })()}
       </div>
     </aside>
   );

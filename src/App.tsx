@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
-import CompareArea from './extensions/builtins/compare/CompareArea';
+
 import SettingsPanel from './components/SettingsPanel';
 import ActivityBar from './components/ActivityBar';
 import ChromeBar from './components/ChromeBar';
@@ -33,11 +33,20 @@ const SIDEBAR_MAX = 520;
 const SPLIT_PANE_MIN = 280;
 const SPLIT_PANE_MAX = 800;
 
+// ── Registry-driven slot components ──────────────────────────────────────────
+// Defined at module scope so their references are stable (satisfies react-hooks/static-components).
+
+function MainViewSlot({ viewId }: { viewId: string }) {
+  const View = extensionRegistry.getMainView(viewId);
+  if (!View) return null;
+  return React.createElement(View);
+}
+
 export default function App() {
   const { loadSettings, settings } = useSettingsStore();
   const {
     activeConversationId, setActiveConversation, setShowSettings,
-    isCompareMode, sidebarOpen, activePanel, setCommandPaletteOpen,
+    activeMainViewId, sidebarOpen, activePanel, setCommandPaletteOpen,
     secondarySidebarOpen, secondarySidebarWidth, setSecondarySidebarWidth: _setSecondarySidebarWidth,
     splitPaneOpen, splitPaneWidth, setSplitPaneWidth,
     leftPaneContent, closeLeftPane,
@@ -247,8 +256,8 @@ export default function App() {
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
               <TabBar />
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                {isCompareMode ? (
-                  <CompareArea />
+                {activeMainViewId ? (
+                  <MainViewSlot viewId={activeMainViewId} />
                 ) : leftPaneContent ? (
                   <PaneContext.Provider value="left">
                     <div className="flex flex-col h-full">

@@ -46,7 +46,7 @@ function makeColumn(providerId: string, model: string): CompareColumn {
 export function useCompare() {
   const { settings } = useSettingsStore();
   const { addConversation } = useConversationStore();
-  const { setActiveConversation, setCompareMode } = useUiStore();
+  const { setActiveConversation, setActiveMainViewId } = useUiStore();
 
   const [columns, setColumns] = useState<CompareColumn[]>(() => [
     makeColumn('', ''),
@@ -331,9 +331,9 @@ export function useCompare() {
         })),
       });
       setActiveConversation(conv.id);
-      setCompareMode(false);
+      setActiveMainViewId(null);
     },
-    [addConversation, setActiveConversation, setCompareMode],
+    [addConversation, setActiveConversation, setActiveMainViewId],
   );
 
   return {

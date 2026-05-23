@@ -133,7 +133,7 @@ commandRegistry.register({
   label: 'Compare models',
   icon: IconCompare,
   action: () => {
-    useUiStore.getState().setCompareMode(true);
+    useUiStore.getState().setActiveMainViewId('openconduit.compare.view');
     useUiStore.getState().setCommandPaletteOpen(false);
   },
 });

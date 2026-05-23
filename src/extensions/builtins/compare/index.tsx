@@ -1,5 +1,8 @@
 import { extensionRegistry } from '../../extensionRegistry';
 import { useUiStore } from '../../../stores/uiStore';
+import CompareArea from './CompareArea';
+
+const COMPARE_VIEW_ID = 'openconduit.compare.view';
 
 extensionRegistry.registerExtension(
   {
@@ -10,6 +13,12 @@ extensionRegistry.registerExtension(
     author: 'OpenConduit',
   },
   {
+    mainViews: [
+      {
+        id: COMPARE_VIEW_ID,
+        component: CompareArea,
+      },
+    ],
     commands: [
       {
         id: 'openconduit.compare.toggle',
@@ -17,8 +26,8 @@ extensionRegistry.registerExtension(
         shortcut: '⌘⇧C',
         keybinding: { key: 'c', mod: true, shift: true },
         action: () => {
-          const { isCompareMode, setCompareMode } = useUiStore.getState();
-          setCompareMode(!isCompareMode);
+          const { activeMainViewId, setActiveMainViewId } = useUiStore.getState();
+          setActiveMainViewId(activeMainViewId === COMPARE_VIEW_ID ? null : COMPARE_VIEW_ID);
         },
       },
     ],
