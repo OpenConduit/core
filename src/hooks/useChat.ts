@@ -153,6 +153,18 @@ function ensureListeners() {
     // ────────────────────────────────────────────────────────────────────────
     finalizeMessage(end.conversationId, end.messageId, end.toolCalls ?? []);
 
+    // Notify on tool call failures
+    for (const tc of (end.toolCalls ?? [])) {
+      if (tc.isError) {
+        useUiStore.getState().addNotification({
+          title: 'Tool call failed',
+          message: `${tc.name}: ${String(tc.result ?? 'Unknown error')}`,
+          variant: 'warning',
+          source: 'app',
+        });
+      }
+    }
+
     // Record token usage for analytics
     if (end.usage) {
       const settings = useSettingsStore.getState().settings;
@@ -233,6 +245,7 @@ function ensureListeners() {
       isStreaming: false,
     });
     useUiStore.getState().setIsStreaming(false);
+    useUiStore.getState().addNotification({ title: 'Request failed', message: err.error, variant: 'error', source: 'app' });
   });
 
   service.tools.onApprovalRequest((req: ToolApprovalRequest) => {
