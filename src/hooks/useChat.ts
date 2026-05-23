@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApprovalRequest, Attachment, AiTask, AiQuestion, AppSettings, ConversationFolder, FolderEntry, RoutingDecision } from '../types';
+import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApprovalRequest, Attachment, AiTask, AiQuestion, AppSettings, ConversationFolder, FolderEntry, RoutingDecision, ReasoningLevel } from '../types';
 import { hookRegistry } from './hookRegistry';
 import { debugConsole } from '../utils/debugConsole';
 import { useConversationStore } from '../stores/conversationStore';
@@ -280,7 +280,7 @@ export function useChat(conversationId?: string | null) {
   const activeConversation = conversations.find((c) => c.id === effectiveId) ?? null;
 
   const sendMessage = useCallback(
-    async (content: string, attachments?: Attachment[], folderContext?: { rootName: string; rootPath?: string; files: FolderEntry[] }) => {
+    async (content: string, attachments?: Attachment[], folderContext?: { rootName: string; rootPath?: string; files: FolderEntry[] }, reasoning?: ReasoningLevel) => {
       if (!effectiveId || !settings || isStreaming) return;
 
       const conv = useConversationStore
@@ -340,6 +340,7 @@ export function useChat(conversationId?: string | null) {
           persona?.defaultMcpServerIds ??
           settings.mcpServers.filter((s) => s.enabled).map((s) => s.id),
         ...(folderContext ? { folderContext } : {}),
+        ...(reasoning ? { reasoning } : {}),
       };
 
       // Run beforeSend hooks

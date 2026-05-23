@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import type { Attachment, FolderEntry, McpTool, ConversationFolder } from '../types';
+import type { Attachment, FolderEntry, McpTool, ConversationFolder, ReasoningLevel } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import { useConversationStore } from '../stores/conversationStore';
@@ -11,7 +11,7 @@ import { slashCommandRegistry } from '../commands/slashCommandRegistry';
 import type { SlashCommand, SlashCommandContext } from '../commands/slashCommandRegistry';
 
 interface Props {
-  onSend: (content: string, attachments?: Attachment[], folderContext?: { rootName: string; files: FolderEntry[] }) => void;
+  onSend: (content: string, attachments?: Attachment[], folderContext?: { rootName: string; files: FolderEntry[] }, reasoning?: ReasoningLevel) => void;
   onAbort: () => void;
   onClear?: () => void;
   onCompact?: () => void;
@@ -24,7 +24,6 @@ interface Props {
 
 const ACCEPTED_TYPES = 'image/*,text/*,.pdf,.csv,.json,.md,.ts,.tsx,.js,.jsx,.py';
 
-type ReasoningLevel = 'off' | 'low' | 'medium' | 'high';
 const REASONING_CYCLE: ReasoningLevel[] = ['off', 'low', 'medium', 'high'];
 const REASONING_LABEL: Record<ReasoningLevel, string> = { off: 'off', low: 'L', medium: 'M', high: 'H' };
 const REASONING_COLOR: Record<ReasoningLevel, string> = {
@@ -58,7 +57,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const ctxRef = useRef<HTMLDivElement>(null);
   const cmdRef = useRef<HTMLDivElement>(null);
 
-  const { settings, mcpStatus, refreshMcpStatus } = useSettingsStore();
+  const { settings, mcpStatus, refreshMcpStatus, saveSettings } = useSettingsStore();
   const { setShowSettings, setSettingsInitialTab } = useUiStore();
   const updateConversation = useConversationStore((s) => s.updateConversation);
 
@@ -195,7 +194,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     const trimmed = content.trim();
     if (!trimmed && attachments.length === 0) return;
     const fc = folderPath && folderFiles ? { rootName: folderPath.split('/').pop() ?? folderPath, rootPath: folderPath, files: folderFiles } : undefined;
-    onSend(trimmed, attachments.length > 0 ? attachments : undefined, fc);
+    onSend(trimmed, attachments.length > 0 ? attachments : undefined, fc, reasoning !== 'off' ? reasoning : undefined);
     setContent('');
     setAttachments([]);
     textareaRef.current?.focus();
@@ -468,7 +467,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
                 }}
                 onClose={() => setCmdOpen(false)}
                 onManage={() => {
-                  setSettingsInitialTab('prompts');
+                  setSettingsInitialTab('ai:prompts');
                   setShowSettings(true);
                 }}
               />
@@ -479,19 +478,32 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
         {/* Reasoning */}
         <ToolbarButton
           icon={<ReasoningIcon level={reasoning} />}
-          label={reasoning === 'off' ? 'Reasoning: off (coming soon)' : `Reasoning: ${reasoning} (coming soon)`}
-          comingSoon
+          label={reasoning === 'off' ? 'Reasoning: off' : `Reasoning: ${reasoning}`}
           onClick={cycleReasoning}
           active={reasoning !== 'off'}
           activeClass={REASONING_COLOR[reasoning]}
         />
 
-        {/* Web search — coming soon */}
-        <ToolbarButton icon={<WebIcon />} label="Web search (coming soon)" comingSoon />
+        {/* Web search toggle */}
+        <ToolbarButton
+          icon={<WebIcon />}
+          label={`Web search: ${(settings as any)?.webSearch?.enabled ? 'on' : 'off'}`}
+          active={!!(settings as any)?.webSearch?.enabled}
+          onClick={() => {
+            const current = (settings as any)?.webSearch ?? {};
+            saveSettings({ webSearch: { ...current, enabled: !current.enabled } } as any);
+          }}
+        />
 
         {/* MCP servers */}
-        {mcpServers.length > 0 && (
-          <div className="relative" ref={mcpRef}>
+        {mcpServers.length === 0 ? (
+          <ToolbarButton
+            icon={<McpIcon />}
+            label="Add MCP servers"
+            onClick={() => { setSettingsInitialTab('ai:mcp'); setShowSettings(true); }}
+          />
+        ) : (
+          <div className="relative group/mcp" ref={mcpRef}>
             <button
               onClick={() => { setMcpOpen((o) => !o); if (!mcpOpen) refreshMcpStatus(); }}
               className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs transition-colors ${
@@ -499,11 +511,15 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
                   ? 'text-blue-400 hover:bg-slate-700'
                   : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700'
               }`}
-              title="MCP servers"
             >
               <McpIcon />
               <span className="font-medium">{enabledCount}/{mcpServers.length}</span>
             </button>
+            {!mcpOpen && (
+              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-700 border border-slate-600 text-slate-200 text-[11px] rounded-md whitespace-nowrap opacity-0 group-hover/mcp:opacity-100 transition-opacity z-50 shadow-lg">
+                MCP servers
+              </div>
+            )}
             {mcpOpen && (
               <div className="absolute bottom-full mb-2 left-0 w-80 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl z-50 py-1.5">
                 {/* Header */}
@@ -548,7 +564,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
                           title="Open in settings"
                           onClick={() => {
                             setMcpOpen(false);
-                            setSettingsInitialTab('mcp');
+                            setSettingsInitialTab('ai:mcp');
                             setShowSettings(true);
                           }}
                           className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 rounded"
@@ -673,6 +689,20 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
           active={!!folderPath}
         />
 
+        {/* Clear chat */}
+        {onClear && (
+          <ToolbarButton
+            icon={<ClearIcon />}
+            label="Clear chat"
+            onClick={() => { if (confirm('Clear all messages in this conversation?')) onClear(); }}
+            disabled={isStreaming}
+            hoverClass="hover:text-red-400"
+          />
+        )}
+
+        {/* More */}
+        <ToolbarButton icon={<MoreIcon />} label="More options (coming soon)" comingSoon />
+
         <div className="flex-1" />
 
         {/* Context usage — clickable to open manage popover */}
@@ -773,20 +803,6 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
             )}
           </div>
         )}
-
-        {/* Clear chat */}
-        {onClear && (
-          <ToolbarButton
-            icon={<ClearIcon />}
-            label="Clear chat"
-            onClick={() => { if (confirm('Clear all messages in this conversation?')) onClear(); }}
-            disabled={isStreaming}
-            hoverClass="hover:text-red-400"
-          />
-        )}
-
-        {/* More */}
-        <ToolbarButton icon={<MoreIcon />} label="More options (coming soon)" comingSoon />
       </div>
     </div>
   );
@@ -814,18 +830,22 @@ function ToolbarButton({
   hoverClass?: string;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled || comingSoon}
-      title={label}
-      className={`p-1.5 rounded-lg transition-colors text-sm
-        ${comingSoon ? 'opacity-40 cursor-not-allowed text-slate-500' : ''}
-        ${!comingSoon && !disabled ? `${hoverClass ?? 'hover:text-slate-200'} hover:bg-slate-700` : ''}
-        ${active ? activeClass ?? 'text-blue-400' : comingSoon ? '' : 'text-slate-500'}
-        disabled:opacity-40`}
-    >
-      {icon}
-    </button>
+    <div className="relative group/tb">
+      <button
+        onClick={onClick}
+        disabled={disabled || comingSoon}
+        className={`p-1.5 rounded-lg transition-colors text-sm
+          ${comingSoon ? 'opacity-40 cursor-not-allowed text-slate-500' : ''}
+          ${!comingSoon && !disabled ? `${hoverClass ?? 'hover:text-slate-200'} hover:bg-slate-700` : ''}
+          ${active ? activeClass ?? 'text-blue-400' : comingSoon ? '' : 'text-slate-500'}
+          disabled:opacity-40`}
+      >
+        {icon}
+      </button>
+      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-700 border border-slate-600 text-slate-200 text-[11px] rounded-md whitespace-nowrap opacity-0 group-hover/tb:opacity-100 transition-opacity z-50 shadow-lg">
+        {label}
+      </div>
+    </div>
   );
 }
 
