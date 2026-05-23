@@ -258,7 +258,7 @@ function ensureListeners() {
 }
 
 export function useChat(conversationId?: string | null) {
-  const { conversations, addMessage, updateConversation, replaceMessages, folders } = useConversationStore();
+  const { conversations, addMessage, updateConversation, replaceMessages, folders: _folders } = useConversationStore();
   const { settings } = useSettingsStore();
   const {
     activeConversationId,
@@ -426,7 +426,7 @@ export function useChat(conversationId?: string | null) {
     const text = injectedMessage;
     clearInjectedMessage();
     void sendMessage(text);
-  }, [injectedMessage, sendMessage]);
+  }, [injectedMessage, sendMessage, clearInjectedMessage]);
 
   const abortStream = useCallback(() => {
     if (effectiveId) {

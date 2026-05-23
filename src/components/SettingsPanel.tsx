@@ -2621,10 +2621,24 @@ function UpdatesTab({
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+
+  useEffect(() => {
+    if (service.updater.onUpdateDownloading) {
+      const unsub = service.updater.onUpdateDownloading(() => { setDownloading(true); setDownloadError(''); });
+      return unsub;
+    }
+  }, []);
 
   useEffect(() => {
     if (!service.updater.onUpdateDownloaded) return;
-    const unsub = service.updater.onUpdateDownloaded(() => setUpdateDownloaded(true));
+    const unsub = service.updater.onUpdateDownloaded(() => { setUpdateDownloaded(true); setDownloading(false); });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!service.updater.onUpdateError) return;
+    const unsub = service.updater.onUpdateError((msg) => { setDownloadError(msg); setDownloading(false); });
     return unsub;
   }, []);
 
@@ -2773,7 +2787,26 @@ function UpdatesTab({
                 )}
                 <div className="mt-2">
                   {updateDownloaded ? null : downloading ? (
-                    <span className="text-green-400/70">Downloading in background…</span>
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-green-400/80">Downloading update…</p>
+                      <div className="h-1.5 w-full rounded-full bg-slate-700 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-green-600 via-green-400 to-green-600 animate-pulse" style={{ width: '100%' }} />
+                      </div>
+                    </div>
+                  ) : downloadError ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-red-400">Download failed: {downloadError}</p>
+                      <button
+                        onClick={async () => {
+                          setDownloading(true);
+                          setDownloadError('');
+                          try { await service.updater.triggerDownload?.(); } catch { /* ignore */ }
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-700 hover:bg-green-600 text-white transition-colors"
+                      >
+                        Retry Download
+                      </button>
+                    </div>
                   ) : (
                     <button
                       onClick={async () => {

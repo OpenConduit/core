@@ -198,7 +198,22 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     setContent('');
     setAttachments([]);
     textareaRef.current?.focus();
-  }, [content, attachments, folderPath, folderFiles, onSend]);
+  }, [content, attachments, folderPath, folderFiles, onSend, reasoning]);
+
+  const handlePickFolder = useCallback(async () => {
+    const picked = await service.folder?.pick();
+    if (!picked) return;
+    setFolderPath(picked);
+    setFolderFiles(null);
+    setFolderLoading(true);
+    if (conversationId) updateConversation(conversationId, { folderPath: picked });
+    try {
+      const files = await service.folder?.readFiles(picked) ?? [];
+      setFolderFiles(files);
+    } finally {
+      setFolderLoading(false);
+    }
+  }, [conversationId, updateConversation]);
 
   const executeSlashCommand = useCallback(async (cmd: SlashCommand) => {
     // Remove the /trigger text from the textarea content
@@ -228,7 +243,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
     }
     requestAnimationFrame(() => textareaRef.current?.focus());
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, conversationId, onClear, onCompact, onTrim, slashPrefix]);
+  }, [content, conversationId, handlePickFolder, onClear, onCompact, onTrim, slashPrefix]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Slash command dropdown navigation
@@ -308,21 +323,6 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const handlePaste = (e: React.ClipboardEvent) => { if (e.clipboardData.files.length > 0) handleFiles(e.clipboardData.files); };
   const removeAttachment = (id: string) => setAttachments((prev) => prev.filter((a) => a.id !== id));
   const cycleReasoning = () => setReasoning((r) => REASONING_CYCLE[(REASONING_CYCLE.indexOf(r) + 1) % REASONING_CYCLE.length]);
-
-  const handlePickFolder = async () => {
-    const picked = await service.folder?.pick();
-    if (!picked) return;
-    setFolderPath(picked);
-    setFolderFiles(null);
-    setFolderLoading(true);
-    if (conversationId) updateConversation(conversationId, { folderPath: picked });
-    try {
-      const files = await service.folder?.readFiles(picked) ?? [];
-      setFolderFiles(files);
-    } finally {
-      setFolderLoading(false);
-    }
-  };
 
   const mcpServers = settings?.mcpServers ?? [];
   // Per-conversation active servers: when activeMcpServerIds is set on the conversation,

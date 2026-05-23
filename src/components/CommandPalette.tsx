@@ -50,7 +50,7 @@ function ModeHint({ mode }: { mode: string }) {
 
 export default function CommandPalette() {
   const { commandPaletteOpen, setCommandPaletteOpen, activeConversationId, setActiveConversation } = useUiStore();
-  const { conversations, openTab, updateConversation, openTabs } = useConversationStore();
+  const { conversations, openTab, updateConversation } = useConversationStore();
   const { settings, models, loadModels } = useSettingsStore();
   const { personas } = usePersonasStore();
 

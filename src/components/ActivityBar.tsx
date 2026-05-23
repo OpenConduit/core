@@ -83,7 +83,7 @@ const NAV_ITEMS_AFTER: NavItem[] = [
 ];
 
 export default function ActivityBar() {
-  const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings, setCommandPaletteOpen, setKeyboardShortcutsOpen, secondarySidebarOpen, toggleSecondarySidebar } =
+  const { activePanel, setActivePanel, sidebarOpen, setSidebarOpen, setShowSettings, setCommandPaletteOpen: _setCommandPaletteOpen, setKeyboardShortcutsOpen, secondarySidebarOpen, toggleSecondarySidebar } =
     useUiStore();
   const { installedThemes, activeThemeId, setActiveTheme } = useThemesStore();
   const { settings, saveSettings } = useSettingsStore();

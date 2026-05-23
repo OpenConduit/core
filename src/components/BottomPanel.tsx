@@ -1,6 +1,5 @@
 import React, { useCallback, useRef } from 'react';
 import { useUiStore } from '../stores/uiStore';
-import { useConversationStore } from '../stores/conversationStore';
 import { bottomPanelRegistry } from '../bottomPanel/bottomPanelRegistry';
 import '../bottomPanel/coreBottomPanelContributions'; // side-effect: registers built-in tabs
 

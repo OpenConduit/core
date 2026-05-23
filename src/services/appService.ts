@@ -60,8 +60,12 @@ export interface AppService {
     restartAndInstall?(): Promise<void>;
     /** Trigger an on-demand Squirrel download; fires onUpdateDownloaded when ready. */
     triggerDownload?(): Promise<void>;
+    /** Subscribe to be notified when an update has started downloading. Returns an unsubscribe fn. */
+    onUpdateDownloading?(cb: () => void): () => void;
     /** Subscribe to be notified when an update has been downloaded. Returns an unsubscribe fn. */
     onUpdateDownloaded?(cb: () => void): () => void;
+    /** Subscribe to be notified when a download error occurs. Returns an unsubscribe fn. */
+    onUpdateError?(cb: (message: string) => void): () => void;
   };
   config: {
     exportSettings(redact: boolean): Promise<boolean>;
