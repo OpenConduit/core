@@ -148,7 +148,7 @@
     "requiresApiKey": false,
     "apiKeyUrl": "https://lmstudio.ai",
     "badge": "Local",
-    "notes": "Start a local server in LM Studio (Developer tab) before connecting."
+    "notes": "OpenConduit auto-detects all downloaded models from LM Studio — no need to load a model first. Enable the server in the Developer tab if you haven't already."
   },
   {
     "id": "ollama",
@@ -162,7 +162,7 @@
     "requiresApiKey": false,
     "apiKeyUrl": "https://ollama.com",
     "badge": "Local",
-    "notes": "Install Ollama and run `ollama pull llama3.2` to get started."
+    "notes": "Install Ollama (ollama.com) and pull models with `ollama pull <model>`. OpenConduit shows all downloaded models and which are currently loaded in memory."
   },
   {
     "id": "azure-openai",
