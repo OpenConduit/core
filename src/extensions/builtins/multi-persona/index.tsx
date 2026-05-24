@@ -48,7 +48,8 @@ function buildDiscussionPrompt(personaSystemPrompt: string | undefined, baseSyst
     "You are participating in a multi-persona panel discussion. " +
     "The other panelists' initial responses are shown in the conversation. " +
     "React thoughtfully: agree, disagree, build on their points, or offer a new angle. " +
-    "Keep your response focused and concise.";
+    "Keep your response focused and concise. " +
+    "This is an internal panel exchange — do NOT address the user directly or ask them any follow-up questions.";
   return [personaSystemPrompt, baseSystemPrompt, discussion].filter(Boolean).join('\n\n');
 }
 
