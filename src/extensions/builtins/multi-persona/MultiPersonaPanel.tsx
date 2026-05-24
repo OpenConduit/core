@@ -15,6 +15,7 @@ export default function MultiPersonaPanel() {
   const conv = conversations.find((c) => c.id === activeConversationId) ?? null;
   const panelActive = conv?.conversationModeId === MODE_ID;
   const panelPersonaIds = conv?.panelPersonaIds ?? [];
+  const discussionMode = conv?.panelDiscussionMode ?? false;
 
   const nonDefaultPersonas = personas.filter((p) => !p.isDefault);
 
@@ -23,6 +24,11 @@ export default function MultiPersonaPanel() {
     updateConversation(conv.id, {
       conversationModeId: panelActive ? undefined : MODE_ID,
     });
+  }
+
+  function toggleDiscussion() {
+    if (!conv) return;
+    updateConversation(conv.id, { panelDiscussionMode: !discussionMode });
   }
 
   function togglePersona(personaId: string) {
@@ -80,6 +86,30 @@ export default function MultiPersonaPanel() {
                 <span
                   className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
                     panelActive ? 'translate-x-4.5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Discussion mode toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-200">Discussion mode</p>
+                <p className="text-[11px] text-slate-500">
+                  After each round, personas read each other&apos;s replies and respond
+                </p>
+              </div>
+              <button
+                onClick={toggleDiscussion}
+                disabled={!panelActive}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  discussionMode ? 'bg-violet-600' : 'bg-slate-700'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+                aria-pressed={discussionMode}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                    discussionMode ? 'translate-x-4.5' : 'translate-x-0.5'
                   }`}
                 />
               </button>

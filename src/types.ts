@@ -192,6 +192,11 @@ export interface Conversation {
    * Only meaningful when `conversationModeId === 'multiPersona'`.
    */
   panelPersonaIds?: string[];
+  /**
+   * When true, after all personas respond to the user's message, each persona
+   * gets a second pass to read and react to the other personas' responses.
+   */
+  panelDiscussionMode?: boolean;
 }
 
 // ─── Token Usage ──────────────────────────────────────────────────────────
