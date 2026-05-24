@@ -53,6 +53,7 @@ export default function BackgroundAssistantPanel() {
     useBackgroundAssistantStore();
   const { settings } = useSettingsStore();
   const [showSettings, setShowSettings] = useState(!config.enabled);
+  const [runError, setRunError] = useState<string | null>(null);
 
   const providers = (settings?.providers ?? []) as Array<{ id: string; name: string }>;
   const defaultProviderId = settings?.defaultProviderId ?? '';
@@ -64,20 +65,31 @@ export default function BackgroundAssistantPanel() {
     .sort((a, b) => b.createdAt - a.createdAt);
 
   const handleRunNow = useCallback(async () => {
+    setRunError(null);
+
     const activeId = useUiStore.getState().activeConversationId;
     const conversation = useConversationStore.getState().conversations.find(
       (c) => c.id === activeId,
     );
-    if (!conversation || conversation.messages.length === 0) return;
+    if (!conversation || conversation.messages.length === 0) {
+      setRunError('No active conversation. Start a chat first.');
+      return;
+    }
 
     const lastAssistant = [...conversation.messages]
       .reverse()
       .find((m) => m.role === 'assistant');
-    if (!lastAssistant) return;
+    if (!lastAssistant) {
+      setRunError('No assistant message yet. Send a message first.');
+      return;
+    }
 
     const providerId = config.providerId || defaultProviderId;
     const model = config.model || defaultModel;
-    if (!providerId || !model) return;
+    if (!providerId || !model) {
+      setRunError('No provider/model configured. Set one in Settings or configure one above.');
+      return;
+    }
 
     const contextMessages = conversation.messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -98,6 +110,8 @@ export default function BackgroundAssistantPanel() {
           createdAt: Date.now(),
         });
       }
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : 'Background call failed.');
     } finally {
       setRunning(false);
     }
@@ -238,6 +252,9 @@ export default function BackgroundAssistantPanel() {
           >
             {isRunning ? 'Running…' : 'Ask background assistant'}
           </button>
+          {runError && (
+            <p className="mt-2 text-xs text-red-400">{runError}</p>
+          )}
         </div>
       )}
 
