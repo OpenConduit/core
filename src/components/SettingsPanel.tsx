@@ -11,6 +11,8 @@ import { useAnalyticsStore } from '../stores/analyticsStore';
 import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsButtonProperty, SettingsContribution, ConfigBundle } from '../types';
 import { service } from '../services';
 import { settingsRegistry } from '../settings/settingsRegistry';
+import { extensionRegistry } from '../extensions/extensionRegistry';
+import type { ExtensionManifest } from '../extensions/types';
 import { commandRegistry } from '../commands/commandRegistry';
 import '../settings/coreContributions'; // ensure core sections are registered
 import { McpMarketplace, ProviderMarketplace } from './MarketplacePanel';
@@ -122,6 +124,7 @@ export default function SettingsPanel({
   const [search, setSearch] = useState('');
   const [aiSection, setAiSection] = useState<'providers' | 'mcp' | 'personas' | 'prompts' | 'analytics'>('providers');
   const [featuresSection, setFeaturesSection] = useState<'features' | 'labs'>('features');
+  const [extensionsSection, setExtensionsSection] = useState<'installed' | 'settings'>('installed');
 
   // If something opened settings and requested a specific tab (e.g. MCP gear icon),
   // jump to that tab and clear the request so it doesn't repeat on re-open.
@@ -145,6 +148,15 @@ export default function SettingsPanel({
     });
   }, []);
 
+  const [installedExtensions, setInstalledExtensions] = useState<ExtensionManifest[]>(() =>
+    extensionRegistry.getAllManifests()
+  );
+  useEffect(() => {
+    return extensionRegistry.subscribe(() => {
+      setInstalledExtensions(extensionRegistry.getAllManifests());
+    });
+  }, []);
+
   if (!showSettings || !settings) return null;
 
   const builtInTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -155,13 +167,13 @@ export default function SettingsPanel({
     { id: 'logging',   label: 'Logging',   icon: Icons.logging },
     { id: 'telemetry', label: 'Telemetry',       icon: Icons.telemetry },
     { id: 'about',     label: 'About',     icon: Icons.about },
+    { id: 'extensions', label: 'Extensions', icon: Icons.extension },
     { id: 'json',      label: 'JSON',       icon: Icons.json },
   ].filter((t) => !hideTabs?.includes(t.id));
 
   const allTabs = [
     ...builtInTabs,
     ...(extraTabs?.map((t) => ({ id: t.id, label: t.label, icon: t.icon ?? Icons.general })) ?? []),
-    ...(extContributions.length > 0 ? [{ id: 'extensions', label: 'Extensions', icon: Icons.extension }] : []),
   ];
 
   return (
@@ -280,23 +292,14 @@ export default function SettingsPanel({
                   </React.Fragment>
                 ))}
                 {tab === 'extensions' && (
-                  <div className="space-y-8">
-                    {extContributions.length === 0 ? (
-                      <EmptyState icon="🧩" title="No extensions" subtitle="Install extensions to see their settings here" />
-                    ) : (
-                      extContributions.map((c, i) => (
-                        <div key={c.id}>
-                          {i > 0 && <div className="border-t border-slate-700/40 mb-8" />}
-                          <p className="text-xs font-semibold text-slate-300 mb-4">{c.label}</p>
-                          <SchemaFormRenderer
-                            contribution={c}
-                            settings={settings}
-                            onSave={saveSettings}
-                          />
-                        </div>
-                      ))
-                    )}
-                  </div>
+                  <ExtensionsTab
+                    settings={settings}
+                    onSave={saveSettings}
+                    section={extensionsSection}
+                    onSection={setExtensionsSection}
+                    installedExtensions={installedExtensions}
+                    extContributions={extContributions}
+                  />
                 )}
               </>
             )}
@@ -1695,6 +1698,132 @@ function ModelsField({
 // ─── Shared sub-components ────────────────────────────────────────────────────
 
 // ─── Features Tab ─────────────────────────────────────────────────────────────
+
+// ─── Extensions Tab ──────────────────────────────────────────────────────────
+
+function ExtensionsTab({
+  settings,
+  onSave,
+  section,
+  onSection,
+  installedExtensions,
+  extContributions,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+  section: 'installed' | 'settings';
+  onSection: (s: 'installed' | 'settings') => void;
+  installedExtensions: ExtensionManifest[];
+  extContributions: SettingsContribution[];
+}) {
+  const sections = [
+    { id: 'installed' as const, label: 'Installed' },
+    ...(extContributions.length > 0 ? [{ id: 'settings' as const, label: 'Settings' }] : []),
+  ];
+
+  const handleToggle = async (id: string, currentlyDisabled: boolean) => {
+    if (currentlyDisabled) {
+      extensionRegistry.enable(id);
+    } else {
+      extensionRegistry.disable(id);
+    }
+    const next = extensionRegistry.getDisabledIds();
+    await onSave({ disabledExtensionIds: next });
+  };
+
+  return (
+    <div className="space-y-4">
+      {sections.length > 1 && (
+        <div className="flex gap-1 pb-3 border-b border-slate-700/60">
+          {sections.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => onSection(s.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                section === s.id
+                  ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {section === 'installed' && (
+        <div className="space-y-2">
+          {installedExtensions.length === 0 ? (
+            <EmptyState icon="🧩" title="No extensions" subtitle="Extensions you install will appear here" />
+          ) : (
+            installedExtensions.map((ext) => {
+              const isDisabled = extensionRegistry.isDisabled(ext.id);
+              const isBuiltIn = ext.id.startsWith('openconduit.');
+              return (
+                <div
+                  key={ext.id}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
+                    isDisabled
+                      ? 'bg-slate-900/40 border-slate-700/30 opacity-60'
+                      : 'bg-slate-900/60 border-slate-700/50'
+                  }`}
+                >
+                  {/* Toggle */}
+                  <button
+                    onClick={() => handleToggle(ext.id, isDisabled)}
+                    className={`relative flex-shrink-0 w-9 h-5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      isDisabled ? 'bg-slate-700' : 'bg-blue-600'
+                    }`}
+                    aria-checked={!isDisabled}
+                    role="switch"
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                        isDisabled ? 'translate-x-0' : 'translate-x-4'
+                      }`}
+                    />
+                  </button>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-slate-200 truncate">{ext.name}</span>
+                      {isBuiltIn && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-700/80 text-slate-400 border border-slate-600/50 flex-shrink-0">
+                          Built-in
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-500 flex-shrink-0">v{ext.version}</span>
+                    </div>
+                    {ext.description && (
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">{ext.description}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {section === 'settings' && (
+        <div className="space-y-8">
+          {extContributions.map((c, i) => (
+            <div key={c.id}>
+              {i > 0 && <div className="border-t border-slate-700/40 mb-8" />}
+              <p className="text-xs font-semibold text-slate-300 mb-4">{c.label}</p>
+              <SchemaFormRenderer
+                contribution={c}
+                settings={settings}
+                onSave={onSave}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Features + Labs Tab ─────────────────────────────────────────────────────
 

@@ -434,6 +434,8 @@ export interface AppSettings {
    * never exported, never written to the git repo.
    */
   syncRemoteToken?: string;
+  /** Extension IDs that have been disabled by the user (e.g. 'openconduit.gitSync'). */
+  disabledExtensionIds?: string[];
 }
 
 // ─── Settings Contribution Schema (#37) ───────────────────────────────────

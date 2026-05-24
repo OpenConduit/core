@@ -119,6 +119,11 @@ export default function App() {
     loadSettings();
   }, [loadSettings]);
 
+  // Sync disabled extension IDs from settings into the registry whenever they change.
+  useEffect(() => {
+    extensionRegistry.setDisabledIds(settings?.disabledExtensionIds ?? []);
+  }, [settings?.disabledExtensionIds]);
+
   // Expose the extension SDK surface on window so dynamically-loaded extension
   // bundles can call extensionRegistry.registerExtension() without bundling core.
   useEffect(() => {
