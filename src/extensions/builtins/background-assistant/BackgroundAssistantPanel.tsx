@@ -109,6 +109,8 @@ export default function BackgroundAssistantPanel() {
           text: result.text.trim(),
           createdAt: Date.now(),
         });
+      } else {
+        setRunError('Model returned an empty response. Check your provider and model settings.');
       }
     } catch (err) {
       setRunError(err instanceof Error ? err.message : 'Background call failed.');
