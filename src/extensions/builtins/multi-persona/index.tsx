@@ -5,7 +5,7 @@ import { useConversationStore } from '../../../stores/conversationStore';
 import { useUiStore } from '../../../stores/uiStore';
 import { usePersonasStore } from '../personas/personasStore';
 import { service } from '../../../services';
-import type { ChatRequest, Persona, StreamEnd, StreamError } from '../../../types';
+import type { ChatRequest, Message, Persona, StreamEnd, StreamError } from '../../../types';
 import type { SendContext } from '../../types';
 import MultiPersonaPanel from './MultiPersonaPanel';
 
@@ -45,10 +45,10 @@ function waitForStream(messageId: string): Promise<void> {
 /** Build the system prompt for a discussion-round turn. */
 function buildDiscussionPrompt(personaSystemPrompt: string | undefined, baseSystemPrompt: string | undefined): string {
   const discussion =
-    "You are participating in a multi-persona discussion. The other personas have just responded " +
-    "to the user's message — their replies are now visible in the conversation above. " +
-    "Read their perspectives and add your own reaction: agree, disagree, build on their points, " +
-    "or offer a new angle. Keep your response focused and concise.";
+    "You are participating in a multi-persona panel discussion. " +
+    "The other panelists' initial responses are shown in the conversation. " +
+    "React thoughtfully: agree, disagree, build on their points, or offer a new angle. " +
+    "Keep your response focused and concise.";
   return [personaSystemPrompt, baseSystemPrompt, discussion].filter(Boolean).join('\n\n');
 }
 
@@ -111,18 +111,50 @@ async function onSend({ conversationId, request }: SendContext): Promise<void> {
 
   // ── Round 2 (discussion): each persona reacts to the others' responses ───
   if (conv?.panelDiscussionMode) {
+    // Yield to the microtask queue so the store has fully written all round-1 content.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
     const freshConv = useConversationStore
       .getState()
       .conversations.find((c) => c.id === conversationId);
     if (!freshConv) return;
 
-    // Build updated message history that includes all round-1 responses
-    const allMessages = freshConv.messages.filter(
-      (m) => m.role !== 'assistant' || !!(m.content || m.toolCalls?.length),
+    // Gather completed round-1 assistant responses.
+    const round1Messages = freshConv.messages.filter(
+      (m) => m.role === 'assistant' && m.content && m.personaId,
     );
+    if (round1Messages.length === 0) return;
+
+    // Collapse all round-1 responses into a SINGLE assistant message followed by
+    // a user nudge. This produces a valid alternating user→assistant→user sequence
+    // that every provider (Anthropic, OpenAI, etc.) accepts. Sending multiple
+    // consecutive `role: 'assistant'` messages causes Anthropic to reject the
+    // request, which is why round 2 previously produced empty messages.
+    const round1Content = round1Messages
+      .map((m) => {
+        const p = usePersonasStore.getState().getPersona(m.personaId!);
+        return `**${p?.name ?? 'Assistant'}**: ${m.content}`;
+      })
+      .join('\n\n');
+
+    const discussionMessages: Message[] = [
+      ...request.messages,
+      {
+        id: uuidv4(),
+        role: 'assistant' as const,
+        content: `Here are the initial responses from all panel members:\n\n${round1Content}`,
+        timestamp: Date.now(),
+      },
+      {
+        id: uuidv4(),
+        role: 'user' as const,
+        content: 'Please react to the above responses — agree, disagree, build on them, or offer a new angle.',
+        timestamp: Date.now(),
+      },
+    ];
 
     for (const persona of personas) {
-      const discussionRequest: ChatRequest = { ...request, messages: allMessages };
+      const discussionRequest: ChatRequest = { ...request, messages: discussionMessages };
       await sendPersonaTurn(conversationId, persona, discussionRequest, setIsStreaming, true);
     }
   }
