@@ -5,7 +5,7 @@ import { useConversationStore } from '../../../stores/conversationStore';
 import { useUiStore } from '../../../stores/uiStore';
 import { usePersonasStore } from '../personas/personasStore';
 import { service } from '../../../services';
-import type { ChatRequest, Message, Persona, StreamEnd, StreamError } from '../../../types';
+import type { ChatRequest, Message, Persona } from '../../../types';
 import type { SendContext } from '../../types';
 import MultiPersonaPanel from './MultiPersonaPanel';
 
@@ -22,21 +22,20 @@ const MULTI_PERSONA_ICON = (
   </svg>
 );
 
-/** Resolves when the stream for `messageId` ends; rejects on error. */
-function waitForStream(messageId: string): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    const unsubEnd = service.chat.onEnd((data: StreamEnd) => {
-      if (data.messageId === messageId) {
-        unsubEnd();
-        unsubErr();
+/**
+ * Resolves when the conversation store marks `messageId` as no longer streaming.
+ * Handles both normal end and error — both set isStreaming: false via the global
+ * useChat listener. Avoids calling service.chat.onEnd directly, which would
+ * trigger removeAllListeners in preload.ts and wipe the global useChat handler.
+ */
+function waitForStream(conversationId: string, messageId: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const unsub = useConversationStore.subscribe((state) => {
+      const conv = state.conversations.find((c) => c.id === conversationId);
+      const msg = conv?.messages.find((m) => m.id === messageId);
+      if (msg && !msg.isStreaming) {
+        unsub();
         resolve();
-      }
-    });
-    const unsubErr = service.chat.onError((data: StreamError) => {
-      if (data.messageId === messageId) {
-        unsubEnd();
-        unsubErr();
-        reject(new Error(data.error));
       }
     });
   });
@@ -87,7 +86,7 @@ async function sendPersonaTurn(
     systemPrompt,
   };
 
-  const streamDone = waitForStream(messageId);
+  const streamDone = waitForStream(conversationId, messageId);
   setIsStreaming(true);
   await service.chat.send(personaRequest);
   await streamDone;
