@@ -1,7 +1,10 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import BackgroundAssistantPanel from './BackgroundAssistantPanel';
 import { useBackgroundAssistantStore } from './backgroundAssistantStore';
 import { extensionRegistry } from '../../extensionRegistry';
+import { messageDecoratorRegistry } from '../../messageDecoratorRegistry';
 import { hookRegistry } from '../../../hooks/hookRegistry';
 import { service } from '../../../services';
 import { useConversationStore } from '../../../stores/conversationStore';
@@ -20,6 +23,47 @@ const BACKGROUND_ASSISTANT_ICON = (
     />
   </svg>
 );
+
+// ─── Per-message note card (decorator) ───────────────────────────────────────
+
+function NoteDecoratorCard({ message }: { message: Message }) {
+  const notes = useBackgroundAssistantStore((s) => s.notesByMessageId[message.id] ?? []);
+  const [open, setOpen] = React.useState(false);
+
+  if (notes.length === 0) return null;
+
+  return (
+    <div className="mt-1.5 rounded-lg border border-blue-500/20 bg-slate-900/70 overflow-hidden text-sm">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-800/60 transition-colors"
+      >
+        <svg className="w-3.5 h-3.5 flex-shrink-0 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+        <span className="text-xs font-medium text-blue-400">Background note</span>
+        {notes.length > 1 && (
+          <span className="text-xs text-slate-500">· {notes.length}</span>
+        )}
+        <svg
+          className={`ml-auto w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-4 py-3 border-t border-blue-500/10 prose-ai text-slate-200 text-sm leading-relaxed">
+          {notes.map((n, i) => (
+            <div key={n.id} className={i > 0 ? 'mt-4 pt-4 border-t border-slate-700/40' : ''}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{n.text}</ReactMarkdown>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Trigger-phrase flag ──────────────────────────────────────────────────────
 // Set by beforeSend when the outgoing message matches the trigger phrase.
@@ -108,6 +152,13 @@ extensionRegistry.registerExtension(
           await runBackgroundCompletion(msg);
         }
       });
+
+      // ── message decorator: collapsible note card below each assistant bubble ──
+      messageDecoratorRegistry.register(
+        'openconduit.backgroundAssistant',
+        (msg: Message) =>
+          msg.role === 'assistant' ? <NoteDecoratorCard message={msg} /> : null,
+      );
     },
   },
   {
@@ -125,33 +176,6 @@ extensionRegistry.registerExtension(
       {
         id: 'openconduit.backgroundAssistant.store',
         store: useBackgroundAssistantStore,
-      },
-    ],
-
-    /**
-     * Per-message badge: shows a note count pill on each assistant message that
-     * has at least one background note. Hovering the pill reveals the note text.
-     */
-    messageBadges: [
-      {
-        id: 'openconduit.backgroundAssistant.badge',
-        render(message: Message) {
-          const notes =
-            useBackgroundAssistantStore.getState().getNotesForMessage(message.id);
-          if (notes.length === 0) return null;
-          return {
-            count: notes.length,
-            content: (
-              <div className="space-y-2 max-w-xs">
-                {notes.map((n) => (
-                  <p key={n.id} className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
-                    {n.text}
-                  </p>
-                ))}
-              </div>
-            ),
-          };
-        },
       },
     ],
 
