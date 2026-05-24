@@ -50,6 +50,11 @@ class ExtensionRegistry {
   private readonly storeSlices = new Map<string, StoreSliceContribution>();
   private readonly messageBadgesList: MessageBadgeContribution[] = [];
   private readonly conversationModeMap = new Map<string, ConversationModeContribution>();
+  private readonly disabledIds = new Set<string>();
+  /** Maps activityBar panelId → manifest id of the owning extension. */
+  private readonly activityBarOwners = new Map<string, string>();
+  /** Maps conversationMode id → manifest id of the owning extension. */
+  private readonly conversationModeOwners = new Map<string, string>();
 
   /**
    * Register an extension and its contributions.
@@ -67,6 +72,7 @@ class ExtensionRegistry {
       for (const item of contributions.activityBarItems) {
         if (!this.activityBarItems.some((i) => i.panelId === item.panelId)) {
           this.activityBarItems.push(item);
+          this.activityBarOwners.set(item.panelId, manifest.id);
         }
       }
     }
@@ -173,6 +179,7 @@ class ExtensionRegistry {
       for (const mode of contributions.conversationModes) {
         if (!this.conversationModeMap.has(mode.id)) {
           this.conversationModeMap.set(mode.id, mode);
+          this.conversationModeOwners.set(mode.id, manifest.id);
         }
       }
     }
@@ -286,6 +293,37 @@ class ExtensionRegistry {
     this.listeners.forEach((l) => l());
   }
 
+  // ── Enable / disable ─────────────────────────────────────────────────────
+
+  /** Disable an extension — hides its activity bar items and conversation modes. */
+  disable(id: string): void {
+    this.disabledIds.add(id);
+    this.notify();
+  }
+
+  /** Re-enable a previously disabled extension. */
+  enable(id: string): void {
+    this.disabledIds.delete(id);
+    this.notify();
+  }
+
+  isDisabled(id: string): boolean {
+    return this.disabledIds.has(id);
+  }
+
+  /** Bulk-replace the disabled set (called on settings load). */
+  setDisabledIds(ids: string[]): void {
+    this.disabledIds.clear();
+    for (const id of ids) this.disabledIds.add(id);
+    this.notify();
+  }
+
+  getDisabledIds(): string[] {
+    return [...this.disabledIds];
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Subscribe to registry changes. Called whenever a new extension registers.
    * Returns an unsubscribe function.
@@ -300,9 +338,12 @@ class ExtensionRegistry {
    * Items without an explicit order default to 50.
    */
   getActivityBarItems(): ActivityBarContribution[] {
-    return [...this.activityBarItems].sort(
-      (a, b) => (a.order ?? 50) - (b.order ?? 50)
-    );
+    return [...this.activityBarItems]
+      .filter((item) => {
+        const ownerId = this.activityBarOwners.get(item.panelId);
+        return ownerId === undefined || !this.disabledIds.has(ownerId);
+      })
+      .sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
   }
 
   /**
@@ -311,7 +352,7 @@ class ExtensionRegistry {
    * (e.g. `'chats'`, `'marketplace'`) which are rendered by `App` directly.
    */
   getSidebarPanel(panelId: string): React.ComponentType | undefined {
-    return this.activityBarItems.find((i) => i.panelId === panelId)?.panel;
+    return this.getActivityBarItems().find((i) => i.panelId === panelId)?.panel;
   }
 
   /** Returns the manifest for a registered extension, or `undefined`. */
@@ -408,12 +449,19 @@ class ExtensionRegistry {
    * no extension has registered that id.
    */
   getConversationMode(id: string): ConversationModeContribution | undefined {
-    return this.conversationModeMap.get(id);
+    const mode = this.conversationModeMap.get(id);
+    if (!mode) return undefined;
+    const ownerId = this.conversationModeOwners.get(id);
+    if (ownerId && this.disabledIds.has(ownerId)) return undefined;
+    return mode;
   }
 
-  /** Returns all registered conversation mode contributions. */
+  /** Returns all registered conversation mode contributions (excluding disabled extensions). */
   getAllConversationModes(): ConversationModeContribution[] {
-    return [...this.conversationModeMap.values()];
+    return [...this.conversationModeMap.values()].filter((mode) => {
+      const ownerId = this.conversationModeOwners.get(mode.id);
+      return ownerId === undefined || !this.disabledIds.has(ownerId);
+    });
   }
 }
 
