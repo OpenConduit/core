@@ -43,7 +43,7 @@ export default function WelcomeScreen() {
 
         {/* Heading */}
         <h1 className="text-2xl font-bold text-slate-200 mb-1 tracking-tight">OpenConduit</h1>
-        <p className="text-sm text-slate-500 mb-12">AI chat, your way.</p>
+        <p className="text-sm text-slate-500 mb-12">The AI Chat Interface You've Been Waiting For.</p>   
 
         {/* Two-column content grid */}
         <div className="w-full grid grid-cols-2 gap-12">

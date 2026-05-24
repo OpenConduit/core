@@ -413,6 +413,15 @@ export interface AppSettings {
     /** Send sanitized crash/error reports (error type, stack without absolute paths) */
     crashReports: boolean;
   };
+  /** Local path for the git-backed sync repo. */
+  syncRepoPath?: string;
+  /** HTTPS remote URL for push/pull (e.g. https://github.com/user/my-sync-repo.git). */
+  syncRemoteUrl?: string;
+  /**
+   * Personal access token for the remote — stored in electron-store only,
+   * never exported, never written to the git repo.
+   */
+  syncRemoteToken?: string;
 }
 
 // ─── Settings Contribution Schema (#37) ───────────────────────────────────
@@ -549,6 +558,31 @@ export interface InstalledExtensionInfo {
 
 // ─── IPC Channel Names ─────────────────────────────────────────────────────
 
+// ─── Git Sync ────────────────────────────────────────────────────────────────
+
+/**
+ * Data payload exchanged between the renderer (extension) and the main process
+ * during push / pull operations. Each field maps to a file or directory in the
+ * local git repository.
+ */
+export interface SyncPayload {
+  /** Record<conversationId, Conversation> — each entry is written as conversations/<id>.json */
+  conversations?: Record<string, unknown>;
+  /** All personas as a plain array — written as personas.json */
+  personas?: unknown;
+  /** All prompt templates as a plain array — written as prompts.json */
+  prompts?: unknown;
+  /** Non-sensitive settings snapshot (no API keys) — written as settings.json */
+  settings?: unknown;
+}
+
+export interface SyncStatusResult {
+  initialized: boolean;
+  remoteConfigured: boolean;
+  /** Unix-ms timestamp of the most recent commit, or null if no commits yet */
+  lastCommitAt: number | null;
+}
+
 export const IPC = {
   // Settings
   SETTINGS_GET: 'settings:get',
@@ -609,6 +643,12 @@ export const IPC = {
   // Debug logging
   LOG_WRITE: 'log:write',
   LOG_OPEN:  'log:open',
+
+  // Git-backed sync
+  SYNC_CONFIGURE: 'sync:configure',
+  SYNC_PUSH: 'sync:push',
+  SYNC_PULL: 'sync:pull',
+  SYNC_STATUS: 'sync:status',
 } as const;
 
 // ─── Reasoning ──────────────────────────────────────────────────────────────
