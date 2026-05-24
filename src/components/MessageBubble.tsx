@@ -10,6 +10,7 @@ import ArtifactBlock from './ArtifactBlock';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useConversationStore } from '../stores/conversationStore';
 import { useUiStore } from '../stores/uiStore';
+import { usePersonasStore } from '../stores/personasStore';
 
 interface Props {
   message: Message;
@@ -65,6 +66,8 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
   const debugMode = useSettingsStore((s) => s.settings?.labs?.debugMode ?? false);
   const { branchConversation, openTab } = useConversationStore();
   const { setActiveConversation } = useUiStore();
+  const getPersona = usePersonasStore((s) => s.getPersona);
+  const panelPersona = message.personaId ? getPersona(message.personaId) : undefined;
 
   function handleBranch() {
     if (!conversationId || messageIndex === undefined) return;
@@ -96,12 +99,25 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} px-4 py-1.5`}>
       {/* Avatar */}
       {!isUser && (
-        <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white mr-2.5 mt-0.5 flex-shrink-0">
-          AI
+        <div
+          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2.5 mt-0.5 flex-shrink-0"
+          style={{ backgroundColor: panelPersona?.color ?? '#2563eb' }}
+          title={panelPersona?.name}
+        >
+          {panelPersona ? panelPersona.name.slice(0, 2).toUpperCase() : 'AI'}
         </div>
       )}
 
       <div className={`max-w-[80%] ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
+        {/* Persona label in panel mode */}
+        {panelPersona && (
+          <span
+            className="text-[11px] font-semibold mb-0.5 px-1"
+            style={{ color: panelPersona.color ?? '#94a3b8' }}
+          >
+            {panelPersona.name}
+          </span>
+        )}
         {/* Activity panel: thinking + tool calls unified */}
         {hasActivity && (
           <div className="w-full mb-2">

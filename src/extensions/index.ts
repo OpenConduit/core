@@ -9,6 +9,7 @@ import './builtins/web-search';
 import './builtins/pipelines';
 import './builtins/background-assistant';
 import './builtins/git-sync';
+import './builtins/multi-persona';
 
 export { extensionRegistry } from './extensionRegistry';
 export { useActivityBarItems } from './useActivityBarItems';
