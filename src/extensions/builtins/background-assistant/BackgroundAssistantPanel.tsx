@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   useBackgroundAssistantStore,
   type TriggerMode,
@@ -38,8 +40,8 @@ function NoteCard({ note }: { note: BackgroundNote }) {
         <span className="text-slate-600 text-xs">{expanded ? '▲' : '▼'}</span>
       </button>
       {expanded && (
-        <div className="px-3 py-2 bg-slate-800/50 text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
-          {note.text}
+        <div className="px-3 py-2 bg-slate-800/50 text-sm text-slate-200 leading-relaxed prose-ai">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.text}</ReactMarkdown>
         </div>
       )}
     </div>
