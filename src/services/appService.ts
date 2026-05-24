@@ -60,6 +60,8 @@ export interface AppService {
   };
   models: {
     list(providerId: string): Promise<string[]>;
+    /** Ping each local provider (LM Studio, Ollama) — returns running status + currently-loaded models keyed by provider ID. */
+    probe?(): Promise<Record<string, { running: boolean; loadedModels: string[] }>>;
   };
   updater: {
     checkForUpdates(): Promise<UpdateInfo>;

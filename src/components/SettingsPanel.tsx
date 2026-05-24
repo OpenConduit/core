@@ -559,6 +559,14 @@ function ProvidersTab({
   const [editing, setEditing] = useState<ProviderConfig | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [view, setView] = useState<'list' | 'marketplace'>('list');
+  const [localStatus, setLocalStatus] = useState<Record<string, { running: boolean; loadedModels: string[] }>>({});
+
+  useEffect(() => {
+    if (view !== 'list') return;
+    const hasLocal = settings.providers.some((p) => p.type === 'lmstudio' || p.type === 'ollama');
+    if (!hasLocal) return;
+    service.models.probe?.().then(setLocalStatus).catch(() => {});
+  }, [view, settings.providers]);
 
   const handleSaveProvider = (provider: ProviderConfig) => {
     const providers = isNew
@@ -638,6 +646,26 @@ function ProvidersTab({
               {p.defaultModel ? ` · ${p.defaultModel}` : ''}
             </p>
           </div>
+          {(p.type === 'lmstudio' || p.type === 'ollama') && (
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                localStatus[p.id]?.running
+                  ? 'bg-green-900/50 text-green-400'
+                  : 'bg-slate-700 text-slate-500'
+              }`}
+              title={
+                localStatus[p.id]?.running && localStatus[p.id].loadedModels.length > 0
+                  ? localStatus[p.id].loadedModels.join(', ')
+                  : undefined
+              }
+            >
+              {localStatus[p.id]?.running
+                ? localStatus[p.id].loadedModels.length > 0
+                  ? `${localStatus[p.id].loadedModels.length} loaded`
+                  : 'Running'
+                : 'Not detected'}
+            </span>
+          )}
           <button
             onClick={() => {
               setIsNew(false);
