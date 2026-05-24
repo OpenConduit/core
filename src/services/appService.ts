@@ -12,6 +12,8 @@ import type {
   StreamChunk,
   StreamEnd,
   StreamError,
+  SyncPayload,
+  SyncStatusResult,
   ToolApprovalRequest,
   ToolCall,
   UpdateInfo,
@@ -145,5 +147,19 @@ export interface AppService {
     writeFile(folderPath: string, relativePath: string, content: string): Promise<void>;
     /** Deletes a file or directory (recursively) at relativePath inside folderPath. */
     deleteEntry(folderPath: string, relativePath: string): Promise<void>;
+  };
+  /** Git-backed sync — conversations, personas, prompts and settings versioned in a local git repo. */
+  sync?: {
+    /** Initialise (or re-initialise) the git repo at the path stored in settings. */
+    configure(): Promise<{ success: boolean; error?: string }>;
+    /** Serialise payload to files, commit, and push to remote if configured. */
+    push(payload: SyncPayload): Promise<{ success: boolean; error?: string }>;
+    /**
+     * Pull latest commits from remote then return the data files as a payload.
+     * If no remote is configured, reads the current repo state.
+     */
+    pull(): Promise<{ success: boolean; payload?: SyncPayload; error?: string }>;
+    /** Returns current repo status. */
+    status(): Promise<SyncStatusResult>;
   };
 }

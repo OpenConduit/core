@@ -30,4 +30,5 @@ export const service: AppService = {
   get extensionTools() { return _instance!.extensionTools; },
   get crash() { return _instance!.crash; },
   get folder() { return _instance!.folder; },
+  get sync() { return _instance!.sync; },
 } satisfies AppService;
