@@ -27,7 +27,7 @@ const BACKGROUND_ASSISTANT_ICON = (
 // ─── Per-message note card (decorator) ───────────────────────────────────────
 
 function NoteDecoratorCard({ message }: { message: Message }) {
-  const notes = useBackgroundAssistantStore((s) => s.notesByMessageId[message.id] ?? []);
+  const notes = useBackgroundAssistantStore((s) => s.notesByMessageId[message.id]) ?? [];
   const [open, setOpen] = React.useState(false);
 
   if (notes.length === 0) return null;
