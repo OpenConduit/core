@@ -7,6 +7,7 @@ import './builtins/mcp';
 import './builtins/web-fetch';
 import './builtins/web-search';
 import './builtins/pipelines';
+import './builtins/background-assistant';
 
 export { extensionRegistry } from './extensionRegistry';
 export { useActivityBarItems } from './useActivityBarItems';
