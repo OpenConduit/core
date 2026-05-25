@@ -197,6 +197,8 @@ export interface Conversation {
    * gets a second pass to read and react to the other personas' responses.
    */
   panelDiscussionMode?: boolean;
+  /** The live collaboration room this conversation is associated with. */
+  liveRoomId?: string;
 }
 
 // ─── Token Usage ──────────────────────────────────────────────────────────
@@ -436,6 +438,18 @@ export interface AppSettings {
   syncRemoteToken?: string;
   /** Extension IDs that have been disabled by the user (e.g. 'openconduit.gitSync'). */
   disabledExtensionIds?: string[];
+  /**
+   * Self-hosting configuration — override the default OpenConduit cloud endpoints.
+   * Leave unset to use the default hosted service (share.openconduit.ai).
+   */
+  selfHosting?: {
+    /**
+     * Base HTTP(S) URL of your self-hosted room/share server.
+     * Example: https://my-openconduit-server.example.com
+     * The app derives the WebSocket URL automatically (https→wss, http→ws).
+     */
+    shareServerUrl?: string;
+  };
 }
 
 // ─── Settings Contribution Schema (#37) ───────────────────────────────────
@@ -784,3 +798,39 @@ export interface FeedbackPayload {
   appVersion: string;
   platform: string;
 }
+
+// ─── Collaboration Types (Issue #15) ────────────────────────────────────────
+
+export interface CollabParticipant {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export type CollabClientEvent =
+  | { type: "join"; name: string; color: string }
+  | { type: "leave" }
+  | { type: "lock_request" }
+  | { type: "lock_release" }
+  | { type: "message_add"; message: Message }
+  | { type: "stream_start"; messageId: string }
+  | { type: "stream_chunk"; messageId: string; delta: string }
+  | { type: "stream_end"; messageId: string; message: Message }
+  | { type: "typing"; isTyping: boolean }
+  | { type: "set_ai_mode"; mode: "own" | "host" };
+
+export type CollabServerEvent =
+  | { type: "sync"; messages: Message[]; participants: CollabParticipant[]; lockHolder: string | null; yourId: string; aiMode: "own" | "host"; hostId: string | null }
+  | { type: "participant_joined"; participant: CollabParticipant }
+  | { type: "participant_left"; participantId: string }
+  | { type: "lock_granted"; participantId: string }
+  | { type: "lock_denied"; reason: string }
+  | { type: "lock_released"; nextHolder: string | null }
+  | { type: "message_add"; message: Message; participantId: string }
+  | { type: "stream_start"; messageId: string; participantId: string }
+  | { type: "stream_chunk"; messageId: string; delta: string; participantId: string }
+  | { type: "stream_end"; messageId: string; message: Message; participantId: string }
+  | { type: "typing"; participantId: string; isTyping: boolean }
+  | { type: "settings_update"; aiMode: "own" | "host"; hostId: string | null }
+  | { type: "error"; message: string };
+

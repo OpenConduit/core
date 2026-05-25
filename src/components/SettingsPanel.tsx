@@ -7,6 +7,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { v4 as uuidv4 } from 'uuid';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
+import { useCollaborationStore } from '../stores/collaborationStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
 import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsButtonProperty, SettingsContribution, ConfigBundle } from '../types';
 import { service } from '../services';
@@ -107,7 +108,339 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" />
     </svg>
   ),
+  sharing: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <circle cx="18" cy="5" r="2.5" strokeWidth={1.5}/><circle cx="6" cy="12" r="2.5" strokeWidth={1.5}/><circle cx="18" cy="19" r="2.5" strokeWidth={1.5}/>
+      <path strokeLinecap="round" strokeWidth={1.5} d="M8.5 11l7-4M8.5 13l7 4"/>
+    </svg>
+  ),
+  selfHosting: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12H3m18 0h-2M12 5V3m0 18v-2m-6.364-2.636-1.414 1.414M18.778 5.808l-1.414 1.414M5.222 5.808 3.808 7.222M18.364 18.364l1.414-1.414M12 17a5 5 0 100-10 5 5 0 000 10z" />
+    </svg>
+  ),
 } as const;
+
+// ─── SharingTab ───────────────────────────────────────────────────────────────
+
+interface ShareRecord { id: string; url: string; title: string; createdAt: number; }
+
+// ─── Sharing: sub-sections ────────────────────────────────────────────────────
+
+function SharedLinksSection() {
+  const [shares, setShares] = useState<ShareRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [checking, setChecking] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const available = typeof window !== 'undefined' && !!window.api?.conversation?.listShares;
+
+  useEffect(() => {
+    if (!available) { setLoading(false); return; }
+    window.api!.conversation!.listShares().then(async (raw) => {
+      const list = raw as ShareRecord[];
+      const now = Date.now();
+      const TTL = 30 * 24 * 60 * 60 * 1000;
+
+      // Instantly remove anything past the 30-day TTL without a network call.
+      const maybeAlive: ShareRecord[] = [];
+      const definitelyExpired: ShareRecord[] = [];
+      for (const s of list) {
+        if (s.createdAt + TTL <= now) {
+          definitelyExpired.push(s);
+        } else {
+          maybeAlive.push(s);
+        }
+      }
+      for (const s of definitelyExpired) {
+        window.api!.conversation!.deleteShare(s.id).catch(() => {});
+      }
+
+      setShares(maybeAlive);
+      setLoading(false);
+
+      // Probe the remaining shares in parallel to catch server-side deletions.
+      if (maybeAlive.length > 0) {
+        setChecking(true);
+        const gone: string[] = [];
+        await Promise.all(
+          maybeAlive.map(async (s) => {
+            try {
+              const res = await fetch(s.url, {
+                method: 'GET',
+                signal: AbortSignal.timeout(6000),
+              });
+              if (res.status === 404) gone.push(s.id);
+            } catch {
+              // Network error — leave the record intact; it may be transient.
+            }
+          })
+        );
+        if (gone.length > 0) {
+          for (const id of gone) {
+            window.api!.conversation!.deleteShare(id).catch(() => {});
+          }
+          setShares((prev) => prev.filter((s) => !gone.includes(s.id)));
+        }
+        setChecking(false);
+      }
+    });
+  }, [available]);
+
+  const handleDelete = async (id: string) => {
+    if (!available) return;
+    setDeleting(id);
+    await window.api!.conversation!.deleteShare(id);
+    setShares((s) => s.filter((r) => r.id !== id));
+    setDeleting(null);
+  };
+
+  const handleCopy = async (url: string, id: string) => {
+    await navigator.clipboard.writeText(url);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  if (!available) {
+    return (
+      <div className="text-sm text-slate-500 py-8 text-center">
+        Sharing is only available in the desktop app.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-200 mb-0.5">Shared conversations</h3>
+        <p className="text-xs text-slate-500">
+          Snapshots you've shared from this machine. Links expire 30 days after creation.
+          Deleting removes the link from the server so it's no longer accessible.
+        </p>
+      </div>
+
+      {(loading || checking) && (
+        <div className="text-xs text-slate-500 py-6 text-center">
+          {loading ? 'Loading…' : 'Checking for expired links…'}
+        </div>
+      )}
+
+      {!loading && !checking && shares.length === 0 && (
+        <div className="text-xs text-slate-600 py-8 text-center border border-dashed border-slate-800 rounded-xl">
+          No shared conversations yet. Click <strong className="text-slate-400">Share</strong> in the status bar to create one.
+        </div>
+      )}
+
+      {!loading && !checking && shares.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {shares.map((share) => (
+            <div
+              key={share.id}
+              className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2.5"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-200 truncate">{share.title || 'Untitled'}</p>
+                <p className="text-[10px] text-slate-600 mt-0.5">
+                  {new Date(share.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {' · '}
+                  expires {new Date(share.createdAt + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+              <button
+                onClick={() => handleCopy(share.url, share.id)}
+                title="Copy link"
+                className="flex-shrink-0 text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                {copied === share.id ? '✓ Copied' : 'Copy link'}
+              </button>
+              <button
+                onClick={() => handleDelete(share.id)}
+                disabled={deleting === share.id}
+                title="Delete share"
+                className="flex-shrink-0 text-slate-600 hover:text-red-400 transition-colors disabled:opacity-40 p-1"
+              >
+                {deleting === share.id ? (
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2"><path d="M8 2a6 6 0 100 12A6 6 0 008 2z" strokeDasharray="20" strokeDashoffset="5"/></svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 4h10M6 4V2h4v2M5 4l.5 9h5L11 4"/></svg>
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LiveSection() {
+  const roomId = useCollaborationStore((s) => s.roomId);
+  const participants = useCollaborationStore((s) => s.participants);
+  const conversationId = useCollaborationStore((s) => s.conversationId);
+  const { setActiveConversation, setShowSettings } = useUiStore();
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-200 mb-0.5">Live Collaboration</h3>
+        <p className="text-xs text-slate-500">
+          Start a live session to collaborate on a conversation in real time.
+          Participants connect via a WebSocket room — turns are locked so only one person
+          sends at a time. The host can optionally relay AI responses to guests who have
+          no API keys configured.
+        </p>
+      </div>
+
+      {roomId ? (
+        <div className="flex flex-col gap-3">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+              <span className="text-sm font-medium text-emerald-400">Room active</span>
+            </div>
+            <p className="text-xs text-slate-500">
+              {participants.length} {participants.length === 1 ? 'participant' : 'participants'} connected
+            </p>
+            <button
+              onClick={() => {
+                if (conversationId) setActiveConversation(conversationId);
+                setShowSettings(false);
+              }}
+              className="self-start text-xs px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 transition-colors"
+            >
+              Go to live conversation →
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-xs text-slate-600 py-8 text-center border border-dashed border-slate-800 rounded-xl">
+          No active room. Click <strong className="text-slate-400">Live</strong> in the status bar to start one.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SelfHostingSection({
+  settings,
+  onSave,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+}) {
+  const [url, setUrl] = useState(settings.selfHosting?.shareServerUrl ?? '');
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = async () => {
+    const trimmed = url.trim();
+    await onSave({ selfHosting: { ...settings.selfHosting, shareServerUrl: trimmed || undefined } });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleReset = async () => {
+    setUrl('');
+    await onSave({ selfHosting: { ...settings.selfHosting, shareServerUrl: undefined } });
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-200 mb-0.5">Self-Hosting</h3>
+        <p className="text-xs text-slate-500">
+          Override the default OpenConduit cloud endpoints with your own server.
+          Leave blank to use the hosted service at <code className="text-slate-400">share.openconduit.ai</code>.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="text-xs font-medium text-slate-300 block mb-1.5">
+            Room &amp; Share Server URL
+          </label>
+          <p className="text-[11px] text-slate-500 mb-2">
+            Base URL of your self-hosted server (e.g. <code className="text-slate-400">https://my-server.example.com</code>).
+            The app derives the WebSocket URL automatically.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => { setUrl(e.target.value); setSaved(false); }}
+              placeholder="https://share.openconduit.ai"
+              className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/60"
+            />
+            <button
+              onClick={handleSave}
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+            >
+              {saved ? '✓ Saved' : 'Save'}
+            </button>
+            {url && (
+              <button
+                onClick={handleReset}
+                className="px-3 py-2 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+                title="Reset to default"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-slate-900/60 border border-slate-800 rounded-lg px-4 py-3 text-[11px] text-slate-500 space-y-1">
+          <p className="font-medium text-slate-400">Deploying your own server</p>
+          <p>The room server is a stateful WebSocket server that manages turn-based locks and broadcasts messages between participants. A Node.js reference implementation is available in the <code className="text-slate-400">server/</code> directory of the OpenConduit repository.</p>
+          <p className="mt-1">Your server must implement the same HTTP + WebSocket endpoints as the Cloudflare Worker (<code className="text-slate-400">POST /rooms</code>, <code className="text-slate-400">WS /rooms/:id</code>, <code className="text-slate-400">POST /rooms/:id/seed</code>).</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type SharingSection = 'links' | 'live' | 'self-hosting';
+
+function SharingTab({
+  settings,
+  onSave,
+  section,
+  onSection,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+  section: SharingSection;
+  onSection: (s: SharingSection) => void;
+}) {
+  const sections: { id: SharingSection; label: string }[] = [
+    { id: 'links',        label: 'Shared Links' },
+    { id: 'live',         label: 'Live' },
+    { id: 'self-hosting', label: 'Self-Hosting' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 pb-3 border-b border-slate-700/60">
+        {sections.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onSection(s.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              section === s.id
+                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {section === 'links'        && <SharedLinksSection />}
+      {section === 'live'         && <LiveSection />}
+      {section === 'self-hosting' && <SelfHostingSection settings={settings} onSave={onSave} />}
+    </div>
+  );
+}
 
 // ─── SettingsPanel ────────────────────────────────────────────────────────────
 
@@ -125,6 +458,7 @@ export default function SettingsPanel({
   const [aiSection, setAiSection] = useState<'providers' | 'mcp' | 'personas' | 'prompts' | 'analytics'>('providers');
   const [featuresSection, setFeaturesSection] = useState<'features' | 'labs'>('features');
   const [extensionsSection, setExtensionsSection] = useState<'installed' | 'settings'>('installed');
+  const [sharingSection, setSharingSection] = useState<'links' | 'live' | 'self-hosting'>('links');
 
   // If something opened settings and requested a specific tab (e.g. MCP gear icon),
   // jump to that tab and clear the request so it doesn't repeat on re-open.
@@ -163,7 +497,8 @@ export default function SettingsPanel({
     { id: 'general',   label: 'General',   icon: Icons.general },
     { id: 'ai',        label: 'AI',         icon: Icons.ai },
     { id: 'features',  label: 'Features',  icon: Icons.features },
-    { id: 'updates',   label: 'Updates',   icon: Icons.updates },
+    { id: 'sharing',      label: 'Sharing',      icon: Icons.sharing },
+    { id: 'updates',      label: 'Updates',       icon: Icons.updates },
     { id: 'logging',   label: 'Logging',   icon: Icons.logging },
     { id: 'telemetry', label: 'Telemetry',       icon: Icons.telemetry },
     { id: 'about',     label: 'About',     icon: Icons.about },
@@ -281,6 +616,7 @@ export default function SettingsPanel({
                     onSection={setFeaturesSection}
                   />
                 )}
+                {tab === 'sharing' && <SharingTab settings={settings} onSave={saveSettings} section={sharingSection} onSection={setSharingSection} />}
                 {tab === 'updates' && <UpdatesTab settings={settings} onSave={saveSettings} />}
                 {tab === 'logging' && <LoggingTab settings={settings} onSave={saveSettings} />}
                 {tab === 'telemetry' && <TelemetryTab settings={settings} onSave={saveSettings} />}

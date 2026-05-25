@@ -21,6 +21,8 @@ interface UiState {
   setSettingsInitialTab: (tab: string | null) => void;
   showConversationSettings: boolean;
   setShowConversationSettings: (v: boolean) => void;
+  showRoomSettings: boolean;
+  setShowRoomSettings: (v: boolean) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
   activePanel: ActivityPanel;
@@ -116,6 +118,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setSettingsInitialTab: (tab) => set({ settingsInitialTab: tab }),
   showConversationSettings: false,
   setShowConversationSettings: (v) => set({ showConversationSettings: v }),
+  showRoomSettings: false,
+  setShowRoomSettings: (v) => set({ showRoomSettings: v }),
 
   sidebarOpen: true,
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
