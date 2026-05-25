@@ -154,7 +154,7 @@ function SharedLinksSection() {
         }
       }
       for (const s of definitelyExpired) {
-        window.api!.conversation!.deleteShare(s.id).catch(() => {});
+        window.api!.conversation!.deleteShare(s.id).catch(() => undefined);
       }
 
       setShares(maybeAlive);
@@ -179,7 +179,7 @@ function SharedLinksSection() {
         );
         if (gone.length > 0) {
           for (const id of gone) {
-            window.api!.conversation!.deleteShare(id).catch(() => {});
+            window.api!.conversation!.deleteShare(id).catch(() => undefined);
           }
           setShares((prev) => prev.filter((s) => !gone.includes(s.id)));
         }
@@ -901,7 +901,7 @@ function ProvidersTab({
     if (view !== 'list') return;
     const hasLocal = settings.providers.some((p) => p.type === 'lmstudio' || p.type === 'ollama');
     if (!hasLocal) return;
-    service.models.probe?.().then(setLocalStatus).catch(() => {});
+    service.models.probe?.().then(setLocalStatus).catch(() => undefined);
   }, [view, settings.providers]);
 
   const handleSaveProvider = (provider: ProviderConfig) => {

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CollabParticipant, CollabServerEvent, Message } from '../types';
+import type { CollabParticipant, CollabServerEvent } from '../types';
 
 // ─── Palette for auto-assigning participant colors ────────────────────────────
 const PALETTE = [
@@ -53,7 +53,7 @@ export interface CollaborationState {
   ) => void;
 }
 
-export const useCollaborationStore = create<CollaborationState>()((set, get) => ({
+export const useCollaborationStore = create<CollaborationState>()((set) => ({
   roomId: null,
   inviteUrl: null,
   conversationId: null,

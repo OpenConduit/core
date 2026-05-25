@@ -105,7 +105,7 @@ export default function StatusBar() {
       setRoom(result.roomId, result.inviteUrl, activeConversationId ?? '', true);
     } catch { /* ignore */ }
     finally { setStartingRoom(false); }
-  }, [conv, startingRoom, settings, setRoom]);
+  }, [conv, startingRoom, setRoom, activeConversationId]);
 
   const handleCopyRoomLink = useCallback(async () => {
     if (!inviteUrl) return;

@@ -11,14 +11,13 @@ import { useCollaborationStore } from '../stores/collaborationStore';
 import { useConversationStore } from '../stores/conversationStore';
 
 export function useCollaboration(activeConversationId: string | null) {
-  const collabStore = useCollaborationStore();
-  const convStore = useConversationStore();
-
   useEffect(() => {
     if (typeof window === 'undefined' || !window.api?.collab) return;
 
     const unsubEvents = window.api.collab.onEvent((rawEvent: unknown) => {
       const event = rawEvent as CollabServerEvent;
+      const collabStore = useCollaborationStore.getState();
+      const convStore = useConversationStore.getState();
 
       // Always route to the conversation the room was started from, not the currently active one
       const targetConversationId = collabStore.conversationId ?? activeConversationId;
@@ -60,9 +59,10 @@ export function useCollaboration(activeConversationId: string | null) {
     // Handle deep-link join invites: openconduit://join?roomId=…
     // Don't auto-join — show JoinRoomModal so user can pick a name first.
     const unsubInvite = window.api.collab.onInvite?.((roomId: string) => {
+      const collabStore = useCollaborationStore.getState();
       if (collabStore.roomId === roomId) return;
       collabStore.setPendingInvite(roomId);
-    }) ?? (() => {});
+    }) ?? (() => undefined);
 
     return () => { unsubEvents(); unsubInvite(); };
   }, [activeConversationId]);

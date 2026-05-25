@@ -27,10 +27,7 @@ export function CollaborationBar({ onLeave }: CollaborationBarProps) {
   const [copied, setCopied] = useState(false);
   const [requesting, setRequesting] = useState(false);
 
-  if (!roomId) return null;
-
-  const lockHolderName = participants.find((p) => p.id === lockHolder)?.name ?? null;
-
+  // All hooks must be declared before any early return (Rules of Hooks)
   const handleCopyInvite = useCallback(async () => {
     if (!inviteUrl) return;
     try {
@@ -60,9 +57,9 @@ export function CollaborationBar({ onLeave }: CollaborationBarProps) {
     onLeave?.();
   }, [onLeave]);
 
-  const handleSetAiMode = useCallback((mode: 'own' | 'host') => {
-    window.api?.collab?.send({ type: 'set_ai_mode', mode });
-  }, []);
+  if (!roomId) return null;
+
+  const lockHolderName = participants.find((p) => p.id === lockHolder)?.name ?? null;
 
   return (
     <div className="flex flex-col bg-[#1a2744] border-b border-[#2d4a7a] text-sm">
