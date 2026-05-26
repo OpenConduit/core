@@ -3747,6 +3747,12 @@ function AboutTab({
   const [resetState, setResetState] = useState<'idle' | 'confirm' | 'working' | 'done'>('idle');
   const [resetError, setResetError] = useState('');
 
+  const [machineId, setMachineId] = useState<string>('');
+  const [machineIdCopied, setMachineIdCopied] = useState(false);
+  useEffect(() => {
+    window.api?.machine?.getId().then(setMachineId).catch(() => {});
+  }, []);
+
   async function resetAppData() {
     setResetState('working');
     setResetError('');
@@ -3794,6 +3800,27 @@ function AboutTab({
           <p className="text-xs text-slate-600 mt-0.5">Built with Electron + React + Tailwind</p>
         </div>
       </div>
+
+      {/* Machine ID */}
+      {machineId && (
+        <div className="rounded-xl bg-slate-800/40 border border-slate-700 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-0.5">Device ID</p>
+            <p className="text-xs font-mono text-slate-500 truncate">{machineId}</p>
+          </div>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(machineId).then(() => {
+                setMachineIdCopied(true);
+                setTimeout(() => setMachineIdCopied(false), 2000);
+              });
+            }}
+            className="shrink-0 px-2.5 py-1 rounded-lg text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+          >
+            {machineIdCopied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      )}
 
       {/* Feedback */}
       <Section title="Send Feedback">
