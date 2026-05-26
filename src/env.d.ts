@@ -22,6 +22,9 @@ declare interface Window {
       listShares: () => Promise<Array<{ id: string; url: string; title: string; createdAt: number }>>;
       deleteShare: (id: string) => Promise<void>;
     };
+    machine?: {
+      getId: () => Promise<string>;
+    };
     [key: string]: unknown;
   };
   /** Exposed by the renderer for HTML export triggered from the main process. */
