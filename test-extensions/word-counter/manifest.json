@@ -1,0 +1,17 @@
+{
+  "id": "ref.word-counter",
+  "name": "Word Counter",
+  "version": "1.0.0",
+  "description": "Shows live statistics for the active conversation: message count, word count, and estimated token usage. Demonstrates reading conversation data via the ExtensionAPI.",
+  "author": "OpenConduit",
+  "entryPoint": "src/index.js",
+  "contributes": {
+    "activityBarItems": [
+      {
+        "panelId": "ref.word-counter",
+        "label": "Word Counter",
+        "order": 91
+      }
+    ]
+  }
+}

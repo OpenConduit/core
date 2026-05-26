@@ -1,0 +1,33 @@
+{
+  "id": "ref.sticky-notes",
+  "name": "Sticky Notes",
+  "version": "1.0.0",
+  "description": "A persistent scratchpad that saves your notes using extension settings. Demonstrates settings.get/set() and the settings.write permission in a sandboxed extension.",
+  "author": "OpenConduit",
+  "entryPoint": "src/index.js",
+  "contributes": {
+    "activityBarItems": [
+      {
+        "panelId": "ref.sticky-notes",
+        "label": "Sticky Notes",
+        "order": 93
+      }
+    ],
+    "settings": [
+      {
+        "key": "ref.sticky-notes.content",
+        "type": "string",
+        "default": "",
+        "title": "Notes content",
+        "description": "Notes saved by the Sticky Notes extension."
+      },
+      {
+        "key": "ref.sticky-notes.fontSize",
+        "type": "number",
+        "default": 13,
+        "title": "Font size",
+        "description": "Font size (px) for the notes editor."
+      }
+    ]
+  }
+}

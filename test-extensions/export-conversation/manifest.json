@@ -1,0 +1,17 @@
+{
+  "id": "ref.export-conversation",
+  "name": "Export Conversation",
+  "version": "1.0.0",
+  "description": "Export the active conversation as Markdown or plain text. Demonstrates reading conversation data and calling ui.showNotification() from a sandboxed extension.",
+  "author": "OpenConduit",
+  "entryPoint": "src/index.js",
+  "contributes": {
+    "activityBarItems": [
+      {
+        "panelId": "ref.export-conversation",
+        "label": "Export Conversation",
+        "order": 92
+      }
+    ]
+  }
+}

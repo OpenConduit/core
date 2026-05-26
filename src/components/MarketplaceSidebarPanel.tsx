@@ -13,6 +13,14 @@ import { useRegistryStore } from '../stores/registryStore';
 import type { RegistryType, RegistryEntry } from '../stores/registryStore';
 import { loadInstalledExtensions } from '../extensions/loader';
 
+// ─── Extension IPC bridge (minimal shape) ─────────────────────────────────────
+interface ExtensionsIpcApi {
+  getInstalled: () => Promise<Array<{ id: string; version: string }>>;
+  install: (id: string, downloadUrl: string) => Promise<{ success: boolean; error?: string }>;
+  uninstall: (id: string) => Promise<void>;
+}
+type ExtApiWindow = Window & { api?: { extensions?: ExtensionsIpcApi } };
+
 /** Returns true if `registryVer` is strictly greater than `installedVer` (semver). */
 function isNewer(registryVer: string | undefined, installedVer: string | undefined): boolean {
   if (!registryVer || !installedVer) return false;
@@ -78,52 +86,56 @@ function Badge({ label }: { label: string }) {
 
 // ─── Type pill ────────────────────────────────────────────────────────────────
 
-type TypeFilter = 'all' | 'provider' | 'mcp' | 'theme' | 'persona' | 'prompt' | 'profile';
+type TypeFilter = 'all' | 'provider' | 'mcp' | 'theme' | 'persona' | 'prompt' | 'profile' | 'extension';
 
 const TYPE_PILLS: { id: TypeFilter; label: string }[] = [
-  { id: 'all',      label: 'All' },
-  { id: 'provider', label: 'Providers' },
-  { id: 'mcp',      label: 'MCP' },
-  { id: 'theme',    label: 'Themes' },
-  { id: 'persona',  label: 'Personas' },
-  { id: 'prompt',   label: 'Prompts' },
-  { id: 'profile',  label: 'Profiles' },
+  { id: 'all',       label: 'All' },
+  { id: 'provider',  label: 'Providers' },
+  { id: 'mcp',       label: 'MCP' },
+  { id: 'theme',     label: 'Themes' },
+  { id: 'persona',   label: 'Personas' },
+  { id: 'prompt',    label: 'Prompts' },
+  { id: 'profile',   label: 'Profiles' },
+  { id: 'extension', label: 'Extensions' },
 ];
 
 /** Registry type → TypeFilter mapping */
 const _REGISTRY_TYPE_MAP: Record<RegistryType, TypeFilter> = {
-  themes:    'theme',
-  personas:  'persona',
-  prompts:   'prompt',
-  profiles:  'profile',
-  providers: 'provider',
-  mcp:       'mcp',
+  themes:     'theme',
+  personas:   'persona',
+  prompts:    'prompt',
+  profiles:   'profile',
+  providers:  'provider',
+  mcp:        'mcp',
+  extensions: 'extension',
 };
 
 // ─── Unified entry ────────────────────────────────────────────────────────────
 
 type UnifiedEntry =
-  | { kind: 'provider'; id: string; name: string; description: string; badge: string; installed: boolean; emoji?: string }
-  | { kind: 'mcp';      id: string; name: string; description: string; badge?: string; installed: boolean; emoji: string; notes?: string }
-  | { kind: 'theme';    id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
-  | { kind: 'persona';  id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
-  | { kind: 'prompt';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
-  | { kind: 'profile';  id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry };
+  | { kind: 'provider';  id: string; name: string; description: string; badge: string; installed: boolean; emoji?: string }
+  | { kind: 'mcp';       id: string; name: string; description: string; badge?: string; installed: boolean; emoji: string; notes?: string }
+  | { kind: 'theme';     id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
+  | { kind: 'persona';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
+  | { kind: 'prompt';    id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
+  | { kind: 'profile';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
+  | { kind: 'extension'; id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry };
 
 // ─── Kind colour map ──────────────────────────────────────────────────────────
 
 const KIND_COLORS: Record<string, string> = {
-  provider: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300',
-  mcp:      'bg-teal-100   text-teal-700   dark:bg-teal-900/60   dark:text-teal-300',
-  theme:    'bg-pink-100   text-pink-700   dark:bg-pink-900/60   dark:text-pink-300',
-  persona:  'bg-violet-100 text-violet-700 dark:bg-violet-900/60 dark:text-violet-300',
-  prompt:   'bg-amber-100  text-amber-700  dark:bg-amber-900/60  dark:text-amber-300',
-  profile:  'bg-cyan-100   text-cyan-700   dark:bg-cyan-900/60   dark:text-cyan-300',
+  provider:  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300',
+  mcp:       'bg-teal-100   text-teal-700   dark:bg-teal-900/60   dark:text-teal-300',
+  theme:     'bg-pink-100   text-pink-700   dark:bg-pink-900/60   dark:text-pink-300',
+  persona:   'bg-violet-100 text-violet-700 dark:bg-violet-900/60 dark:text-violet-300',
+  prompt:    'bg-amber-100  text-amber-700  dark:bg-amber-900/60  dark:text-amber-300',
+  profile:   'bg-cyan-100   text-cyan-700   dark:bg-cyan-900/60   dark:text-cyan-300',
+  extension: 'bg-orange-100 text-orange-700 dark:bg-orange-900/60 dark:text-orange-300',
 };
 
 const KIND_LABELS: Record<string, string> = {
   provider: 'Provider', mcp: 'MCP', theme: 'Theme',
-  persona: 'Persona', prompt: 'Prompt', profile: 'Profile',
+  persona: 'Persona', prompt: 'Prompt', profile: 'Profile', extension: 'Extension',
 };
 
 // ─── Verified checkmark ───────────────────────────────────────────────────────
@@ -244,6 +256,20 @@ export default function MarketplaceSidebarPanel() {
   const [query, setQuery]   = useState('');
   const [typePill, setTypePill] = useState<TypeFilter>('all');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Installed extension ids → installed version (refreshed on mount + after install/uninstall)
+  const [installedExtMap, setInstalledExtMap] = useState<Map<string, string>>(new Map());
+
+  const refreshInstalledExt = async () => {
+    const api = (window as ExtApiWindow).api;
+    if (!api?.extensions?.getInstalled) return;
+    try {
+      const exts = await api.extensions.getInstalled();
+      setInstalledExtMap(new Map(exts.map((e) => [e.id, e.version])));
+    } catch { /* extensions not available in this context */ }
+  };
+
+  useEffect(() => { void refreshInstalledExt(); }, []);
   const { settings, saveSettings } = useSettingsStore();
 
   // Registry stores
@@ -256,14 +282,15 @@ export default function MarketplaceSidebarPanel() {
   // Fetch registry data for the active tab on demand
   useEffect(() => {
     const typeMap: Partial<Record<TypeFilter, RegistryType>> = {
-      theme:   'themes',
-      persona: 'personas',
-      prompt:  'prompts',
-      profile: 'profiles',
+      theme:     'themes',
+      persona:   'personas',
+      prompt:    'prompts',
+      profile:   'profiles',
+      extension: 'extensions',
     };
     if (typePill === 'all') {
       // Fetch all registry types in parallel on first open
-      (['themes', 'personas', 'prompts', 'profiles'] as RegistryType[]).forEach((t) => fetchType(t));
+      (['themes', 'personas', 'prompts', 'profiles', 'extensions'] as RegistryType[]).forEach((t) => fetchType(t));
     } else {
       const rt = typeMap[typePill];
       if (rt) fetchType(rt);
@@ -273,7 +300,7 @@ export default function MarketplaceSidebarPanel() {
   // Parse @mcp / @provider / @theme / etc. prefix from raw query
   const PREFIX_MAP: Record<string, TypeFilter> = {
     mcp: 'mcp', provider: 'provider', theme: 'theme',
-    persona: 'persona', prompt: 'prompt', profile: 'profile',
+    persona: 'persona', prompt: 'prompt', profile: 'profile', extension: 'extension',
   };
   const atMatch = query.match(/^@(\w+)\s*/i);
   const prefixType: TypeFilter = atMatch
@@ -376,14 +403,27 @@ export default function MarketplaceSidebarPanel() {
       entry: e,
     }));
 
+    const extensionEntries: UnifiedEntry[] = getEntries('extensions').map((e) => ({
+      kind: 'extension',
+      id: e.id,
+      name: e.name,
+      description: e.description,
+      author: e.author,
+      verified: e.verified,
+      installed: installedExtMap.has(e.id),
+      hasUpdate: isNewer(e.version, installedExtMap.get(e.id)),
+      entry: e,
+    }));
+
     let pool: UnifiedEntry[] =
-      effectiveType === 'provider' ? providers
-      : effectiveType === 'mcp'    ? mcpServers
-      : effectiveType === 'theme'  ? themes
-      : effectiveType === 'persona'? personaEntries
-      : effectiveType === 'prompt' ? promptEntries
-      : effectiveType === 'profile'? profileEntries
-      : [...providers, ...mcpServers, ...themes, ...personaEntries, ...promptEntries, ...profileEntries];
+      effectiveType === 'provider'  ? providers
+      : effectiveType === 'mcp'       ? mcpServers
+      : effectiveType === 'theme'     ? themes
+      : effectiveType === 'persona'   ? personaEntries
+      : effectiveType === 'prompt'    ? promptEntries
+      : effectiveType === 'profile'   ? profileEntries
+      : effectiveType === 'extension' ? extensionEntries
+      : [...providers, ...mcpServers, ...themes, ...personaEntries, ...promptEntries, ...profileEntries, ...extensionEntries];
 
     if (cleanQuery) {
       pool = pool.filter(
@@ -394,7 +434,7 @@ export default function MarketplaceSidebarPanel() {
     }
 
     return pool;
-  }, [settings, effectiveType, cleanQuery, getEntries, installedThemeIds, installedPersonaNames, installedTemplateNames, installedProfileNames, installedThemes, installedPersonas, installedTemplates, installedProfiles]);
+  }, [settings, effectiveType, cleanQuery, getEntries, installedThemeIds, installedPersonaNames, installedTemplateNames, installedProfileNames, installedThemes, installedPersonas, installedTemplates, installedProfiles, installedExtMap]);
 
   const handleAdd = async (entry: UnifiedEntry) => {
     if (!settings) return;
@@ -480,6 +520,17 @@ export default function MarketplaceSidebarPanel() {
         taskOverrides: c.taskOverrides,
         fromRegistry: true,
       });
+    } else if (entry.kind === 'extension') {
+      const c = entry.entry.content as { downloadUrl?: string };
+      if (!c.downloadUrl) return;
+      const api = (window as ExtApiWindow).api;
+      if (!api?.extensions?.install) return;
+      const result = await api.extensions.install(entry.id, c.downloadUrl);
+      if (result.success) {
+        await refreshInstalledExt();
+        await loadInstalledExtensions();
+      }
+      return;
     }
 
     // Re-run the extension loader so any newly-downloaded bundle extension
@@ -487,7 +538,7 @@ export default function MarketplaceSidebarPanel() {
     await loadInstalledExtensions();
   };
 
-  const handleRemove = (entry: UnifiedEntry) => {
+  const handleRemove = async (entry: UnifiedEntry) => {
     if (entry.kind === 'theme') {
       uninstallTheme(entry.id);
     } else if (entry.kind === 'persona') {
@@ -498,6 +549,11 @@ export default function MarketplaceSidebarPanel() {
     } else if (entry.kind === 'profile') {
       const match = installedProfiles.find((p) => p.name === entry.name);
       if (match) removeProfile(match.id);
+    } else if (entry.kind === 'extension') {
+      const api = (window as ExtApiWindow).api;
+      if (!api?.extensions?.uninstall) return;
+      await api.extensions.uninstall(entry.id);
+      await refreshInstalledExt();
     }
   };
 
@@ -519,15 +575,20 @@ export default function MarketplaceSidebarPanel() {
       const existing = installedProfiles.find((p) => p.name === entry.name);
       if (existing) removeProfile(existing.id);
       await handleAdd(entry);
+    } else if (entry.kind === 'extension') {
+      // Uninstall old version, then re-download the new .ocx
+      await handleRemove(entry);
+      await handleAdd(entry);
     }
   };
 
   // Loading/error state for the active registry type
   const activeRegistryType: RegistryType | null =
-    effectiveType === 'theme'   ? 'themes'
-    : effectiveType === 'persona' ? 'personas'
-    : effectiveType === 'prompt'  ? 'prompts'
-    : effectiveType === 'profile' ? 'profiles'
+    effectiveType === 'theme'     ? 'themes'
+    : effectiveType === 'persona'   ? 'personas'
+    : effectiveType === 'prompt'    ? 'prompts'
+    : effectiveType === 'profile'   ? 'profiles'
+    : effectiveType === 'extension' ? 'extensions'
     : null;
 
   const isRegistryLoading = activeRegistryType ? !!regLoading[activeRegistryType] : false;

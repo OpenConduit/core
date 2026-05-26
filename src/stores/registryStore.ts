@@ -11,7 +11,7 @@ const REGISTRY_BACKUP = 'https://openconduit-registry.chumchal-account.workers.d
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type RegistryType = 'themes' | 'personas' | 'prompts' | 'profiles' | 'providers' | 'mcp';
+export type RegistryType = 'themes' | 'personas' | 'prompts' | 'profiles' | 'providers' | 'mcp' | 'extensions';
 
 export interface RegistryEntry {
   id: string;
@@ -126,7 +126,7 @@ export const useRegistryStore = create<RegistryState>()(
       },
 
       fetchAll: async () => {
-        const types: RegistryType[] = ['themes', 'personas', 'prompts', 'profiles', 'providers', 'mcp'];
+        const types: RegistryType[] = ['themes', 'personas', 'prompts', 'profiles', 'providers', 'mcp', 'extensions'];
         await Promise.all(types.map((t) => get().fetchType(t)));
       },
     }),
