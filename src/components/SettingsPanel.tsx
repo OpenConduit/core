@@ -3172,10 +3172,11 @@ function ProviderBadge({ type }: { type: ProviderType }) {
     gemini: 'bg-blue-800 text-blue-200',
     bedrock: 'bg-yellow-800 text-yellow-200',
     copilot: 'bg-slate-700 text-slate-200',
+    perplexity: 'bg-cyan-800 text-cyan-200',
   };
   return (
     <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${colors[type]}`}>
-      {type === 'lmstudio' ? 'LMS' : type === 'anthropic' ? 'ANT' : type === 'ollama' ? 'OLL' : type === 'gemini' ? 'GEM' : type === 'bedrock' ? 'AWS' : type === 'copilot' ? 'GH' : 'OAI'}
+      {type === 'lmstudio' ? 'LMS' : type === 'anthropic' ? 'ANT' : type === 'ollama' ? 'OLL' : type === 'gemini' ? 'GEM' : type === 'bedrock' ? 'AWS' : type === 'copilot' ? 'GH' : type === 'perplexity' ? 'PPX' : 'OAI'}
     </span>
   );
 }

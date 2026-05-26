@@ -200,6 +200,20 @@
     "notes": "Enter your server's base URL (e.g. http://localhost:8080/v1). Leave the API key blank if not required."
   },
   {
+    "id": "perplexity",
+    "name": "Perplexity",
+    "description": "Sonar and Sonar Pro — search-augmented models that cite real-time web sources with every answer.",
+    "category": "cloud-proprietary",
+    "icon": "🔍",
+    "type": "perplexity",
+    "defaultModel": "sonar-pro",
+    "requiresApiKey": true,
+    "apiKeyUrl": "https://www.perplexity.ai/settings/api",
+    "badge": "API Key",
+    "modelCount": "5+ models",
+    "notes": "Sonar models include web citations in responses. Tool use is not supported by the Perplexity API."
+  },
+  {
     "id": "amazon-bedrock",
     "name": "Amazon Bedrock",
     "description": "Fully managed service from AWS giving access to Claude, Llama, Mistral, Titan and many more. Enterprise-grade with VPC support.",
