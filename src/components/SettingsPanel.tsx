@@ -3750,7 +3750,7 @@ function AboutTab({
   const [machineId, setMachineId] = useState<string>('');
   const [machineIdCopied, setMachineIdCopied] = useState(false);
   useEffect(() => {
-    window.api?.machine?.getId().then(setMachineId).catch(() => {});
+    window.api?.machine?.getId().then(setMachineId).catch((_e: unknown) => { /* non-fatal */ });
   }, []);
 
   async function resetAppData() {
