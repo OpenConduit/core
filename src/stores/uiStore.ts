@@ -103,6 +103,12 @@ interface UiState {
   leftPaneContent: { type: 'code' | 'file' | 'preview'; language?: string; payload: string } | null;
   openInLeftPane: (content: { type: 'code' | 'file' | 'preview'; language?: string; payload: string }) => void;
   closeLeftPane: () => void;
+
+  // ── Feedback modal ────────────────────────────────────────────────────────
+  /** When set, shows the FeedbackModal. conversationId is included for bug-in-chat context. */
+  feedbackModal: { type: 'bug' | 'feature'; conversationId: string | null } | null;
+  openFeedbackModal: (opts: { type: 'bug' | 'feature'; conversationId?: string | null }) => void;
+  closeFeedbackModal: () => void;
 }
 
 export const useUiStore = create<UiState>()((set, get) => ({
@@ -252,4 +258,9 @@ export const useUiStore = create<UiState>()((set, get) => ({
   leftPaneContent: null,
   openInLeftPane: (content) => set({ leftPaneContent: content }),
   closeLeftPane: () => set({ leftPaneContent: null }),
+
+  // Feedback modal
+  feedbackModal: null,
+  openFeedbackModal: (opts) => set({ feedbackModal: { type: opts.type, conversationId: opts.conversationId ?? null } }),
+  closeFeedbackModal: () => set({ feedbackModal: null }),
 }));

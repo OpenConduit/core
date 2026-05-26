@@ -10,6 +10,7 @@ import StatusBar from './components/StatusBar';
 import BottomPanel from './components/BottomPanel';
 import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutsPanel from './components/KeyboardShortcutsPanel';
+import FeedbackModal from './components/FeedbackModal';
 import MarketplaceSidebarPanel from './components/MarketplaceSidebarPanel';
 import SecondarySidebar from './components/SecondarySidebar';
 import SplitPane, { PaneCodeViewer } from './components/SplitPane';
@@ -314,6 +315,9 @@ export default function App() {
 
         {/* Keyboard shortcuts editor — triggered by Manage › Keyboard Shortcuts */}
         <KeyboardShortcutsPanel />
+
+        {/* Bug / feature request modal — triggered by /reportbug and /requestfeature slash commands */}
+        <FeedbackModal />
       </div>
     );
   }
