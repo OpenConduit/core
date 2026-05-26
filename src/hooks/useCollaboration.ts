@@ -10,8 +10,9 @@ import type { CollabServerEvent, Message } from '../types';
 import { useCollaborationStore } from '../stores/collaborationStore';
 import { useConversationStore } from '../stores/conversationStore';
 
-export function useCollaboration(activeConversationId: string | null) {
+export function useCollaboration(activeConversationId: string | null, enabled = false) {
   useEffect(() => {
+    if (!enabled) return;
     if (typeof window === 'undefined' || !window.api?.collab) return;
 
     const unsubEvents = window.api.collab.onEvent((rawEvent: unknown) => {
@@ -65,5 +66,5 @@ export function useCollaboration(activeConversationId: string | null) {
     }) ?? (() => undefined);
 
     return () => { unsubEvents(); unsubInvite(); };
-  }, [activeConversationId]);
+  }, [activeConversationId, enabled]);
 }

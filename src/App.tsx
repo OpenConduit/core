@@ -55,8 +55,8 @@ export default function App() {
   const { conversations, openTabs, openTab } = useConversationStore();
   const { restoreTheme, setActiveTheme } = useThemesStore();
 
-  // Wire up live collaboration event bridge + deep-link invite handling
-  useCollaboration(activeConversationId);
+  // Wire up live collaboration event bridge + deep-link invite handling (Labs: liveCollaboration)
+  useCollaboration(activeConversationId, settings?.labs?.liveCollaboration ?? false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('oc-sidebar-width');
     return saved ? Number(saved) : 240;

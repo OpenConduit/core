@@ -21,6 +21,7 @@ interface Props {
 export default function ChatArea({ conversationId }: Props) {
   const { conversation, isStreaming, isCompacting, sendMessage, abortStream, approveToolCall, sendAnswers, compactContext, trimOldMessages } = useChat(conversationId);
   const { settings } = useSettingsStore();
+  const liveCollab = settings?.labs?.liveCollaboration ?? false;
   const { clearMessages } = useConversationStore();
   const { activeConversationId, showConversationSettings, setShowConversationSettings, setShowSystemPrompt, setShowParameters, showRoomSettings, setShowRoomSettings } = useUiStore();
   const collabConversationId = useCollaborationStore((s) => s.conversationId);
@@ -44,7 +45,7 @@ export default function ChatArea({ conversationId }: Props) {
   if (!conversationId) {
     return (
       <>
-        <JoinRoomModal />
+        {liveCollab && <JoinRoomModal />}
         <WelcomeScreen />
       </>
     );
@@ -52,8 +53,8 @@ export default function ChatArea({ conversationId }: Props) {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-slate-900 relative">
-      <JoinRoomModal />
-      {isSharedChat && <CollaborationBar />}
+      {liveCollab && <JoinRoomModal />}
+      {liveCollab && isSharedChat && <CollaborationBar />}
       <MessageList
         messages={conversation?.messages ?? []}
         conversationId={conversationId ?? undefined}
@@ -90,7 +91,7 @@ export default function ChatArea({ conversationId }: Props) {
       )}
 
       {/* Room Settings side panel (host only, shown when gear is clicked) */}
-      {showRoomSettings && isSharedChat && (
+      {liveCollab && showRoomSettings && isSharedChat && (
         <SidePanel title="Room Settings" onClose={() => setShowRoomSettings(false)}>
           <RoomSettingsContent
             aiMode={aiMode}

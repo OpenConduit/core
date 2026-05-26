@@ -35,6 +35,7 @@ export default function StatusBar() {
   const { activeConversationId, bottomPanelOpen, toggleBottomPanel } = useUiStore();
   const { conversations } = useConversationStore();
   const { settings } = useSettingsStore();
+  const liveCollab = settings?.labs?.liveCollaboration ?? false;
   const records = useAnalyticsStore((s) => s.records);
   const { roomId, inviteUrl, participants, setRoom, clearRoom } = useCollaborationStore();
   const collabConversationId = useCollaborationStore((s) => s.conversationId);
@@ -219,7 +220,7 @@ export default function StatusBar() {
           )}
 
           {/* Live collaboration button */}
-          {window.api?.collab && !roomId && (
+          {liveCollab && window.api?.collab && !roomId && (
             <button
               onClick={handleStartRoom}
               disabled={startingRoom}
@@ -237,7 +238,7 @@ export default function StatusBar() {
           )}
 
           {/* Active room indicator */}
-          {roomId && (
+          {liveCollab && roomId && (
             <div className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${isOnSharedChat ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-700'}`} />
               {isOnSharedChat ? (

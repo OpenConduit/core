@@ -390,6 +390,7 @@ export interface AppSettings {
     aiTaskTracking: boolean;
     aiClarifyingQuestions: boolean;
     debugMode: boolean;
+    liveCollaboration: boolean;
   };
   /** User-entered per-model pricing for cost tracking (USD per 1M tokens) */
   modelPricing?: ModelPricing;
