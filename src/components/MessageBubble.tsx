@@ -213,6 +213,30 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
                       </code>
                     );
                   },
+                  img({ src, alt }) {
+                    // Prevent Blink from loading external image URLs directly —
+                    // following redirects in the renderer can OOM and crash the process.
+                    // Render a placeholder link instead; the user can open it externally.
+                    if (!src) return null;
+                    const isExternal = src.startsWith('http://') || src.startsWith('https://');
+                    if (isExternal) {
+                      return (
+                        <a
+                          href={src}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline text-sm"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            window.api?.updater?.openExternal(src);
+                          }}
+                        >
+                          🖼 {alt || 'Image'}
+                        </a>
+                      );
+                    }
+                    return <img src={src} alt={alt ?? ''} className="max-w-full rounded-lg" />;
+                  },
                 }}
               >
                 {message.content}
