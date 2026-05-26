@@ -25,6 +25,9 @@ declare interface Window {
     machine?: {
       getId: () => Promise<string>;
     };
+    updater?: {
+      openExternal: (url: string) => Promise<void>;
+    };
     [key: string]: unknown;
   };
   /** Exposed by the renderer for HTML export triggered from the main process. */
