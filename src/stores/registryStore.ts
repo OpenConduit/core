@@ -61,13 +61,15 @@ async function fetchIndex(
   ];
 
   for (const url of urls) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8_000);
     try {
       const headers: Record<string, string> = {};
       if (etag) headers['If-None-Match'] = etag;
 
-      const res = await fetch(url, { headers });
+      const res = await fetch(url, { headers, redirect: 'error', signal: controller.signal });
 
-      if (res.status === 304) return 'not-modified';
+      if (res.status === 304) { clearTimeout(timer); return 'not-modified'; }
 
       if (!res.ok) continue; // try next URL
 
@@ -77,9 +79,11 @@ async function fetchIndex(
       if (data.error || !Array.isArray(data.entries)) continue;
 
       const newEtag = res.headers.get('ETag') ?? '';
+      clearTimeout(timer);
       return { index: data, etag: newEtag };
     } catch {
-      // network error — try next URL
+      clearTimeout(timer);
+      // network error, timeout, or redirect blocked — try next URL
     }
   }
 

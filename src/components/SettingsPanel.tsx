@@ -169,6 +169,7 @@ function SharedLinksSection() {
             try {
               const res = await fetch(s.url, {
                 method: 'GET',
+                redirect: 'error',
                 signal: AbortSignal.timeout(6000),
               });
               if (res.status === 404) gone.push(s.id);

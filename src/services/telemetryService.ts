@@ -57,6 +57,7 @@ async function postTelemetry(payload: object): Promise<void> {
     try {
       const res = await fetch(`${base}/telemetry`, {
         method: 'POST', headers, body,
+        redirect: 'error',
         signal: AbortSignal.timeout(4000),
       });
       if (res.ok || res.status < 500) return; // success or client error — don't retry
