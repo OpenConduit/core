@@ -27,6 +27,7 @@ import { useUiStore } from './stores/uiStore';
 import { useConversationStore } from './stores/conversationStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useThemesStore } from './stores/themesStore';
+import { useCollaboration } from './hooks/useCollaboration';
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 520;
@@ -53,6 +54,9 @@ export default function App() {
   } = useUiStore();
   const { conversations, openTabs, openTab } = useConversationStore();
   const { restoreTheme, setActiveTheme } = useThemesStore();
+
+  // Wire up live collaboration event bridge + deep-link invite handling
+  useCollaboration(activeConversationId);
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('oc-sidebar-width');
     return saved ? Number(saved) : 240;
