@@ -167,10 +167,19 @@ export const useConversationStore = create<ConversationState>()(
 
       finalizeMessage: (convId, msgId, toolCalls) => {
         set((s) => {
-          const finalCalls = toolCalls.length ? toolCalls : (
-            s.conversations.find((c) => c.id === convId)
-              ?.messages.find((m) => m.id === msgId)?.toolCalls ?? []
+          const existingMsg = s.conversations.find((c) => c.id === convId)
+            ?.messages.find((m) => m.id === msgId);
+
+          // Accumulate tool calls across multiple AI turns instead of replacing.
+          // Incoming IDs win — exclude any existing entry with the same ID so we
+          // don't store the raw onToolPending copy alongside the completed copy.
+          const incomingIds = new Set(toolCalls.map((tc) => tc.id));
+          const previouslyCompleted = (existingMsg?.toolCalls ?? []).filter(
+            (tc) => !tc.pending && !incomingIds.has(tc.id),
           );
+          const finalCalls = toolCalls.length
+            ? [...previouslyCompleted, ...toolCalls]
+            : (existingMsg?.toolCalls ?? []);
 
           const updatedConversations = s.conversations.map((c) => {
             if (c.id !== convId) return c;
@@ -181,12 +190,13 @@ export const useConversationStore = create<ConversationState>()(
                 : m,
             );
 
-            // If there are tool calls, append a tool_result message so the history
-            // is valid when sent back to Anthropic on the next user turn.
-            if (finalCalls.length > 0) {
-              // Only add if not already present (avoid duplicates on re-render)
+            // Append a tool_result message for THIS iteration's completed calls only.
+            // Guard: only when incoming toolCalls is non-empty (final stream-end
+            // with no tools must not add a spurious extra entry), and only when
+            // we haven't already stored a result for these IDs.
+            if (toolCalls.length > 0) {
               const alreadyHasResult = messages.some(
-                (m) => m.role === 'tool_result' && m.toolCalls?.some((tc) => tc.id === finalCalls[0].id),
+                (m) => m.role === 'tool_result' && m.toolCalls?.some((tc) => incomingIds.has(tc.id)),
               );
               if (!alreadyHasResult) {
                 messages = [
@@ -195,7 +205,7 @@ export const useConversationStore = create<ConversationState>()(
                     id: uuidv4(),
                     role: 'tool_result' as const,
                     content: '',
-                    toolCalls: finalCalls,
+                    toolCalls,          // only this iteration — not all accumulated
                     timestamp: Date.now(),
                   },
                 ];

@@ -19,6 +19,8 @@ interface Props {
   onApprove?: (toolId: string) => void;
   onDeny?: (toolId: string) => void;
   onSendAnswers?: (questions: AiQuestion[], answers: Record<string, string>) => void;
+  /** Called when the user wants to edit a user message — populates the input bar. */
+  onStartEdit?: (messageId: string, content: string) => void;
   /** Extension-contributed decorators rendered below each message bubble. */
   decorators?: MessageDecorator[];
   /** Extension-contributed badges rendered in the message metadata row. */
@@ -30,37 +32,43 @@ function formatDuration(ms: number): string {
   return `${ms}ms`;
 }
 
-const MessageBubble = memo(function MessageBubble({ message, messageIndex, conversationId, onApprove, onDeny, onSendAnswers, decorators, badges }: Props) {
+const MessageBubble = memo(function MessageBubble({ message, messageIndex, conversationId, onApprove, onDeny, onSendAnswers, onStartEdit, decorators, badges }: Props) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
   const [copied, setCopied] = useState(false);
 
-  // Activity panel: thinking + tool calls unified
-  const toolCount = message.toolCalls?.length ?? 0;
-  const hasActivity = isAssistant && (!!message.thinking || toolCount > 0);
-  const hasPendingTools = message.toolCalls?.some((tc) => tc.pending) ?? false;
-  const [activityOpen, setActivityOpen] = useState(!!message.isStreaming || hasPendingTools);
+  // Thinking section: collapsible, like ChatWise "Thought for Xs ▼"
+  const hasThinking = isAssistant && !!message.thinking;
+  const [thinkingOpen, setThinkingOpen] = useState(!!message.isStreaming);
   const wasStreamingRef = React.useRef(message.isStreaming);
   React.useEffect(() => {
     if (wasStreamingRef.current && !message.isStreaming) {
-      if (!hasPendingTools) setActivityOpen(false);
+      setThinkingOpen(false);
       wasStreamingRef.current = false;
     }
-  }, [message.isStreaming, hasPendingTools]);
+  }, [message.isStreaming]);
+
+  // Inline tool rendering: group by iteration using contentSegments
+  const toolCalls = message.toolCalls ?? [];
+  const contentSegments = message.contentSegments;
+  // hasInlineTools: true when we have the segment data to render tools inline (new messages)
+  const hasInlineTools = isAssistant && toolCalls.length > 0 && contentSegments !== undefined;
+  // finalContent = text streamed after the last tool call batch
+  const segmentsTotalLength = contentSegments
+    ? contentSegments.reduce((sum, s) => sum + s.length, 0)
+    : 0;
+  const finalContent = hasInlineTools ? message.content.slice(segmentsTotalLength) : message.content;
+
+  // Backwards-compat: old messages with tool calls but no contentSegments
+  const hasLegacyTools = isAssistant && toolCalls.length > 0 && contentSegments === undefined;
+  const hasPendingTools = toolCalls.some((tc) => tc.pending);
+  // Keep legacy activity panel open while there are pending tool approvals
+  const [legacyActivityOpen, setLegacyActivityOpen] = useState(hasPendingTools);
   React.useEffect(() => {
-    if (hasPendingTools) setActivityOpen(true);
+    if (hasPendingTools) setLegacyActivityOpen(true);
   }, [hasPendingTools]);
 
-  const totalToolMs = message.toolCalls?.reduce((sum, tc) => sum + (tc.durationMs ?? 0), 0) ?? 0;
-  const activityLabel = message.isStreaming
-    ? 'Working…'
-    : toolCount > 0
-      ? totalToolMs > 0
-        ? `Worked for ${formatDuration(totalToolMs)}${toolCount > 1 ? ` · ${toolCount} tools` : ''}`
-        : `Used ${toolCount} tool${toolCount > 1 ? 's' : ''}`
-      : 'Thinking';
-
-  const effectiveActivityOpen = activityOpen || hasPendingTools;
+  const totalToolMs = toolCalls.reduce((sum, tc) => sum + (tc.durationMs ?? 0), 0);
 
   const [branched, setBranched] = useState(false);
   const debugMode = useSettingsStore((s) => s.settings?.labs?.debugMode ?? false);
@@ -68,6 +76,44 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
   const { setActiveConversation } = useUiStore();
   const getPersona = usePersonasStore((s) => s.getPersona);
   const panelPersona = message.personaId ? getPersona(message.personaId) : undefined;
+
+  // Shared ReactMarkdown component overrides
+  const mdComponents = React.useMemo(() => ({
+    code({ className, children }: { className?: string; children?: React.ReactNode }) {
+      const match = /language-(\w+)/.exec(className ?? '');
+      const codeStr = String(children).replace(/\n$/, '');
+      if (match) {
+        return <ArtifactBlock language={match[1]} code={codeStr} conversationId={conversationId} />;
+      }
+      return (
+        <code className="bg-slate-700 text-pink-300 px-1.5 py-0.5 rounded text-[12px] font-mono">
+          {children}
+        </code>
+      );
+    },
+    img({ src, alt }: { src?: string; alt?: string }) {
+      if (!src) return null;
+      const isExternal = src.startsWith('http://') || src.startsWith('https://');
+      if (isExternal) {
+        return (
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline text-sm"
+            onClick={(e) => {
+              e.preventDefault();
+              window.api?.updater?.openExternal(src);
+            }}
+          >
+            🖼 {alt || 'Image'}
+          </a>
+        );
+      }
+      return <img src={src} alt={alt ?? ''} className="max-w-full rounded-lg" />;
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [conversationId]);
 
   function handleBranch() {
     if (!conversationId || messageIndex === undefined) return;
@@ -118,48 +164,78 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
             {panelPersona.name}
           </span>
         )}
-        {/* Activity panel: thinking + tool calls unified */}
-        {hasActivity && (
-          <div className="w-full mb-2">
-            {/* Toggle row */}
+
+        {/* ── Thinking section (ChatWise-style: "Thinking…" / "Thought ▼") ── */}
+        {hasThinking && (
+          <div className="w-full mb-1.5">
             <button
-              onClick={() => setActivityOpen((o) => !o)}
-              className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-slate-300 transition-colors select-none mb-1"
+              onClick={() => setThinkingOpen((o) => !o)}
+              className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-slate-300 transition-colors select-none"
             >
               {message.isStreaming ? (
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
               ) : (
                 <svg className="w-3 h-3 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               )}
-              <span>{activityLabel}</span>
+              <span>{message.isStreaming ? 'Thinking…' : 'Thought'}</span>
               <svg
-                className={`w-3 h-3 transition-transform duration-150 ${effectiveActivityOpen ? 'rotate-90' : ''}`}
+                className={`w-3 h-3 transition-transform duration-150 ${thinkingOpen ? 'rotate-90' : ''}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
+            {thinkingOpen && (
+              <div className="mt-1 pl-3 border-l border-slate-700/40">
+                <div className="text-xs text-slate-400 italic leading-relaxed whitespace-pre-wrap font-mono bg-slate-900/50 rounded px-2.5 py-2 max-h-52 overflow-y-auto">
+                  {message.thinking}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-            {/* Expanded content */}
-            {effectiveActivityOpen && (
+        {/* ── Legacy activity panel (old messages without contentSegments) ── */}
+        {hasLegacyTools && (
+          <div className="w-full mb-2">
+            <button
+              onClick={() => setLegacyActivityOpen((o) => !o)}
+              className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-slate-300 transition-colors select-none mb-1"
+            >
+              {message.isStreaming ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+              ) : (
+                <svg className="w-3 h-3 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              <span>
+                {message.isStreaming
+                  ? 'Working…'
+                  : totalToolMs > 0
+                    ? `Worked for ${formatDuration(totalToolMs)} · ${toolCalls.length} tool${toolCalls.length > 1 ? 's' : ''}`
+                    : `Used ${toolCalls.length} tool${toolCalls.length > 1 ? 's' : ''}`}
+              </span>
+              <svg
+                className={`w-3 h-3 transition-transform duration-150 ${legacyActivityOpen ? 'rotate-90' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            {(legacyActivityOpen || hasPendingTools) && (
               <div className="pl-3 border-l border-slate-700/40 space-y-1">
-                {/* Extended thinking */}
-                {message.thinking && (
-                  <div className="text-xs text-slate-400 italic leading-relaxed whitespace-pre-wrap font-mono bg-slate-900/50 rounded px-2.5 py-2 max-h-52 overflow-y-auto">
-                    {message.thinking}
-                  </div>
-                )}
-                {/* Tool calls */}
-                {message.toolCalls?.map((tc) => (
+                {toolCalls.map((tc) => (
                   <ToolCallCard key={tc.id} toolCall={tc} onApprove={onApprove} onDeny={onDeny} />
                 ))}
               </div>
             )}
           </div>
         )}
-        {/* Bubble */}
+
+        {/* ── Bubble ── */}
         <div
           className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
             isUser
@@ -190,63 +266,50 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
           {/* Content */}
           {isUser ? (
             <p className="whitespace-pre-wrap">{message.content}</p>
+          ) : hasInlineTools ? (
+            // ── ChatWise-style: interleaved text segments + tool cards at the right spot ──
+            <div className="prose-ai space-y-2">
+              {contentSegments!.map((segment, i) => (
+                <React.Fragment key={i}>
+                  {segment.trim() && (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                      {segment}
+                    </ReactMarkdown>
+                  )}
+                  {/* Inline tool call cards for this iteration */}
+                  <div className="space-y-1 my-1.5">
+                    {toolCalls
+                      .filter((tc) => (tc.iteration ?? 0) === i)
+                      .map((tc) => (
+                        <ToolCallCard key={tc.id} toolCall={tc} onApprove={onApprove} onDeny={onDeny} />
+                      ))}
+                  </div>
+                </React.Fragment>
+              ))}
+              {/* Final content after last tool call batch */}
+              {(finalContent.trim() || message.isStreaming) && (
+                <div>
+                  {finalContent.trim() && (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                      {finalContent}
+                    </ReactMarkdown>
+                  )}
+                  {message.isStreaming && (
+                    <span className="inline-block w-1.5 h-4 bg-blue-400 animate-pulse ml-0.5 rounded-sm align-middle" />
+                  )}
+                </div>
+              )}
+            </div>
           ) : (
+            // ── Standard render: no tool calls or legacy ──
             <div className="prose-ai">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code({ className, children }) {
-                    const match = /language-(\w+)/.exec(className ?? '');
-                    const codeStr = String(children).replace(/\n$/, '');
-                    if (match) {
-                      return (
-                        <ArtifactBlock
-                          language={match[1]}
-                          code={codeStr}
-                          conversationId={conversationId}
-                        />
-                      );
-                    }
-                    return (
-                      <code className="bg-slate-700 text-pink-300 px-1.5 py-0.5 rounded text-[12px] font-mono">
-                        {children}
-                      </code>
-                    );
-                  },
-                  img({ src, alt }) {
-                    // Prevent Blink from loading external image URLs directly —
-                    // following redirects in the renderer can OOM and crash the process.
-                    // Render a placeholder link instead; the user can open it externally.
-                    if (!src) return null;
-                    const isExternal = src.startsWith('http://') || src.startsWith('https://');
-                    if (isExternal) {
-                      return (
-                        <a
-                          href={src}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline text-sm"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            window.api?.updater?.openExternal(src);
-                          }}
-                        >
-                          🖼 {alt || 'Image'}
-                        </a>
-                      );
-                    }
-                    return <img src={src} alt={alt ?? ''} className="max-w-full rounded-lg" />;
-                  },
-                }}
-              >
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
                 {message.content}
               </ReactMarkdown>
+              {message.isStreaming && !toolCalls.length && (
+                <span className="inline-block w-1.5 h-4 bg-blue-400 animate-pulse ml-0.5 rounded-sm align-middle" />
+              )}
             </div>
-          )}
-
-          {/* Streaming cursor */}
-          {message.isStreaming && !message.toolCalls?.length && (
-            <span className="inline-block w-1.5 h-4 bg-blue-400 animate-pulse ml-0.5 rounded-sm align-middle" />
           )}
         </div>
 
@@ -315,6 +378,17 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               )}
+            </button>
+          )}
+          {isUser && !message.isStreaming && (
+            <button
+              onClick={() => onStartEdit?.(message.id, message.content)}
+              title="Edit message"
+              className="ml-1 text-[10px] text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-0.5"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
             </button>
           )}
           {conversationId && messageIndex !== undefined && !message.isStreaming && (

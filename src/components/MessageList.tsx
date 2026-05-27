@@ -12,9 +12,10 @@ interface Props {
   onApprove: (toolId: string) => void;
   onDeny: (toolId: string) => void;
   onSendAnswers: (questions: import('../types').AiQuestion[], answers: Record<string, string>) => void;
+  onStartEdit?: (messageId: string, content: string) => void;
 }
 
-export default function MessageList({ messages, conversationId, onApprove, onDeny, onSendAnswers }: Props) {
+export default function MessageList({ messages, conversationId, onApprove, onDeny, onSendAnswers, onStartEdit }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [decorators, setDecorators] = useState<MessageDecorator[]>(() =>
     messageDecoratorRegistry.getAll(),
@@ -70,6 +71,7 @@ export default function MessageList({ messages, conversationId, onApprove, onDen
             onApprove={onApprove}
             onDeny={onDeny}
             onSendAnswers={onSendAnswers}
+            onStartEdit={onStartEdit}
             decorators={decorators}
             badges={badges}
           />

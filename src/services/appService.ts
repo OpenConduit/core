@@ -41,7 +41,7 @@ export interface AppService {
     onChunk(cb: (data: StreamChunk) => void): UnsubFn;
     onEnd(cb: (data: StreamEnd) => void): UnsubFn;
     onError(cb: (data: StreamError) => void): UnsubFn;
-    onToolPending(cb: (data: { conversationId: string; messageId: string; toolCalls: ToolCall[] }) => void): UnsubFn;
+    onToolPending(cb: (data: { conversationId: string; messageId: string; toolCalls: ToolCall[]; textBefore?: string }) => void): UnsubFn;
     onThinkingChunk(cb: (data: { conversationId: string; messageId: string; delta: string }) => void): UnsubFn;
   };
   tools: {

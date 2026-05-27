@@ -21,10 +21,10 @@ export default function ChromeBar({ onSearchClick }: ChromeBarProps) {
       {/* Centered search / command palette trigger */}
       <div
         className="flex-1 flex items-center justify-center"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
           onClick={onSearchClick}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           className="flex items-center gap-2 px-3 h-[22px] rounded-md bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-300 hover:border-slate-600 transition-colors text-[11px] w-[280px] max-w-full"
         >
           {/* Search icon */}

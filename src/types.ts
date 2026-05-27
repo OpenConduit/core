@@ -98,16 +98,31 @@ export interface ToolCall {
   pending?: boolean;
   /** Wall-clock duration of the tool execution in milliseconds (#18) */
   durationMs?: number;
+  /** Zero-based AI turn index this call belongs to (for grouping multi-turn tool use). */
+  iteration?: number;
 }
+
+/** A single thinking or redacted-thinking block returned by Anthropic extended-thinking responses.
+ * Must be stored verbatim and re-sent in subsequent turns. */
+export type AnthropicThinkingBlock =
+  | { type: 'thinking'; thinking: string; signature: string }
+  | { type: 'redacted_thinking'; data: string };
 
 export interface Message {
   id: string;
   role: MessageRole;
   content: string;
   thinking?: string;          // extended thinking / reasoning trace
+  /** Full Anthropic thinking blocks (with signature) required for multi-turn continuity. */
+  thinkingBlocks?: AnthropicThinkingBlock[];
   aiQuestions?: AiQuestion[]; // clarifying questions the AI wants answered
   attachments?: Attachment[];
   toolCalls?: ToolCall[];
+  /**
+   * Text content generated before each tool-call iteration, used for ChatWise-style
+   * inline rendering. contentSegments[i] is the streamed text before iteration i's tools.
+   */
+  contentSegments?: string[];
   timestamp: number;
   isStreaming?: boolean;
   model?: string;
@@ -746,6 +761,8 @@ export interface StreamEnd {
   messageId: string;
   toolCalls?: ToolCall[];
   usage?: TokenUsage;
+  /** Anthropic extended-thinking blocks to persist on the message for history continuity. */
+  thinkingBlocks?: AnthropicThinkingBlock[];
 }
 
 export interface StreamError {

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { ChatRequest, Message, StreamChunk, StreamEnd, StreamError, ToolApprovalRequest, Attachment, AiTask, AiQuestion, AppSettings, ConversationFolder, FolderEntry, RoutingDecision, ReasoningLevel } from '../types';
 import { hookRegistry } from './hookRegistry';
@@ -113,6 +113,13 @@ function buildSystemPrompt(basePrompt: string | undefined, settings: AppSettings
 
 let listenersRegistered = false;
 
+/** Sentinel conversation ID used for BTW (quick side-question) requests.
+ *  Stream events for this ID are routed to uiStore instead of the conversation store. */
+export const BTW_CONV_ID = '__btw__';
+
+/** Tracks which conversation + entry the active BTW stream belongs to. */
+let activeBtwEntry: { convId: string; entryId: string } | null = null;
+
 // messageIds of in-flight compact/summarize requests — handled differently in onEnd
 const compactingRequests = new Set<string>();
 
@@ -124,11 +131,24 @@ function ensureListeners() {
   listenersRegistered = true;
 
   service.chat.onChunk((chunk: StreamChunk) => {
+    if (chunk.conversationId === BTW_CONV_ID) {
+      if (activeBtwEntry) {
+        useUiStore.getState().appendBtwAnswer(activeBtwEntry.convId, activeBtwEntry.entryId, chunk.delta);
+      }
+      return;
+    }
     useConversationStore.getState().appendToMessage(chunk.conversationId, chunk.messageId, chunk.delta);
     hookRegistry.runOnStreamChunk(chunk);
   });
 
   service.chat.onEnd((end: StreamEnd) => {
+    if (end.conversationId === BTW_CONV_ID) {
+      if (activeBtwEntry) {
+        useUiStore.getState().finishBtwEntry(activeBtwEntry.convId, activeBtwEntry.entryId);
+        activeBtwEntry = null;
+      }
+      return;
+    }
     debugConsole.debug('Stream ended', { messageId: end.messageId, conversationId: end.conversationId, usage: end.usage }, 'provider');
     const { finalizeMessage, updateMessage, replaceMessages } = useConversationStore.getState();
 
@@ -164,6 +184,11 @@ function ensureListeners() {
           source: 'app',
         });
       }
+    }
+
+    // Persist Anthropic thinking blocks (with signature) so they can be re-sent in history
+    if (end.thinkingBlocks?.length) {
+      updateMessage(end.conversationId, end.messageId, { thinkingBlocks: end.thinkingBlocks });
     }
 
     // Record token usage for analytics
@@ -219,13 +244,25 @@ function ensureListeners() {
     useUiStore.getState().setIsStreaming(false);
   });
 
-  // Pending tool calls: sent BEFORE approval is requested so the Approve/Deny
-  // buttons are visible. Update the message in-place so user can respond.
+  // Pending tool calls: sent BEFORE approval is requested so the tool cards are
+  // visible immediately. All tools start with pending: false — the
+  // onApprovalRequest handler below flips the specific tool to pending: true
+  // when the main process is actually ready to receive an approval for it.
+  // This prevents the race condition where users click Deny/Allow on a tool
+  // before the main has registered it in its pendingApprovals map.
   service.chat.onToolPending((data) => {
     debugConsole.info('Tool calls pending approval', { messageId: data.messageId, tools: data.toolCalls.map((t) => t.name) }, 'mcp');
+    const existingMsg = useConversationStore.getState().conversations
+      .find((c) => c.id === data.conversationId)
+      ?.messages.find((m) => m.id === data.messageId);
+    // Accumulate tool calls from multiple iterations instead of replacing.
+    // Keep previously completed calls; append the new pending batch (all pending: false for now).
+    const completedCalls = (existingMsg?.toolCalls ?? []).filter((tc) => !tc.pending);
+    const existingSegments = existingMsg?.contentSegments ?? [];
     useConversationStore.getState().updateMessage(data.conversationId, data.messageId, {
       isStreaming: false,
-      toolCalls: data.toolCalls,
+      toolCalls: [...completedCalls, ...data.toolCalls.map((tc) => ({ ...tc, pending: false }))],
+      contentSegments: [...existingSegments, data.textBefore ?? ''],
     });
     useUiStore.getState().setIsStreaming(false);
   });
@@ -235,6 +272,13 @@ function ensureListeners() {
   });
 
   service.chat.onError((err: StreamError) => {
+    if (err.conversationId === BTW_CONV_ID) {
+      if (activeBtwEntry) {
+        useUiStore.getState().finishBtwEntry(activeBtwEntry.convId, activeBtwEntry.entryId);
+        activeBtwEntry = null;
+      }
+      return;
+    }
     debugConsole.error('Stream error', { messageId: err.messageId, conversationId: err.conversationId, error: err.error }, 'provider');
     // Clean up compact state if the errored request was a summarize call
     if (compactingRequests.has(err.messageId)) {
@@ -251,6 +295,18 @@ function ensureListeners() {
 
   service.tools.onApprovalRequest((req: ToolApprovalRequest) => {
     debugConsole.info('Tool approval requested', { messageId: req.messageId, toolName: req.toolCall.name, toolId: req.toolCall.id }, 'mcp');
+    // Flip only this specific tool to pending: true so its Approve/Deny buttons appear.
+    // Other tools in the batch remain pending: false until the main process asks for them.
+    const store = useConversationStore.getState();
+    const msg = store.conversations.find((c) => c.id === req.conversationId)
+      ?.messages.find((m) => m.id === req.messageId);
+    if (msg) {
+      store.updateMessage(req.conversationId, req.messageId, {
+        toolCalls: msg.toolCalls?.map((tc) =>
+          tc.id === req.toolCall.id ? { ...tc, pending: true } : tc,
+        ),
+      });
+    }
     useUiStore.getState().addPendingApproval(req);
   });
 
@@ -287,6 +343,14 @@ export function useChat(conversationId?: string | null) {
 
   const effectiveId = conversationId ?? activeConversationId;
 
+  // ── Message queue: store a pending message while the AI is streaming ────
+  const pendingQueueRef = useRef<{ content: string; attachments?: Attachment[] } | null>(null);
+  const [queuedPreview, setQueuedPreview] = useState<string | null>(null);
+  const cancelQueue = useCallback(() => {
+    pendingQueueRef.current = null;
+    setQueuedPreview(null);
+  }, []);
+
   useEffect(() => {
     ensureListeners();
   }, []);
@@ -295,7 +359,13 @@ export function useChat(conversationId?: string | null) {
 
   const sendMessage = useCallback(
     async (content: string, attachments?: Attachment[], folderContext?: { rootName: string; rootPath?: string; files: FolderEntry[] }, reasoning?: ReasoningLevel) => {
-      if (!effectiveId || !settings || isStreaming) return;
+      if (!effectiveId || !settings) return;
+      // Queue the message if the AI is currently streaming instead of dropping it
+      if (isStreaming) {
+        pendingQueueRef.current = { content, attachments };
+        setQueuedPreview(content);
+        return;
+      }
 
       const conv = useConversationStore
         .getState()
@@ -584,6 +654,85 @@ export function useChat(conversationId?: string | null) {
     [sendMessage],
   );
 
+  // Keep a stable ref to sendMessage to avoid stale-closure in the queue effect
+  const sendMessageRef = useRef(sendMessage);
+  useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
+
+  // Auto-fire the queued message as soon as streaming ends
+  useEffect(() => {
+    if (isStreaming || !pendingQueueRef.current) return;
+    const queued = pendingQueueRef.current;
+    pendingQueueRef.current = null;
+    setQueuedPreview(null);
+    void sendMessageRef.current(queued.content, queued.attachments);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming]);
+
+  /**
+   * Send a quick side-question without touching the main conversation thread.
+   * Includes a snapshot of the current conversation as context so the AI
+   * knows what you're working on. The response is shown in the BTW panel only.
+   */
+  const sendBtwMessage = useCallback(async (question: string) => {
+    if (!effectiveId || !settings) return;
+    const conv = useConversationStore.getState().conversations.find((c) => c.id === effectiveId);
+    if (!conv) return;
+    const persona = conv.personaId
+      ? usePersonasStore.getState().getPersona(conv.personaId)
+      : undefined;
+    const providerId = conv.providerId ?? persona?.defaultProviderId ?? settings.defaultProviderId;
+    const model = conv.model ?? persona?.defaultModel ?? settings.defaultModel;
+    if (!providerId || !model) return;
+
+    const entryId = uuidv4();
+    activeBtwEntry = { convId: effectiveId, entryId };
+    useUiStore.getState().setBtwMode(false);
+    useUiStore.getState().addBtwEntry(effectiveId, {
+      id: entryId,
+      question,
+      answer: '',
+      isStreaming: true,
+      timestamp: Date.now(),
+    });
+    useUiStore.getState().setBtwPanelOpen(true);
+
+    // Build a context snapshot from the current conversation so the AI understands
+    // what the user is working on, without the BTW reply contaminating the thread.
+    const contextMessages = conv.messages
+      .filter((m) => m.role !== 'tool_result' && (m.role !== 'assistant' || !!m.content))
+      .map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, timestamp: m.timestamp }));
+
+    const btwMsg: Message = { id: uuidv4(), role: 'user', content: question, timestamp: Date.now() };
+
+    await service.chat.send({
+      conversationId: BTW_CONV_ID,
+      messages: [...contextMessages, btwMsg],
+      providerId,
+      model,
+      parameters: conv.parameters ?? settings.defaultParameters ?? { temperature: 0.7, topP: 1, maxTokens: 4096 },
+      systemPrompt: 'You are answering a quick side question. The conversation history above is provided as read-only context — your reply will NOT be added back to that conversation thread. Be concise and focused. Do not summarise the main conversation unless directly relevant to the side question.',
+      messageId: uuidv4(),
+      enabledMcpServerIds: [],
+    });
+  }, [effectiveId, settings]);
+
+  /**
+   * Truncate the conversation at the given message (by ID) and resend with new content.
+   * All messages from that point onward are removed, then sendMessage is called.
+   */
+  const editAndResend = useCallback(
+    async (messageId: string, newContent: string) => {
+      if (!effectiveId || !settings || isStreaming) return;
+      const conv = useConversationStore.getState().conversations.find((c) => c.id === effectiveId);
+      if (!conv) return;
+      const msgIndex = conv.messages.findIndex((m) => m.id === messageId);
+      if (msgIndex === -1) return;
+      replaceMessages(effectiveId, conv.messages.slice(0, msgIndex));
+      await sendMessage(newContent);
+    },
+    [effectiveId, settings, isStreaming, replaceMessages, sendMessage],
+  );
+
   return {
     conversation: activeConversation,
     isStreaming,
@@ -595,5 +744,9 @@ export function useChat(conversationId?: string | null) {
     trimOldMessages,
     approveToolCall,
     sendAnswers,
+    sendBtwMessage,
+    editAndResend,
+    queuedPreview,
+    cancelQueue,
   };
 }

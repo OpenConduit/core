@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import type { AppNotification, ToolApprovalRequest } from '../types';
 
+/** A single BTW (quick side question) exchange. */
+export interface BtwEntry {
+  id: string;
+  question: string;
+  answer: string;
+  isStreaming: boolean;
+  timestamp: number;
+}
+
 /**
  * Panel identifier stored in `uiStore`. Built-in panels are `'chats'` and
  * `'marketplace'`. Extension-contributed panels use their `panelId` string.
@@ -109,6 +118,20 @@ interface UiState {
   feedbackModal: { type: 'bug' | 'feature'; conversationId: string | null } | null;
   openFeedbackModal: (opts: { type: 'bug' | 'feature'; conversationId?: string | null }) => void;
   closeFeedbackModal: () => void;
+
+  // ── BTW (quick side question) ─────────────────────────────────────────────
+  /** When true, the input bar is in BTW mode — submission is routed to the BTW panel. */
+  btwMode: boolean;
+  setBtwMode: (v: boolean) => void;
+  /** Whether the BTW floating panel is visible. */
+  btwPanelOpen: boolean;
+  setBtwPanelOpen: (v: boolean) => void;
+  /** Per-conversation BTW history. Keys are conversation IDs. */
+  btwHistory: Record<string, BtwEntry[]>;
+  addBtwEntry: (convId: string, entry: BtwEntry) => void;
+  appendBtwAnswer: (convId: string, entryId: string, delta: string) => void;
+  finishBtwEntry: (convId: string, entryId: string) => void;
+  clearBtwHistory: (convId: string) => void;
 }
 
 export const useUiStore = create<UiState>()((set, get) => ({
@@ -263,4 +286,40 @@ export const useUiStore = create<UiState>()((set, get) => ({
   feedbackModal: null,
   openFeedbackModal: (opts) => set({ feedbackModal: { type: opts.type, conversationId: opts.conversationId ?? null } }),
   closeFeedbackModal: () => set({ feedbackModal: null }),
+
+  // BTW
+  btwMode: false,
+  setBtwMode: (v) => set({ btwMode: v }),
+  btwPanelOpen: false,
+  setBtwPanelOpen: (v) => set({ btwPanelOpen: v }),
+  btwHistory: {},
+  addBtwEntry: (convId, entry) =>
+    set((s) => ({
+      btwHistory: {
+        ...s.btwHistory,
+        [convId]: [...(s.btwHistory[convId] ?? []), entry],
+      },
+    })),
+  appendBtwAnswer: (convId, entryId, delta) =>
+    set((s) => ({
+      btwHistory: {
+        ...s.btwHistory,
+        [convId]: (s.btwHistory[convId] ?? []).map((e) =>
+          e.id === entryId ? { ...e, answer: e.answer + delta } : e,
+        ),
+      },
+    })),
+  finishBtwEntry: (convId, entryId) =>
+    set((s) => ({
+      btwHistory: {
+        ...s.btwHistory,
+        [convId]: (s.btwHistory[convId] ?? []).map((e) =>
+          e.id === entryId ? { ...e, isStreaming: false } : e,
+        ),
+      },
+    })),
+  clearBtwHistory: (convId) =>
+    set((s) => ({
+      btwHistory: { ...s.btwHistory, [convId]: [] },
+    })),
 }));

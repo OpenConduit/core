@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import WelcomeScreen from './WelcomeScreen';
 import MessageList from './MessageList';
 import InputBar from './InputBar';
+import BtwPanel from './BtwPanel';
 import SystemPromptEditor from './SystemPromptEditor';
 import ParameterControls from './ParameterControls';
 import ContextWarningBanner from './ContextWarningBanner';
@@ -19,16 +20,31 @@ interface Props {
 }
 
 export default function ChatArea({ conversationId }: Props) {
-  const { conversation, isStreaming, isCompacting, sendMessage, abortStream, approveToolCall, sendAnswers, compactContext, trimOldMessages } = useChat(conversationId);
+  const { conversation, isStreaming, isCompacting, sendMessage, abortStream, approveToolCall, sendAnswers, compactContext, trimOldMessages, editAndResend, queuedPreview, cancelQueue, sendBtwMessage } = useChat(conversationId);
   const { settings } = useSettingsStore();
   const liveCollab = settings?.labs?.liveCollaboration ?? false;
   const { clearMessages } = useConversationStore();
-  const { activeConversationId, showConversationSettings, setShowConversationSettings, setShowSystemPrompt, setShowParameters, showRoomSettings, setShowRoomSettings } = useUiStore();
+  const {
+    activeConversationId, showConversationSettings, setShowConversationSettings,
+    setShowSystemPrompt, setShowParameters, showRoomSettings, setShowRoomSettings,
+    btwMode, setBtwMode, btwPanelOpen, setBtwPanelOpen,
+  } = useUiStore();
   const collabConversationId = useCollaborationStore((s) => s.conversationId);
   const aiMode = useCollaborationStore((s) => s.aiMode);
   const participants = useCollaborationStore((s) => s.participants);
   const myId = useCollaborationStore((s) => s.myId);
   const isSharedChat = !!conversationId && conversationId === collabConversationId;
+
+  const [editingMessage, setEditingMessage] = React.useState<{ id: string; content: string } | null>(null);
+
+  const handleSend = React.useCallback(async (content: string, attachments?: import('../types').Attachment[], folderCtx?: { rootName: string; rootPath?: string; files: import('../types').FolderEntry[] }, reasoning?: import('../types').ReasoningLevel) => {
+    if (editingMessage) {
+      editAndResend(editingMessage.id, content);
+      setEditingMessage(null);
+    } else {
+      sendMessage(content, attachments, folderCtx, reasoning);
+    }
+  }, [editingMessage, editAndResend, sendMessage]);
 
   const handleClear = () => {
     if (activeConversationId) clearMessages(activeConversationId);
@@ -61,6 +77,7 @@ export default function ChatArea({ conversationId }: Props) {
         onApprove={(id) => approveToolCall(id, true)}
         onDeny={(id) => approveToolCall(id, false)}
         onSendAnswers={sendAnswers}
+        onStartEdit={(id, content) => setEditingMessage({ id, content })}
       />
 
       {conversationId && (
@@ -68,7 +85,7 @@ export default function ChatArea({ conversationId }: Props) {
       )}
 
       <InputBar
-        onSend={sendMessage}
+        onSend={handleSend}
         onAbort={abortStream}
         onClear={conversationId ? handleClear : undefined}
         onCompact={compactContext}
@@ -77,7 +94,23 @@ export default function ChatArea({ conversationId }: Props) {
         isCompacting={isCompacting}
         disabled={!conversationId}
         conversationId={conversationId}
+        editingMessage={editingMessage}
+        onCancelEdit={() => { setEditingMessage(null); }}
+        queuedPreview={queuedPreview}
+        onCancelQueue={cancelQueue}
+        onSendQueueNow={abortStream}
+        btwMode={btwMode}
+        onCancelBtw={() => setBtwMode(false)}
+        onBtw={sendBtwMessage}
       />
+
+      {/* BTW floating panel */}
+      {btwPanelOpen && conversationId && (
+        <BtwPanel
+          convId={conversationId}
+          onClose={() => setBtwPanelOpen(false)}
+        />
+      )}
 
       {/* Conversation Settings side panel */}
       {showConversationSettings && conversationId && (

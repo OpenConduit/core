@@ -20,6 +20,18 @@ interface Props {
   isCompacting?: boolean;
   disabled?: boolean;
   conversationId?: string | null;
+  /** When set, the bar is in edit mode: the textarea is pre-filled and an indicator strip is shown. */
+  editingMessage?: { id: string; content: string } | null;
+  onCancelEdit?: () => void;
+  /** Preview text of a queued message waiting for the stream to end. */
+  queuedPreview?: string | null;
+  onCancelQueue?: () => void;
+  /** Abort the current stream and immediately dispatch the queued message. */
+  onSendQueueNow?: () => void;
+  /** When true, the input bar is in BTW mode — submission goes to the BTW panel. */
+  btwMode?: boolean;
+  onCancelBtw?: () => void;
+  onBtw?: (content: string) => void;
 }
 
 const ACCEPTED_TYPES = 'image/*,text/*,.pdf,.csv,.json,.md,.ts,.tsx,.js,.jsx,.py';
@@ -33,7 +45,7 @@ const REASONING_COLOR: Record<ReasoningLevel, string> = {
   high: 'text-red-400',
 };
 
-export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, isStreaming, isCompacting, disabled, conversationId }: Props) {
+export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, isStreaming, isCompacting, disabled, conversationId, editingMessage, onCancelEdit, queuedPreview, onCancelQueue, onSendQueueNow, btwMode, onCancelBtw, onBtw }: Props) {
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [reasoning, setReasoning] = useState<ReasoningLevel>('off');
@@ -193,12 +205,19 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const handleSend = useCallback(() => {
     const trimmed = content.trim();
     if (!trimmed && attachments.length === 0) return;
+    // BTW mode: route to the side-question handler without affecting the conversation
+    if (btwMode && onBtw) {
+      onBtw(trimmed);
+      setContent('');
+      textareaRef.current?.focus();
+      return;
+    }
     const fc = folderPath && folderFiles ? { rootName: folderPath.split('/').pop() ?? folderPath, rootPath: folderPath, files: folderFiles } : undefined;
     onSend(trimmed, attachments.length > 0 ? attachments : undefined, fc, reasoning !== 'off' ? reasoning : undefined);
     setContent('');
     setAttachments([]);
     textareaRef.current?.focus();
-  }, [content, attachments, folderPath, folderFiles, onSend, reasoning]);
+  }, [content, attachments, folderPath, folderFiles, onSend, reasoning, btwMode, onBtw]);
 
   const handlePickFolder = useCallback(async () => {
     const picked = await service.folder?.pick();
@@ -245,6 +264,19 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, conversationId, handlePickFolder, onClear, onCompact, onTrim, slashPrefix]);
 
+  // Pre-fill the textarea and focus when entering edit mode
+  useEffect(() => {
+    if (!editingMessage) return;
+    setContent(editingMessage.content);
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+      textareaRef.current.focus();
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingMessage?.id]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Slash command dropdown navigation
     if (slashMatches.length > 0) {
@@ -269,9 +301,21 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
         return;
       }
     }
+    if (e.key === 'Escape' && btwMode) {
+      e.preventDefault();
+      onCancelBtw?.();
+      setContent('');
+      return;
+    }
+    if (e.key === 'Escape' && editingMessage) {
+      e.preventDefault();
+      onCancelEdit?.();
+      setContent('');
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!isStreaming) handleSend();
+      handleSend();
     }
   };
 
@@ -412,6 +456,83 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
         </div>
       )}
 
+      {/* Queued message indicator */}
+      {queuedPreview && (
+        <div className="flex items-center justify-between px-1 mb-1.5">
+          <div className="flex items-center gap-1.5 text-xs text-amber-400 min-w-0">
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="flex-shrink-0">Queued · sends when AI finishes</span>
+            <span className="text-slate-500 truncate">&ldquo;{queuedPreview.slice(0, 35)}{queuedPreview.length > 35 ? '…' : ''}&rdquo;</span>
+          </div>
+          <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+            {onSendQueueNow && (
+              <button
+                onClick={onSendQueueNow}
+                className="text-xs px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-colors"
+                title="Abort current response and send now"
+              >
+                Send now
+              </button>
+            )}
+            <button
+              onClick={onCancelQueue}
+              className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 rounded flex-shrink-0"
+              title="Cancel queued message"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BTW mode indicator */}
+      {btwMode && (
+        <div className="flex items-center justify-between px-1 mb-1.5">
+          <div className="flex items-center gap-1.5 text-xs text-purple-400">
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>BTW</span>
+            <span className="text-slate-500">· reply won’t be saved · Esc to cancel</span>
+          </div>
+          <button
+            onClick={() => { onCancelBtw?.(); setContent(''); }}
+            className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 rounded"
+            title="Cancel BTW mode (Esc)"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Editing message indicator */}
+      {editingMessage && (
+        <div className="flex items-center justify-between px-1 mb-1.5">
+          <div className="flex items-center gap-1.5 text-xs text-blue-400">
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span>Editing message</span>
+            <span className="text-slate-500">· Esc to cancel</span>
+          </div>
+          <button
+            onClick={() => { onCancelEdit?.(); setContent(''); }}
+            className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 rounded"
+            title="Cancel editing (Esc)"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Input box */}
       <div className="flex items-end gap-2 bg-slate-800 border border-slate-600 focus-within:border-blue-500 rounded-2xl px-3 py-2 transition-colors">
         <textarea
@@ -420,8 +541,8 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
           onChange={handleTextareaChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder={disabled ? 'Select a conversation to chat…' : 'Enter a message here, press ↵ to send'}
-          disabled={disabled || isStreaming}
+          placeholder={btwMode ? 'Ask a quick side question…' : disabled ? 'Select a conversation to chat…' : 'Enter a message here, press ↵ to send'}
+          disabled={disabled}
           rows={1}
           className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 text-sm resize-none outline-none max-h-48 overflow-y-auto leading-relaxed disabled:opacity-50"
           style={{ minHeight: '24px' }}

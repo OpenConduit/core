@@ -96,3 +96,5 @@ packages/desktop/dist/
 TODO.md
 
 brand/*
+
+exports/
