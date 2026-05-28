@@ -3,6 +3,7 @@ import { useUiStore } from '../stores/uiStore';
 import { useConversationStore } from '../stores/conversationStore';
 import { useSavedFilesStore, type SavedFile } from '../stores/filesStore';
 import { extensionRegistry } from '../extensions/extensionRegistry';
+import SkillsPanel from './SkillsPanel';
 
 // ── Stable slot for extension-contributed secondary sidebar panels ─────────────
 function ExtSecondarySidebarPanel({ panelId }: { panelId: string }) {
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'context', label: 'Context' },
   { id: 'outline', label: 'Outline' },
   { id: 'related', label: 'Related' },
+  { id: 'skills', label: 'Skills' },
 ] as const;
 
 export default function SecondarySidebar() {
@@ -143,6 +145,9 @@ export default function SecondarySidebar() {
         )}
         {secondarySidebarPanel === 'related' && (
           <RelatedTab />
+        )}
+        {secondarySidebarPanel === 'skills' && (
+          <SkillsPanel />
         )}
         {(() => {
           const extPanel = extensionRegistry.getSecondarySidebarPanels().find(

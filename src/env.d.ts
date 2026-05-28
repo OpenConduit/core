@@ -28,6 +28,23 @@ declare interface Window {
     updater?: {
       openExternal: (url: string) => Promise<void>;
     };
+    chat?: {
+      complete: (request: {
+        providerId: string;
+        model: string;
+        messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+        systemPrompt?: string;
+      }) => Promise<{ text: string }>;
+    };
+    folder?: {
+      pick: () => Promise<string | null>;
+    };
+    skills?: {
+      list: () => Promise<import('./types').SkillFile[]>;
+      write: (payload: import('./types').SkillWritePayload) => Promise<void>;
+      delete: (folderPath: string) => Promise<void>;
+      userPath: () => Promise<string>;
+    };
     [key: string]: unknown;
   };
   /** Exposed by the renderer for HTML export triggered from the main process. */

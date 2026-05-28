@@ -416,7 +416,10 @@ export interface AppSettings {
   defaultParameters: ModelParameters;
   requireToolApproval: boolean;
   /** Stable, shipped features */
-  features: Record<string, never>; // placeholder — features graduate here from labs
+  features: {
+    /** Enable Copilot Skills — browse, apply, and auto-inject reusable system-prompt snippets. Defaults to true. */
+    skills?: boolean;
+  };
   /** Experimental features still under development */
   labs: {
     aiTaskTracking: boolean;
@@ -487,6 +490,8 @@ export interface AppSettings {
   additionalRegistries?: RegistrySource[];
   /** When true, the built-in public OpenConduit registry is hidden from the marketplace. */
   disablePublicRegistry?: boolean;
+  /** Project workspace roots used for Copilot skill discovery and generation. */
+  skillWorkspaces?: SkillWorkspace[];
 }
 
 // ─── Settings Contribution Schema (#37) ───────────────────────────────────
@@ -648,6 +653,49 @@ export interface SyncStatusResult {
   lastCommitAt: number | null;
 }
 
+// ─── Skills ──────────────────────────────────────────────────────────────────
+
+/** A configured workspace root for Copilot skill discovery and generation. */
+export interface SkillWorkspace {
+  /** Absolute path to the project root (parent of .github/). */
+  path: string;
+  /** Display label shown in the UI. Defaults to the directory name. */
+  label?: string;
+}
+
+/** A skill returned by `skills:list`. */
+export interface SkillFile {
+  /** Skill name from the SKILL.md frontmatter `name` field, or the folder name as fallback. */
+  name: string;
+  /** Description from SKILL.md frontmatter. */
+  description: string;
+  /** Absolute path to the skill folder, e.g. /path/to/.github/skills/add-provider */
+  folderPath: string;
+  /** Full text of SKILL.md. */
+  content: string;
+  /** Workspace root this skill belongs to. */
+  workspacePath: string;
+  /** Additional reference files keyed by path relative to the skill folder. */
+  referenceFiles: Record<string, string>;
+  /**
+   * When true, this skill's content is automatically prepended to the system prompt
+   * of every new conversation (frontmatter field `autoApply: true`).
+   */
+  autoApply?: boolean;
+}
+
+/** Payload for `skills:write`. */
+export interface SkillWritePayload {
+  /** Absolute path to the workspace root where the skill will be written. */
+  workspacePath: string;
+  /** Folder name for the skill, e.g. "add-provider" (lowercase + hyphens). */
+  folderName: string;
+  /** Full text of the SKILL.md file. */
+  content: string;
+  /** Optional reference files keyed by relative path, e.g. { "references/template.ts": "..." }. */
+  referenceFiles?: Record<string, string>;
+}
+
 export const IPC = {
   // Settings
   SETTINGS_GET: 'settings:get',
@@ -714,6 +762,12 @@ export const IPC = {
   SYNC_PUSH: 'sync:push',
   SYNC_PULL: 'sync:pull',
   SYNC_STATUS: 'sync:status',
+
+  // Skills
+  SKILLS_LIST: 'skills:list',
+  SKILLS_WRITE: 'skills:write',
+  SKILLS_DELETE: 'skills:delete',
+  SKILLS_USER_PATH: 'skills:userPath',
 } as const;
 
 // ─── Reasoning ──────────────────────────────────────────────────────────────

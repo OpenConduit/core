@@ -29,6 +29,7 @@ import { useConversationStore } from './stores/conversationStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useThemesStore } from './stores/themesStore';
 import { useCollaboration } from './hooks/useCollaboration';
+import { useSkillAutoApply } from './hooks/useSkillAutoApply';
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 520;
@@ -58,6 +59,8 @@ export default function App() {
 
   // Wire up live collaboration event bridge + deep-link invite handling (Labs: liveCollaboration)
   useCollaboration(activeConversationId, settings?.labs?.liveCollaboration ?? false);
+  // Auto-inject autoApply skills as system prompt on new conversations
+  useSkillAutoApply();
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('oc-sidebar-width');
     return saved ? Number(saved) : 240;

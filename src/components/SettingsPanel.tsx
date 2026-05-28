@@ -2476,6 +2476,15 @@ function FeaturesTab({
           </div>
         )}
       </Section>
+
+      <Section title="Skills">
+        <FeatureRow
+          title="Copilot Skills"
+          description="Save reusable system-prompt snippets as skills. Browse and apply them from the sidebar, use /skill, or auto-inject on new conversations."
+          value={settings.features?.skills ?? true}
+          onChange={(v) => onSave({ features: { ...settings.features, skills: v } })}
+        />
+      </Section>
     </div>
   );
 }
