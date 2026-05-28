@@ -50,7 +50,7 @@ export default function FeedbackModal() {
       setStep('form');
       setTimeout(() => titleRef.current?.focus(), 50);
     }
-  }, [modal?.type, modal?.conversationId, !!modal]);
+  }, [modal]);
 
   // Focus title when form step is shown
   useEffect(() => {

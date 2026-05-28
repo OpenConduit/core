@@ -680,7 +680,7 @@ function RegistrySourcesConfig({
 
   const addSource = () => {
     if (!name.trim() || !url.trim()) return;
-    let baseUrl = url.trim().replace(/\/$/, '');
+    const baseUrl = url.trim().replace(/\/$/, '');
     const newSource: RegistrySource = {
       id: uuidv4(),
       name: name.trim(),

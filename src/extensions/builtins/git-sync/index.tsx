@@ -3,9 +3,8 @@ import { extensionRegistry } from '../../extensionRegistry';
 import { hookRegistry } from '../../../hooks/hookRegistry';
 import { service } from '../../../services';
 import { useGitSyncStore } from './gitSyncStore';
-import { buildPayload } from './GitSyncPanel';
+import GitSyncPanel, { buildPayload } from './GitSyncPanel';
 import { useSettingsStore } from '../../../stores/settingsStore';
-import GitSyncPanel from './GitSyncPanel';
 import type { SyncPayload } from '../../../types';
 
 // ─── Icon ─────────────────────────────────────────────────────────────────────
