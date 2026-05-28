@@ -41,6 +41,23 @@ export interface McpTool {
   inputSchema: Record<string, unknown>;
 }
 
+/** A user-configured private or enterprise marketplace registry source. */
+export interface RegistrySource {
+  id: string;
+  /** Display name shown in the UI, e.g. "Acme Corp Marketplace". */
+  name: string;
+  /** Base URL of the registry, same format as the built-in registry (https://…/v1). */
+  url: string;
+  /**
+   * Optional Bearer token for authenticated registries.
+   * Stored in electron-store only — never exported in settings backups.
+   */
+  token?: string;
+  enabled: boolean;
+  /** Short badge text shown on entries from this source, e.g. "Enterprise", "Team". */
+  badge?: string;
+}
+
 // ─── Config Bundle ──────────────────────────────────────────────────────────
 // A shareable snapshot of provider + MCP server configuration with all
 // secrets (API keys, auth headers, env tokens) stripped out.  Recipients
@@ -466,6 +483,10 @@ export interface AppSettings {
      */
     shareServerUrl?: string;
   };
+  /** Private / enterprise marketplace registry sources fetched alongside the built-in registry. */
+  additionalRegistries?: RegistrySource[];
+  /** When true, the built-in public OpenConduit registry is hidden from the marketplace. */
+  disablePublicRegistry?: boolean;
 }
 
 // ─── Settings Contribution Schema (#37) ───────────────────────────────────

@@ -167,8 +167,8 @@ function ensureListeners() {
         model: summaryMsg?.model,
         providerId: summaryMsg?.providerId,
       }]);
-      useUiStore.getState().setIsCompacting(false);
-      useUiStore.getState().setIsStreaming(false);
+      useUiStore.getState().setConversationCompacting(end.conversationId, false);
+      useUiStore.getState().setConversationStreaming(end.conversationId, false);
       return;
     }
     // ────────────────────────────────────────────────────────────────────────
@@ -241,7 +241,7 @@ function ensureListeners() {
     const conv2 = useConversationStore.getState().conversations.find((c) => c.id === end.conversationId);
     const msg2 = conv2?.messages.find((m) => m.id === end.messageId);
     if (msg2) hookRegistry.runOnResponse(msg2);
-    useUiStore.getState().setIsStreaming(false);
+    useUiStore.getState().setConversationStreaming(end.conversationId, false);
   });
 
   // Pending tool calls: sent BEFORE approval is requested so the tool cards are
@@ -264,7 +264,7 @@ function ensureListeners() {
       toolCalls: [...completedCalls, ...data.toolCalls.map((tc) => ({ ...tc, pending: false }))],
       contentSegments: [...existingSegments, data.textBefore ?? ''],
     });
-    useUiStore.getState().setIsStreaming(false);
+    useUiStore.getState().setConversationStreaming(data.conversationId, false);
   });
 
   service.chat.onThinkingChunk((data) => {
@@ -283,13 +283,13 @@ function ensureListeners() {
     // Clean up compact state if the errored request was a summarize call
     if (compactingRequests.has(err.messageId)) {
       compactingRequests.delete(err.messageId);
-      useUiStore.getState().setIsCompacting(false);
+      useUiStore.getState().setConversationCompacting(err.conversationId, false);
     }
     useConversationStore.getState().updateMessage(err.conversationId, err.messageId, {
       content: `⚠️ ${err.error}`,
       isStreaming: false,
     });
-    useUiStore.getState().setIsStreaming(false);
+    useUiStore.getState().setConversationStreaming(err.conversationId, false);
     useUiStore.getState().addNotification({ title: 'Request failed', message: err.error, variant: 'error', source: 'app' });
   });
 
@@ -332,9 +332,8 @@ export function useChat(conversationId?: string | null) {
   const { settings } = useSettingsStore();
   const {
     activeConversationId,
-    isStreaming,
-    setIsStreaming,
-    isCompacting,
+    streamingConversationIds,
+    compactingConversationIds,
     pendingApprovals,
     removePendingApproval,
     injectedMessage,
@@ -342,6 +341,8 @@ export function useChat(conversationId?: string | null) {
   } = useUiStore();
 
   const effectiveId = conversationId ?? activeConversationId;
+  const isStreaming = streamingConversationIds.has(effectiveId ?? '');
+  const isCompacting = compactingConversationIds.has(effectiveId ?? '');
 
   // ── Message queue: store a pending message while the AI is streaming ────
   const pendingQueueRef = useRef<{ content: string; attachments?: Attachment[] } | null>(null);
@@ -478,7 +479,7 @@ export function useChat(conversationId?: string | null) {
       }
       // ────────────────────────────────────────────────────────────────────
 
-      setIsStreaming(true);
+      useUiStore.getState().setConversationStreaming(effectiveId, true);
 
       // Pre-generate messageId and add the placeholder BEFORE calling send.
       // This eliminates the race condition where a STREAM_ERROR (e.g. provider
@@ -509,7 +510,7 @@ export function useChat(conversationId?: string | null) {
 
       await service.chat.send({ ...request, messageId });
     },
-    [effectiveId, settings, isStreaming, addMessage, updateConversation, setIsStreaming],
+    [effectiveId, settings, isStreaming, addMessage, updateConversation],
   );
 
   // ── Extension message injection (#55) ──────────────────────────────────────
@@ -527,7 +528,7 @@ export function useChat(conversationId?: string | null) {
   const abortStream = useCallback(() => {
     if (effectiveId) {
       service.chat.abort(effectiveId);
-      useUiStore.getState().setIsStreaming(false);
+      useUiStore.getState().setConversationStreaming(effectiveId, false);
     }
   }, [effectiveId]);
 
@@ -541,8 +542,8 @@ export function useChat(conversationId?: string | null) {
     const model = conv.model ?? settings.defaultModel;
     if (!providerId || !model) return;
 
-    useUiStore.getState().setIsCompacting(true);
-    setIsStreaming(true);
+    useUiStore.getState().setConversationCompacting(effectiveId, true);
+    useUiStore.getState().setConversationStreaming(effectiveId, true);
 
     // Sanitize messages: drop tool_result rows and any message with empty/null
     // content — OpenAI rejects null content values.
@@ -551,8 +552,8 @@ export function useChat(conversationId?: string | null) {
       .map((m) => ({ ...m, content: m.content ?? '' }));
 
     if (safeMessages.length === 0) {
-      useUiStore.getState().setIsCompacting(false);
-      setIsStreaming(false);
+      useUiStore.getState().setConversationCompacting(effectiveId, false);
+      useUiStore.getState().setConversationStreaming(effectiveId, false);
       return;
     }
 
@@ -588,10 +589,10 @@ export function useChat(conversationId?: string | null) {
       });
       await service.chat.send({ ...request, messageId });
     } catch {
-      useUiStore.getState().setIsCompacting(false);
-      setIsStreaming(false);
+      useUiStore.getState().setConversationCompacting(effectiveId, false);
+      useUiStore.getState().setConversationStreaming(effectiveId, false);
     }
-  }, [effectiveId, settings, isStreaming, isCompacting, addMessage, setIsStreaming]);
+  }, [effectiveId, settings, isStreaming, isCompacting, addMessage]);
 
   /** Drop the oldest messages until context usage falls below 50% (or remove oldest 4 if no limit known). */
   const trimOldMessages = useCallback(() => {

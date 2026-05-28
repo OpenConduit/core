@@ -13,7 +13,7 @@ export default function ContextWarningBanner({ conversationId }: Props) {
   const analyticsRecords = useAnalyticsStore((s) => s.records);
   const conversations = useConversationStore((s) => s.conversations);
   const { settings } = useSettingsStore();
-  const isCompacting = useUiStore((s) => s.isCompacting);
+  const isCompacting = useUiStore((s) => s.compactingConversationIds.has(conversationId));
 
   const conv = conversations.find((c) => c.id === conversationId);
   const model = conv?.model ?? '';

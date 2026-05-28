@@ -57,7 +57,6 @@ async function sendPersonaTurn(
   conversationId: string,
   persona: Persona,
   request: ChatRequest,
-  setIsStreaming: (v: boolean) => void,
   isDiscussionRound = false,
 ): Promise<void> {
   const messageId = uuidv4();
@@ -87,13 +86,12 @@ async function sendPersonaTurn(
   };
 
   const streamDone = waitForStream(conversationId, messageId);
-  setIsStreaming(true);
+  useUiStore.getState().setConversationStreaming(conversationId, true);
   await service.chat.send(personaRequest);
   await streamDone;
 }
 
 async function onSend({ conversationId, request }: SendContext): Promise<void> {
-  const { setIsStreaming } = useUiStore.getState();
   const conv = useConversationStore
     .getState()
     .conversations.find((c) => c.id === conversationId);
@@ -106,7 +104,7 @@ async function onSend({ conversationId, request }: SendContext): Promise<void> {
 
   // ── Round 1: each persona responds to the user's message ─────────────────
   for (const persona of personas) {
-    await sendPersonaTurn(conversationId, persona, request, setIsStreaming);
+    await sendPersonaTurn(conversationId, persona, request);
   }
 
   // ── Round 2 (discussion): each persona reacts to the others' responses ───
@@ -155,7 +153,7 @@ async function onSend({ conversationId, request }: SendContext): Promise<void> {
 
     for (const persona of personas) {
       const discussionRequest: ChatRequest = { ...request, messages: discussionMessages };
-      await sendPersonaTurn(conversationId, persona, discussionRequest, setIsStreaming, true);
+      await sendPersonaTurn(conversationId, persona, discussionRequest, true);
     }
   }
 }

@@ -21,8 +21,8 @@ export type ActivityPanel = string;
 interface UiState {
   activeConversationId: string | null;
   setActiveConversation: (id: string | null) => void;
-  isStreaming: boolean;
-  setIsStreaming: (v: boolean) => void;
+  streamingConversationIds: Set<string>;
+  setConversationStreaming: (id: string, v: boolean) => void;
   showSettings: boolean;
   setShowSettings: (v: boolean) => void;
   /** When set, SettingsPanel will open directly to this tab. Cleared after reading. */
@@ -43,8 +43,10 @@ interface UiState {
   setShowSystemPrompt: (v: boolean) => void;
   showParameters: boolean;
   setShowParameters: (v: boolean) => void;
+  compactingConversationIds: Set<string>;
+  setConversationCompacting: (id: string, v: boolean) => void;
+  /** Derived convenience: true if any conversation is currently compacting. */
   isCompacting: boolean;
-  setIsCompacting: (v: boolean) => void;
   /**
    * The id of the currently active main-view contribution, or `null` when the
    * default ChatArea is shown.  Use `setActiveMainViewId` to change it.
@@ -138,8 +140,12 @@ export const useUiStore = create<UiState>()((set, get) => ({
   activeConversationId: null,
   setActiveConversation: (id) => set({ activeConversationId: id }),
 
-  isStreaming: false,
-  setIsStreaming: (v) => set({ isStreaming: v }),
+  streamingConversationIds: new Set<string>(),
+  setConversationStreaming: (id, v) => set((s) => {
+    const next = new Set(s.streamingConversationIds);
+    if (v) next.add(id); else next.delete(id);
+    return { streamingConversationIds: next };
+  }),
 
   showSettings: false,
   setShowSettings: (v) => set({ showSettings: v }),
@@ -170,8 +176,13 @@ export const useUiStore = create<UiState>()((set, get) => ({
   showParameters: false,
   setShowParameters: (v) => set({ showParameters: v }),
 
+  compactingConversationIds: new Set<string>(),
+  setConversationCompacting: (id, v) => set((s) => {
+    const next = new Set(s.compactingConversationIds);
+    if (v) next.add(id); else next.delete(id);
+    return { compactingConversationIds: next, isCompacting: v ? true : next.size > 0 };
+  }),
   isCompacting: false,
-  setIsCompacting: (v) => set({ isCompacting: v }),
 
   activeMainViewId: null,
   setActiveMainViewId: (id) => set({ activeMainViewId: id, isCompareMode: id === 'openconduit.compare.view' }),

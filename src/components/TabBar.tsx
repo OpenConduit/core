@@ -24,6 +24,7 @@ export default function TabBar() {
     setShowSettings,
     setActiveMainViewId,
     setShowConversationSettings,
+    streamingConversationIds,
   } = useUiStore();
   const { settings, models, loadModels } = useSettingsStore();
   const { personas } = usePersonasStore();
@@ -136,6 +137,7 @@ export default function TabBar() {
               ? personas.find((p) => p.id === conv.personaId)?.color
               : undefined;
             const isRenaming = renamingTabId === id;
+            const isTabStreaming = streamingConversationIds.has(id);
 
             return (
               <div
@@ -150,10 +152,12 @@ export default function TabBar() {
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                 }`}
               >
-                {personaColor && !isRenaming && (
+                {!isRenaming && (isTabStreaming || personaColor) && (
                   <div
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: personaColor }}
+                    className={isTabStreaming
+                      ? 'w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse flex-shrink-0'
+                      : 'w-1.5 h-1.5 rounded-full flex-shrink-0'}
+                    style={!isTabStreaming && personaColor ? { backgroundColor: personaColor } : undefined}
                   />
                 )}
 

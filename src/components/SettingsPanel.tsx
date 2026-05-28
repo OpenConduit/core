@@ -9,7 +9,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { useCollaborationStore } from '../stores/collaborationStore';
 import { useAnalyticsStore } from '../stores/analyticsStore';
-import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsButtonProperty, SettingsContribution, ConfigBundle } from '../types';
+import type { ProviderConfig, McpServerConfig, AppSettings, ProviderType, McpTransport, McpTool, UpdateInfo, FeedbackPayload, RoutingConfig, RoutingTier, RoutingProviderRule, RoutingTaskType, RoutingProfile, SettingsProperty, SettingsStringProperty, SettingsNumberProperty, SettingsButtonProperty, SettingsContribution, ConfigBundle, RegistrySource } from '../types';
 import { service } from '../services';
 import { settingsRegistry } from '../settings/settingsRegistry';
 import { extensionRegistry } from '../extensions/extensionRegistry';
@@ -456,7 +456,7 @@ export default function SettingsPanel({
   const { settings, saveSettings, refreshMcpStatus, mcpStatus } = useSettingsStore();
   const [tab, setTab] = useState<Tab>('general');
   const [search, setSearch] = useState('');
-  const [aiSection, setAiSection] = useState<'providers' | 'mcp' | 'personas' | 'prompts' | 'analytics'>('providers');
+  const [aiSection, setAiSection] = useState<'providers' | 'mcp' | 'personas' | 'prompts' | 'analytics' | 'registry'>('providers');
   const [featuresSection, setFeaturesSection] = useState<'features' | 'labs'>('features');
   const [extensionsSection, setExtensionsSection] = useState<'installed' | 'settings'>('installed');
   const [sharingSection, setSharingSection] = useState<'links' | 'live' | 'self-hosting'>('links');
@@ -467,7 +467,7 @@ export default function SettingsPanel({
     if (showSettings && settingsInitialTab) {
       if (settingsInitialTab.startsWith('ai:')) {
         setTab('ai');
-        setAiSection(settingsInitialTab.slice(3) as 'providers' | 'mcp' | 'personas' | 'prompts');
+        setAiSection(settingsInitialTab.slice(3) as 'providers' | 'mcp' | 'personas' | 'prompts' | 'registry');
       } else {
         setTab(settingsInitialTab as Tab);
       }
@@ -648,9 +648,208 @@ export default function SettingsPanel({
   );
 }
 
+// ─── Registry Sources Config ──────────────────────────────────────────────────
+
+function RegistrySourcesConfig({
+  settings,
+  onSave,
+}: {
+  settings: AppSettings;
+  onSave: (p: Partial<AppSettings>) => Promise<void>;
+}) {
+  const sources = settings.additionalRegistries ?? [];
+  const [name, setName] = useState('');
+  const [url, setUrl] = useState('');
+  const [token, setToken] = useState('');
+  const [badge, setBadge] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const toggleEnabled = (id: string) => {
+    void onSave({
+      additionalRegistries: sources.map((s) =>
+        s.id === id ? { ...s, enabled: !s.enabled } : s,
+      ),
+    });
+  };
+
+  const deleteSource = (id: string) => {
+    void onSave({
+      additionalRegistries: sources.filter((s) => s.id !== id),
+    });
+  };
+
+  const addSource = () => {
+    if (!name.trim() || !url.trim()) return;
+    let baseUrl = url.trim().replace(/\/$/, '');
+    const newSource: RegistrySource = {
+      id: uuidv4(),
+      name: name.trim(),
+      url: baseUrl,
+      token: token.trim() || undefined,
+      badge: badge.trim() || undefined,
+      enabled: true,
+    };
+    void onSave({ additionalRegistries: [...sources, newSource] });
+    setName('');
+    setUrl('');
+    setToken('');
+    setBadge('');
+    setAdding(false);
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Disable public registry */}
+      <div className="flex items-center justify-between bg-slate-800/60 rounded-xl px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-slate-200">Disable public registry</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Hide the built-in OpenConduit marketplace. Only your private sources will appear.
+          </p>
+        </div>
+        <button
+          onClick={() => void onSave({ disablePublicRegistry: !settings.disablePublicRegistry })}
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+            settings.disablePublicRegistry ? 'bg-blue-600' : 'bg-slate-600'
+          }`}
+        >
+          <span
+            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+              settings.disablePublicRegistry ? 'translate-x-4.5' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* Source list */}
+      {sources.length > 0 && (
+        <div className="space-y-2">
+          {sources.map((src) => (
+            <div key={src.id} className="flex items-center gap-3 bg-slate-800/60 rounded-xl px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-200 truncate">{src.name}</span>
+                  {src.badge && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-600/20 text-violet-300 border border-violet-500/30 uppercase tracking-wide">
+                      {src.badge}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 truncate mt-0.5">{src.url}</p>
+              </div>
+              <button
+                onClick={() => toggleEnabled(src.id)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  src.enabled ? 'bg-blue-600' : 'bg-slate-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                    src.enabled ? 'translate-x-4.5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+              <button
+                onClick={() => deleteSource(src.id)}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Remove source"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84L13.962 3.5H14.5a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Zm1.468 1-.847 10.58a1 1 0 0 1-.997.92H4.885a1 1 0 0 1-.997-.92L3.041 3.5h9.926Z" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {sources.length === 0 && !adding && (
+        <p className="text-xs text-slate-500 text-center py-4">
+          No private sources configured. Add one below to pull from a self-hosted or enterprise registry.
+        </p>
+      )}
+
+      {/* Add source form */}
+      {adding ? (
+        <div className="bg-slate-800/60 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">New Registry Source</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Acme Corp Marketplace"
+                className="input-field text-sm w-full"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-400 mb-1">Registry URL</label>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://marketplace.example.com/v1"
+                className="input-field text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Badge (optional)</label>
+              <input
+                type="text"
+                value={badge}
+                onChange={(e) => setBadge(e.target.value)}
+                placeholder="Enterprise"
+                className="input-field text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Bearer Token (optional)</label>
+              <input
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="Bearer token for private registries"
+                className="input-field text-sm w-full"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={addSource}
+              disabled={!name.trim() || !url.trim()}
+              className="btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
+            >
+              Add source
+            </button>
+            <button
+              onClick={() => { setAdding(false); setName(''); setUrl(''); setToken(''); setBadge(''); }}
+              className="btn-secondary text-xs px-4 py-1.5"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-500 hover:bg-slate-800/40 text-xs transition-colors"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z" />
+          </svg>
+          Add registry source
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── AI Tab ───────────────────────────────────────────────────────────────────
 
-type AiSection = 'providers' | 'mcp' | 'personas' | 'prompts' | 'analytics';
+type AiSection = 'providers' | 'mcp' | 'personas' | 'prompts' | 'analytics' | 'registry';
 
 function AiTab({
   settings,
@@ -673,6 +872,7 @@ function AiTab({
     { id: 'personas',  label: 'Personas' },
     { id: 'prompts',   label: 'Prompts' },
     { id: 'analytics', label: 'Analytics' },
+    { id: 'registry',  label: 'Registry' },
   ];
 
   return (
@@ -704,6 +904,7 @@ function AiTab({
       {section === 'personas' && <PersonasPanel />}
       {section === 'prompts' && <PromptsPanel />}
       {section === 'analytics' && <AnalyticsTab settings={settings} onSave={onSave} />}
+      {section === 'registry' && <RegistrySourcesConfig settings={settings} onSave={onSave} />}
     </div>
   );
 }

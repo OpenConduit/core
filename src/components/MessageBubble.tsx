@@ -91,6 +91,26 @@ const MessageBubble = memo(function MessageBubble({ message, messageIndex, conve
         </code>
       );
     },
+    a({ href, children }: { href?: string; children?: React.ReactNode }) {
+      const isExternal = href?.startsWith('http://') || href?.startsWith('https://');
+      if (isExternal && href) {
+        return (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 underline"
+            onClick={(e) => {
+              e.preventDefault();
+              window.api?.updater?.openExternal(href);
+            }}
+          >
+            {children}
+          </a>
+        );
+      }
+      return <a href={href}>{children}</a>;
+    },
     img({ src, alt }: { src?: string; alt?: string }) {
       if (!src) return null;
       const isExternal = src.startsWith('http://') || src.startsWith('https://');

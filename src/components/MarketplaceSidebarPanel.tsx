@@ -3,7 +3,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { uuidv4 } from './MarketplacePanel';
 import { MCP_REGISTRY } from '../data/mcpRegistry';
 import { PROVIDER_REGISTRY } from '../data/providerRegistry';
-import type { ProviderConfig, McpServerConfig, McpTransport, InstalledTheme, ThemeColors } from '../types';
+import type { ProviderConfig, McpServerConfig, McpTransport, InstalledTheme, ThemeColors, RegistrySource } from '../types';
 import { useThemesStore } from '../stores/themesStore';
 import { usePersonasStore } from '../stores/personasStore';
 import { usePromptTemplatesStore } from '../stores/promptTemplatesStore';
@@ -115,11 +115,11 @@ const _REGISTRY_TYPE_MAP: Record<RegistryType, TypeFilter> = {
 type UnifiedEntry =
   | { kind: 'provider';  id: string; name: string; description: string; badge: string; installed: boolean; emoji?: string }
   | { kind: 'mcp';       id: string; name: string; description: string; badge?: string; installed: boolean; emoji: string; notes?: string }
-  | { kind: 'theme';     id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
-  | { kind: 'persona';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
-  | { kind: 'prompt';    id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
-  | { kind: 'profile';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry }
-  | { kind: 'extension'; id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry };
+  | { kind: 'theme';     id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry; sourceBadge?: string }
+  | { kind: 'persona';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry; sourceBadge?: string }
+  | { kind: 'prompt';    id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry; sourceBadge?: string }
+  | { kind: 'profile';   id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry; sourceBadge?: string }
+  | { kind: 'extension'; id: string; name: string; description: string; author: string; verified: boolean; installed: boolean; hasUpdate: boolean; entry: RegistryEntry; sourceBadge?: string };
 
 // ─── Kind colour map ──────────────────────────────────────────────────────────
 
@@ -183,6 +183,9 @@ function MarketplaceRow({
           </span>
           {'verified' in entry && entry.verified && <VerifiedBadge />}
           {'badge' in entry && entry.badge && <Badge label={entry.badge as string} />}
+          {'sourceBadge' in entry && entry.sourceBadge && (
+            <Badge label={entry.sourceBadge} />
+          )}
           {entry.installed && (
             <span className="text-[9px] font-semibold px-1 py-px rounded uppercase tracking-wide bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
               Installed
@@ -273,8 +276,17 @@ export default function MarketplaceSidebarPanel() {
   const { settings, saveSettings } = useSettingsStore();
 
   // Registry stores
-  const { fetchType, getEntries, loading: regLoading, errors: regErrors } = useRegistryStore();
+  const { fetchType, getEntries, loading: regLoading, errors: regErrors, setSources } = useRegistryStore();
   const { installTheme, uninstallTheme, installedThemes, setActiveTheme } = useThemesStore();
+
+  // Sync custom registry sources from AppSettings into the registry store
+  useEffect(() => {
+    setSources(
+      (settings?.additionalRegistries ?? []) as RegistrySource[],
+      settings?.disablePublicRegistry ?? false,
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.additionalRegistries, settings?.disablePublicRegistry]);
   const { addPersona, deletePersona, personas: installedPersonas } = usePersonasStore();
   const { addTemplate, removeTemplate, templates: installedTemplates } = usePromptTemplatesStore();
   const { addProfile, removeProfile, profiles: installedProfiles } = useRoutingProfilesStore();
@@ -355,65 +367,85 @@ export default function MarketplaceSidebarPanel() {
       notes: e.notes,
     }));
 
-    const themes: UnifiedEntry[] = getEntries('themes').map((e) => ({
-      kind: 'theme',
-      id: e.id,
-      name: e.name,
-      description: e.description,
-      author: e.author,
-      verified: e.verified,
-      installed: installedThemeIds.has(e.id),
-      hasUpdate: isNewer(e.version, installedThemes.find((t) => t.id === e.id)?.version),
-      entry: e,
-    }));
+    const themes: UnifiedEntry[] = getEntries('themes').map((e) => {
+      const src = e.sourceId ? (settings?.additionalRegistries ?? []).find((s) => s.id === e.sourceId) : null;
+      return {
+        kind: 'theme',
+        id: e.id,
+        name: e.name,
+        description: e.description,
+        author: e.author,
+        verified: e.verified,
+        installed: installedThemeIds.has(e.id),
+        hasUpdate: isNewer(e.version, installedThemes.find((t) => t.id === e.id)?.version),
+        entry: e,
+        sourceBadge: src ? (src.badge ?? src.name) : undefined,
+      };
+    });
 
-    const personaEntries: UnifiedEntry[] = getEntries('personas').map((e) => ({
-      kind: 'persona',
-      id: e.id,
-      name: e.name,
-      description: e.description,
-      author: e.author,
-      verified: e.verified,
-      installed: installedPersonaNames.has((e.content as { name?: string }).name ?? e.name),
-      hasUpdate: isNewer(e.version, installedPersonas.find((p) => p.name === ((e.content as { name?: string }).name ?? e.name))?.version),
-      entry: e,
-    }));
+    const personaEntries: UnifiedEntry[] = getEntries('personas').map((e) => {
+      const src = e.sourceId ? (settings?.additionalRegistries ?? []).find((s) => s.id === e.sourceId) : null;
+      return {
+        kind: 'persona',
+        id: e.id,
+        name: e.name,
+        description: e.description,
+        author: e.author,
+        verified: e.verified,
+        installed: installedPersonaNames.has((e.content as { name?: string }).name ?? e.name),
+        hasUpdate: isNewer(e.version, installedPersonas.find((p) => p.name === ((e.content as { name?: string }).name ?? e.name))?.version),
+        entry: e,
+        sourceBadge: src ? (src.badge ?? src.name) : undefined,
+      };
+    });
 
-    const promptEntries: UnifiedEntry[] = getEntries('prompts').map((e) => ({
-      kind: 'prompt',
-      id: e.id,
-      name: e.name,
-      description: e.description,
-      author: e.author,
-      verified: e.verified,
-      installed: installedTemplateNames.has(e.name),
-      hasUpdate: isNewer(e.version, installedTemplates.find((t) => t.name === e.name)?.version),
-      entry: e,
-    }));
+    const promptEntries: UnifiedEntry[] = getEntries('prompts').map((e) => {
+      const src = e.sourceId ? (settings?.additionalRegistries ?? []).find((s) => s.id === e.sourceId) : null;
+      return {
+        kind: 'prompt',
+        id: e.id,
+        name: e.name,
+        description: e.description,
+        author: e.author,
+        verified: e.verified,
+        installed: installedTemplateNames.has(e.name),
+        hasUpdate: isNewer(e.version, installedTemplates.find((t) => t.name === e.name)?.version),
+        entry: e,
+        sourceBadge: src ? (src.badge ?? src.name) : undefined,
+      };
+    });
 
-    const profileEntries: UnifiedEntry[] = getEntries('profiles').map((e) => ({
-      kind: 'profile',
-      id: e.id,
-      name: e.name,
-      description: e.description,
-      author: e.author,
-      verified: e.verified,
-      installed: installedProfileNames.has(e.name),
-      hasUpdate: isNewer(e.version, installedProfiles.find((p) => p.name === e.name)?.version),
-      entry: e,
-    }));
+    const profileEntries: UnifiedEntry[] = getEntries('profiles').map((e) => {
+      const src = e.sourceId ? (settings?.additionalRegistries ?? []).find((s) => s.id === e.sourceId) : null;
+      return {
+        kind: 'profile',
+        id: e.id,
+        name: e.name,
+        description: e.description,
+        author: e.author,
+        verified: e.verified,
+        installed: installedProfileNames.has(e.name),
+        hasUpdate: isNewer(e.version, installedProfiles.find((p) => p.name === e.name)?.version),
+        entry: e,
+        sourceBadge: src ? (src.badge ?? src.name) : undefined,
+      };
+    });
 
-    const extensionEntries: UnifiedEntry[] = getEntries('extensions').map((e) => ({
-      kind: 'extension',
-      id: e.id,
-      name: e.name,
-      description: e.description,
-      author: e.author,
-      verified: e.verified,
-      installed: installedExtMap.has(e.id),
-      hasUpdate: isNewer(e.version, installedExtMap.get(e.id)),
-      entry: e,
-    }));
+    const extensionEntries: UnifiedEntry[] = getEntries('extensions').map((e) => {
+      const src = e.sourceId ? (settings?.additionalRegistries ?? []).find((s) => s.id === e.sourceId) : null;
+      return {
+        kind: 'extension',
+        id: e.id,
+        name: e.name,
+        description: e.description,
+        author: e.author,
+        verified: e.verified,
+        installed: installedExtMap.has(e.id),
+        hasUpdate: isNewer(e.version, installedExtMap.get(e.id)),
+        entry: e,
+        sourceBadge: src ? (src.badge ?? src.name) : undefined,
+      };
+    });
 
     let pool: UnifiedEntry[] =
       effectiveType === 'provider'  ? providers
