@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
@@ -909,6 +909,124 @@ function AiTab({
   );
 }
 
+// ─── Model Dropdown Picker (for settings — no routing profiles) ───────────────
+
+function ModelDropdownPicker({
+  settings,
+  models,
+  loadModels,
+  value,
+  providerId,
+  onChange,
+}: {
+  settings: AppSettings;
+  models: Record<string, string[]>;
+  loadModels: (id: string) => void;
+  value: string | undefined;
+  providerId: string | undefined;
+  onChange: (pid: string, model: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      settings.providers.forEach((p) => { if (!models[p.id]) loadModels(p.id); });
+      setSearch('');
+    }
+  }, [open, settings.providers, models, loadModels]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const providerName = settings.providers.find((p) => p.id === providerId)?.name;
+  const label = providerName && value ? `${providerName} · ${value}` : value || 'Select model…';
+  const lowerSearch = search.toLowerCase();
+
+  const select = useCallback((pid: string, m: string) => {
+    onChange(pid, m);
+    setOpen(false);
+  }, [onChange]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 w-full bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2.5 py-2 outline-none hover:border-blue-500 cursor-pointer transition-colors"
+      >
+        <span className="truncate flex-1 text-left">{label}</span>
+        <svg className="w-3 h-3 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1 w-full min-w-[260px] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden">
+          <div className="p-2 border-b border-slate-700">
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search models…"
+              className="w-full bg-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 outline-none placeholder-slate-500"
+            />
+          </div>
+          <div className="overflow-y-auto max-h-72">
+            {value && (
+              <button
+                type="button"
+                onClick={() => { onChange('', ''); setOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:bg-slate-700 transition-colors"
+              >
+                Clear selection
+              </button>
+            )}
+            {settings.providers.map((provider) => {
+              const all = [
+                ...(provider.customModels ?? []),
+                ...(models[provider.id] ?? []).filter((m) => !provider.customModels?.includes(m)),
+              ];
+              const filtered = all.filter(
+                (m) => !lowerSearch || m.toLowerCase().includes(lowerSearch) || provider.name.toLowerCase().includes(lowerSearch),
+              );
+              if (filtered.length === 0) return null;
+              return (
+                <div key={provider.id}>
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                    {provider.name}
+                  </div>
+                  {filtered.map((m) => {
+                    const isActive = providerId === provider.id && value === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => select(provider.id, m)}
+                        className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-slate-700 transition-colors ${isActive ? 'text-blue-400' : 'text-slate-300'}`}
+                      >
+                        <span className={`w-3 flex-shrink-0 ${isActive ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+                        <span className="truncate">{m}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── General Tab ──────────────────────────────────────────────────────────────
 
 function GeneralTab({
@@ -918,6 +1036,8 @@ function GeneralTab({
   settings: AppSettings;
   onSave: (p: Partial<AppSettings>) => Promise<void>;
 }) {
+  const { models, loadModels } = useSettingsStore();
+
   return (
     <div className="space-y-6">
       <SchemaFormRenderer
@@ -925,17 +1045,16 @@ function GeneralTab({
         settings={settings}
         onSave={onSave}
         renderOverrides={{
-          defaultProviderId: (
-            <select
-              value={settings.defaultProviderId ?? ''}
-              onChange={(e) => void onSave({ defaultProviderId: e.target.value || undefined })}
-              className="select-field"
-            >
-              <option value="">None</option>
-              {settings.providers.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+          defaultProviderId: false,
+          defaultModel: (
+            <ModelDropdownPicker
+              settings={settings}
+              models={models}
+              loadModels={loadModels}
+              value={settings.defaultModel}
+              providerId={settings.defaultProviderId}
+              onChange={(pid, model) => void onSave({ defaultModel: model || undefined, defaultProviderId: pid || undefined })}
+            />
           ),
         }}
       />
@@ -1483,6 +1602,19 @@ function CopilotAuthSection({
   );
 }
 
+// ─── Simple Icons helpers ─────────────────────────────────────────────────────
+
+const SIMPLE_ICONS_CDN = (slug: string) => `https://cdn.simpleicons.org/${slug}`;
+
+const PROVIDER_ICON_SLUGS: Partial<Record<string, string>> = {
+  openai: 'openai',
+  anthropic: 'anthropic',
+  gemini: 'googlegemini',
+  ollama: 'ollama',
+  bedrock: 'amazonaws',
+  copilot: 'githubcopilot',
+};
+
 function ProviderForm({
   provider,
   onSave,
@@ -1493,6 +1625,22 @@ function ProviderForm({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState<ProviderConfig>({ ...provider });
+  const { models, loadModels } = useSettingsStore();
+  const providerModels = provider.id ? (models[provider.id] ?? []) : [];
+
+  useEffect(() => {
+    if (provider.id) loadModels(provider.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider.id]);
+
+  // Auto-fill logoUrl from Simple Icons when type is selected and no custom URL is set
+  useEffect(() => {
+    const slug = PROVIDER_ICON_SLUGS[draft.type];
+    if (slug && !draft.logoUrl) {
+      setDraft((d) => ({ ...d, logoUrl: SIMPLE_ICONS_CDN(slug) }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.type]);
 
   const set = (key: keyof ProviderConfig, value: string) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -1524,6 +1672,42 @@ function ProviderForm({
             placeholder="My OpenAI"
             className="input-field"
           />
+        </Field>
+
+        <Field label="Logo">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              {draft.logoUrl && (
+                <img src={draft.logoUrl} alt="" className="w-5 h-5 rounded-sm object-contain flex-shrink-0 invert opacity-80" />
+              )}
+              <input
+                type="url"
+                value={draft.logoUrl ?? ''}
+                onChange={(e) => set('logoUrl', e.target.value)}
+                placeholder="https://cdn.simpleicons.org/openai"
+                className="input-field"
+              />
+            </div>
+            {PROVIDER_ICON_SLUGS[draft.type] && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] text-slate-500">Simple Icons:</span>
+                {Object.entries(PROVIDER_ICON_SLUGS)
+                  .filter(([, slug]) => slug)
+                  .slice(0, 8)
+                  .map(([, slug]) => (
+                    <button
+                      key={slug}
+                      type="button"
+                      title={slug}
+                      onClick={() => set('logoUrl', SIMPLE_ICONS_CDN(slug!))}
+                      className={`p-1 rounded border transition-colors ${draft.logoUrl === SIMPLE_ICONS_CDN(slug!) ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 hover:border-slate-500'}`}
+                    >
+                      <img src={SIMPLE_ICONS_CDN(slug!)} alt={slug} className="w-4 h-4 object-contain invert opacity-70" />
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
         </Field>
 
         <Field label="Type">
@@ -1638,23 +1822,19 @@ function ProviderForm({
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Models</p>
 
         <Field label="Default Model">
-          <input
-            type="text"
+          <select
             value={draft.defaultModel ?? ''}
             onChange={(e) => set('defaultModel', e.target.value)}
-            placeholder={
-              draft.type === 'anthropic'
-                ? 'claude-sonnet-4-5'
-                : draft.type === 'lmstudio'
-                  ? 'local-model'
-                  : draft.type === 'ollama'
-                    ? 'llama3.2'
-                  : draft.type === 'gemini'
-                    ? 'gemini-2.0-flash'
-                    : 'gpt-4o'
-            }
-            className="input-field"
-          />
+            className="select-field"
+          >
+            <option value="">None</option>
+            {[
+              ...(draft.customModels ?? []),
+              ...providerModels.filter((m) => !draft.customModels?.includes(m)),
+            ].map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
         </Field>
 
         <ModelsField
@@ -3249,6 +3429,7 @@ function SchemaFormRenderer({
         <Section key={section.title} title={section.title} description={section.description}>
           {[...section.properties]
             .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .filter((property) => renderOverrides[property.key] !== false)
             .map((property) => (
               <PropertyField
                 key={property.key}

@@ -31,7 +31,7 @@ function IndentGuides({ depth }: { depth: number }) {
         <span
           key={i}
           className="pointer-events-none absolute inset-y-0 w-px"
-          style={{ left: `${BASE_X + i * INDENT + INDENT / 2}px`, backgroundColor: 'rgba(100,116,139,0.22)' }}
+          style={{ left: `${BASE_X + i * INDENT + INDENT / 2}px`, backgroundColor: 'rgba(100,116,139,0.40)' }}
         />
       ))}
     </>
@@ -126,33 +126,88 @@ function GlobalCtxMenu({ state, onClose }: { state: CtxMenuState; onClose: () =>
 }
 
 // ── Folder Settings Modal (AI Instructions + Agent Folder) ─────────────────
+const SI_CDN = (slug: string) => `https://cdn.simpleicons.org/${encodeURIComponent(slug)}`;
+
 function FolderSettingsModal({ folder, onSave, onClose }: {
   folder: ConversationFolder;
-  onSave: (prompt: string, agentFolderPath: string | undefined) => void;
+  onSave: (prompt: string, agentFolderPath: string | undefined, icon: string | undefined) => void;
   onClose: () => void;
 }) {
   const [value, setValue] = useState(folder.systemPrompt ?? '');
   const [agentPath, setAgentPath] = useState<string | undefined>(folder.agentFolderPath);
+  const [icon, setIcon] = useState<string>(folder.icon ?? '');
+  const [siSlug, setSiSlug] = useState('');
 
   const handlePickFolder = async () => {
     const picked = await service.folder?.pick();
     if (picked) setAgentPath(picked);
   };
 
+  const isUrl = (v: string) => /^https?:\/\/|^\/|^data:/.test(v);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div className="bg-slate-900 border border-slate-700 rounded-md shadow-2xl w-full max-w-lg p-5 mx-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-[13px] font-semibold text-slate-200 mb-1">Folder Settings — {folder.name}</h3>
+
+        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mt-3 mb-1">Icon</p>
+        <p className="text-[12px] text-slate-500 mb-2">Emoji, image URL, or pick from Simple Icons.</p>
+        <div className="flex items-center gap-2 mb-2">
+          {icon && isUrl(icon) ? (
+            <img src={icon} alt="" className="w-6 h-6 rounded-sm object-contain flex-shrink-0 invert opacity-80" />
+          ) : icon ? (
+            <span className="w-6 h-6 flex items-center justify-center text-[16px] leading-none flex-shrink-0">{icon}</span>
+          ) : (
+            <div className="w-6 h-6 flex-shrink-0" />
+          )}
+          <input
+            type="text"
+            value={icon}
+            onChange={(e) => setIcon(e.target.value)}
+            placeholder="🚀  or  https://cdn.simpleicons.org/react"
+            className="flex-1 bg-slate-950 border border-slate-700 rounded text-[13px] text-slate-200 px-2.5 py-1.5 outline-none focus:border-blue-500/60"
+          />
+          {icon && (
+            <button onClick={() => setIcon('')} className="text-slate-500 hover:text-slate-300 text-[15px] flex-shrink-0" title="Clear">×</button>
+          )}
+        </div>
+        {/* Simple Icons picker */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[11px] text-slate-500 flex-shrink-0">Simple Icons:</span>
+          <input
+            type="text"
+            value={siSlug}
+            onChange={(e) => setSiSlug(e.target.value)}
+            placeholder="e.g. react, typescript, docker…"
+            className="flex-1 bg-slate-950 border border-slate-700 rounded text-[12px] text-slate-300 px-2 py-1 outline-none focus:border-blue-500/60"
+          />
+          {siSlug.trim() && (
+            <>
+              <img
+                src={SI_CDN(siSlug.trim())}
+                alt={siSlug}
+                className="w-5 h-5 object-contain invert opacity-70 flex-shrink-0"
+                onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+              />
+              <button
+                type="button"
+                onClick={() => { setIcon(SI_CDN(siSlug.trim())); setSiSlug(''); }}
+                className="px-2 py-0.5 text-[11px] bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors flex-shrink-0"
+              >
+                Use
+              </button>
+            </>
+          )}
+        </div>
 
         <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mt-3 mb-1">AI Instructions</p>
         <p className="text-[12px] text-slate-500 mb-2">
           Overrides the system prompt for all conversations in this folder (cascades to subfolders).
         </p>
         <textarea
-          autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          rows={6}
+          rows={5}
           className="w-full bg-slate-950 border border-slate-700 rounded text-[13px] text-slate-200 p-3 resize-y outline-none focus:border-blue-500/60 font-mono"
           placeholder="You are a helpful assistant specialized in…"
         />
@@ -177,7 +232,7 @@ function FolderSettingsModal({ folder, onSave, onClose }: {
 
         <div className="flex justify-end gap-2 mt-4">
           <button onClick={onClose} className="px-3 py-1 text-[12px] text-slate-400 hover:text-slate-200 transition-colors">Cancel</button>
-          <button onClick={() => { onSave(value, agentPath); onClose(); }} className="px-3 py-1 text-[12px] bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors">Save</button>
+          <button onClick={() => { onSave(value, agentPath, icon.trim() || undefined); onClose(); }} className="px-3 py-1 text-[12px] bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors">Save</button>
         </div>
       </div>
     </div>
@@ -293,7 +348,15 @@ function FolderRow({ folder, depth, isRenaming, onRenameEnd, onToggle, onContext
     >
       <IndentGuides depth={depth} />
       <Chevron open={!folder.collapsed} />
-      <FolderIcon open={!folder.collapsed} />
+      {folder.icon ? (
+        /^https?:\/\/|^\/|^data:/.test(folder.icon) ? (
+          <img src={folder.icon} alt="" className="w-4 h-4 flex-shrink-0 rounded-sm object-contain" />
+        ) : (
+          <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-[13px] leading-none select-none">{folder.icon}</span>
+        )
+      ) : (
+        <FolderIcon open={!folder.collapsed} />
+      )}
       {isRenaming ? (
         <input
           autoFocus
@@ -333,6 +396,7 @@ interface ConversationItemProps {
   isBranch?: boolean;
   personaColor?: string;
   personaName?: string;
+  providerLogoUrl?: string;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onOpenInSplit: (e: React.MouseEvent) => void;
@@ -342,7 +406,7 @@ interface ConversationItemProps {
 
 function ConversationItem({
   title, depth, active, updatedAt, isRenaming, onRenameEnd, isDragging, isBranch,
-  personaColor, personaName, onClick, onContextMenu, onOpenInSplit, onDragStart, onDragEnd,
+  personaColor, personaName, providerLogoUrl, onClick, onContextMenu, onOpenInSplit, onDragStart, onDragEnd,
 }: ConversationItemProps) {
   const [renameValue, setRenameValue] = useState(title);
   useEffect(() => { setRenameValue(title); }, [title]);
@@ -373,6 +437,8 @@ function ConversationItem({
         <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke={active ? '#6ee7b7' : '#34d399'} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 3v12m0 0a3 3 0 106 0m-6 0a3 3 0 006 0m0 0V9m0 0a3 3 0 106 0 3 3 0 00-6 0" />
         </svg>
+      ) : providerLogoUrl ? (
+        <img src={providerLogoUrl} alt="" className="w-3.5 h-3.5 flex-shrink-0 rounded-sm object-contain" />
       ) : (
         <ChatIcon color={active ? '#93c5fd' : (personaColor ?? '#75beff')} />
       )}
@@ -461,9 +527,13 @@ export default function Sidebar() {
 
   const startConversation = (personaId?: string, folderId?: string | null) => {
     const persona = personaId ? personas.find((p) => p.id === personaId) : undefined;
+    const effectiveProviderId = persona?.defaultProviderId ?? settings?.defaultProviderId;
+    const defaultProvider = effectiveProviderId
+      ? settings?.providers.find((p) => p.id === effectiveProviderId)
+      : undefined;
     const conv = addConversation({
-      providerId: persona?.defaultProviderId ?? settings?.defaultProviderId,
-      model: persona?.defaultModel ?? settings?.defaultModel,
+      providerId: effectiveProviderId,
+      model: persona?.defaultModel ?? settings?.defaultModel ?? defaultProvider?.defaultModel,
       personaId,
       ...(folderId != null ? { folderId } : {}),
     });
@@ -610,7 +680,7 @@ export default function Sidebar() {
         { label: 'New Chat in Folder', action: () => startConversation(undefined, folder.id) },
         { label: 'New Subfolder', action: () => { const sub = createFolder('New Folder', folder.id); updateFolder(folder.id, { collapsed: false }); setRenamingFolderId(sub.id); } },
         'sep',
-        { label: 'Edit AI Instructions', action: () => setInstructionsFolder(folder) },
+        { label: 'Folder Settings', action: () => setInstructionsFolder(folder) },
         { label: 'Rename', action: () => { setRenamingFolderId(folder.id); } },
         'sep',
         { label: folder.collapsed ? 'Expand' : 'Collapse', action: () => toggleFolderCollapsed(folder.id) },
@@ -649,6 +719,7 @@ export default function Sidebar() {
             isBranch
             personaColor={branch.personaId ? personas.find((p) => p.id === branch.personaId)?.color : undefined}
             personaName={branch.personaId ? personas.find((p) => p.id === branch.personaId)?.name : undefined}
+            providerLogoUrl={branch.providerId ? settings?.providers.find((p) => p.id === branch.providerId)?.logoUrl : undefined}
             onClick={() => { openTab?.(branch.id); setActiveConversation(branch.id); }}
             onContextMenu={(e) => openConvCtxMenu(e, { id: branch.id, folderId: branch.folderId, branchOf: branch.branchOf, createdAt: branch.createdAt })}
             onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: branch.id }); }}
@@ -698,6 +769,7 @@ export default function Sidebar() {
             isDragging={draggingConvId === conv.id}
             personaColor={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.color : undefined}
             personaName={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.name : undefined}
+            providerLogoUrl={conv.providerId ? settings?.providers.find((p) => p.id === conv.providerId)?.logoUrl : undefined}
             onClick={() => { openTab?.(conv.id); setActiveConversation(conv.id); }}
             onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId, branchOf: conv.branchOf, createdAt: conv.createdAt })}
             onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: conv.id }); }}
@@ -786,6 +858,7 @@ export default function Sidebar() {
                 isDragging={draggingConvId === conv.id}
                 personaColor={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.color : undefined}
                 personaName={conv.personaId ? personas.find((p) => p.id === conv.personaId)?.name : undefined}
+                providerLogoUrl={conv.providerId ? settings?.providers.find((p) => p.id === conv.providerId)?.logoUrl : undefined}
                 onClick={() => { openTab?.(conv.id); setActiveConversation(conv.id); }}
                 onContextMenu={(e) => openConvCtxMenu(e, { id: conv.id, folderId: conv.folderId, branchOf: conv.branchOf, createdAt: conv.createdAt })}
                 onOpenInSplit={(e) => { e.stopPropagation(); openSplitPane({ type: 'conversation', payload: conv.id }); }}
@@ -809,7 +882,7 @@ export default function Sidebar() {
       {instructionsFolder && (
         <FolderSettingsModal
           folder={instructionsFolder}
-          onSave={(prompt, agentFolderPath) => updateFolder(instructionsFolder.id, { systemPrompt: prompt, agentFolderPath })}
+          onSave={(prompt, agentFolderPath, icon) => updateFolder(instructionsFolder.id, { systemPrompt: prompt, agentFolderPath, icon })}
           onClose={() => setInstructionsFolder(null)}
         />
       )}

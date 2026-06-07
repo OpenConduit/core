@@ -60,6 +60,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const [folderFiles, setFolderFiles] = useState<FolderEntry[] | null>(null);
   const [folderLoading, setFolderLoading] = useState(false);
   const [trimConfirm, setTrimConfirm] = useState(false);
+  const [noModelWarning, setNoModelWarning] = useState(false);
   const [slashMatches, setSlashMatches] = useState<SlashCommand[]>([]);
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashPrefix, setSlashPrefix] = useState('');
@@ -212,12 +213,19 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
       textareaRef.current?.focus();
       return;
     }
+    // Guard: if no model is selected, warn instead of silently dropping the prompt
+    const effectiveModel = activeConv?.model || activeConv?.routingProfileId || settings?.defaultModel;
+    if (!effectiveModel && conversationId) {
+      setNoModelWarning(true);
+      return;
+    }
+    setNoModelWarning(false);
     const fc = folderPath && folderFiles ? { rootName: folderPath.split('/').pop() ?? folderPath, rootPath: folderPath, files: folderFiles } : undefined;
     onSend(trimmed, attachments.length > 0 ? attachments : undefined, fc, reasoning !== 'off' ? reasoning : undefined);
     setContent('');
     setAttachments([]);
     textareaRef.current?.focus();
-  }, [content, attachments, folderPath, folderFiles, onSend, reasoning, btwMode, onBtw]);
+  }, [content, attachments, folderPath, folderFiles, onSend, reasoning, btwMode, onBtw, activeConv, settings, conversationId]);
 
   const handlePickFolder = useCallback(async () => {
     const picked = await service.folder?.pick();
@@ -322,6 +330,7 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setContent(val);
+    if (noModelWarning) setNoModelWarning(false);
     const el = e.target;
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 200) + 'px';
@@ -526,6 +535,23 @@ export default function InputBar({ onSend, onAbort, onClear, onCompact, onTrim, 
             className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 rounded"
             title="Cancel editing (Esc)"
           >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* No-model warning */}
+      {noModelWarning && (
+        <div className="flex items-center justify-between gap-2 bg-amber-950/60 border border-amber-700/50 rounded-lg px-3 py-2 text-xs text-amber-300">
+          <div className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <span>No model selected — pick one in the model picker above before sending.</span>
+          </div>
+          <button onClick={() => setNoModelWarning(false)} className="text-amber-500 hover:text-amber-300 flex-shrink-0">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>

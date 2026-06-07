@@ -14,9 +14,12 @@ export default function WelcomeScreen() {
 
   const handleNew = () => {
     if (!settings) return;
+    const defaultProvider = settings.defaultProviderId
+      ? settings.providers.find((p) => p.id === settings.defaultProviderId)
+      : undefined;
     const conv = addConversation({
       providerId: settings.defaultProviderId,
-      model: settings.defaultModel,
+      model: settings.defaultModel ?? defaultProvider?.defaultModel,
     });
     openTab?.(conv.id);
     setActiveConversation(conv.id);
