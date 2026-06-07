@@ -11,6 +11,7 @@ export interface ProviderConfig {
   baseUrl?: string;
   apiVersion?: string; // e.g. '2025-04-15' for Azure AI Foundry
   defaultModel?: string;
+  logoUrl?: string; // URL to a provider logo displayed in the sidebar
   customModels?: string[]; // user-defined model IDs, merged with fetched list
   modelContextWindows?: Record<string, number>; // model name → max context tokens (overrides built-in lookup)
 }
@@ -160,6 +161,8 @@ export interface ConversationFolder {
   parentId: string | null; // null = root
   order: number;
   collapsed: boolean;
+  /** Custom emoji or short text icon shown in the sidebar instead of the default folder SVG. */
+  icon?: string;
   /** AI instructions applied to all conversations in this folder (overrides conversation-level prompt). Cascades: nearest ancestor with a prompt wins. */
   systemPrompt?: string;
   /** Absolute path of a folder to use as the agent project root for all conversations in this folder (cascades up ancestors). */
