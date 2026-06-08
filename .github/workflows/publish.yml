@@ -15,18 +15,15 @@ permissions:
   contents: write
   packages: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   publish:
     name: Publish to GitHub Packages
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 26
           registry-url: 'https://npm.pkg.github.com'
@@ -66,7 +63,7 @@ jobs:
         if: env.DISPATCH_TOKEN != ''
         env:
           DISPATCH_TOKEN: ${{ secrets.CORE_DISPATCH_TOKEN }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.CORE_DISPATCH_TOKEN }}
           script: |
